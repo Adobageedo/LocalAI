@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+python-dotenv
+qdrant-client
+langchain
+openai
+huggingface_hub
+ollama
+pydantic
+python-multipart
+pdfplumber
+python-docx
+unstructured
+sentence-transformers
+langchain-huggingface
