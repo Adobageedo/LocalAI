@@ -10,7 +10,7 @@ export default function PromptForm() {
   const [error, setError] = useState(null);
 
   const handleAsk = async () => {
-    if (!question) return;
+    if (!question.trim()) return;
     setLoading(true);
     setResponse(null);
     setError(null);
@@ -20,6 +20,7 @@ export default function PromptForm() {
     } catch (err) {
       setError(
         err.response?.data?.error ||
+        err.response?.data?.detail ||
         err.message ||
         "Une erreur est survenue lors de la connexion au backend."
       );
@@ -35,6 +36,12 @@ export default function PromptForm() {
     }
   };
 
+  const handleClear = () => {
+    setQuestion("");
+    setResponse(null);
+    setError(null);
+  };
+
   return (
     <div>
       <TextField
@@ -47,9 +54,13 @@ export default function PromptForm() {
         minRows={2}
         style={{ marginBottom: 16 }}
         disabled={loading}
+        autoFocus
       />
       <Button variant="contained" onClick={handleAsk} disabled={loading || !question.trim()}>
         Envoyer
+      </Button>
+      <Button onClick={handleClear} disabled={loading && !response && !error} style={{ marginLeft: 8 }}>
+        Effacer
       </Button>
       {loading && <CircularProgress style={{ marginLeft: 16 }} />}
       {error && (
@@ -63,43 +74,16 @@ export default function PromptForm() {
             <strong>Sources utilisées :</strong>
             {response.sources && response.sources.length > 0 ? (
               <ul>
-                {response.sources.map((src, i) => {
-                  const url = src.metadata.source_path || src.metadata.url;
-                  const isDownloadable = url && !/^https?:\/\//.test(url); // Not a web URL, treat as file path
-                  return (
-                    <li key={i} style={{ marginBottom: 12 }}>
-                      {url ? (
-                        <>
-                          <a href={url} target="_blank" rel="noopener noreferrer">
-                            <em>{url}</em>
-                          </a>
-                          {isDownloadable && (
-                            <a
-                              href={`${API_BASE_URL}/download?path=${encodeURIComponent(url)}`}
-                              style={{ marginLeft: 12 }}
-                              download
-                              className="text-blue-600 hover:underline"
-                            >
-                              Télécharger
-                            </a>
-                          )}
-                        </>
-                      ) : (
-                        <em>{src.metadata.subject || "Source inconnue"}</em>
-                      )}
-                      <br />
-                      <span style={{ fontSize: 13, color: "#666" }}>{src.content.slice(0, 200)}...</span>
-                    </li>
-                  );
-                })}
+                {response.sources.map((url, i) => (
+                  <li key={i} style={{ marginBottom: 12 }}>
+                    <a href={url} target="_blank" rel="noopener noreferrer">
+                      <em>{url}</em>
+                    </a>
+                  </li>
+                ))}
               </ul>
             ) : (
               <div>Aucune source réellement utilisée.</div>
-            )}
-            {response.filter_fallback && (
-              <div style={{ color: "#b77c00", marginTop: 8 }}>
-                [Aucun résultat filtré, recherche relancée sans filtre]
-              </div>
             )}
           </CardContent>
         </Card>

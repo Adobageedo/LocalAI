@@ -3,9 +3,9 @@ import { Link, useLocation } from "react-router-dom";
 
 const navItems = [
   { name: "Dashboard", path: "/" },
-  { name: "Documents", path: "/documents" },
+  { name: "Folders", path: "/folders" },
   { name: "Prompt IA", path: "/prompt" },
-  { name: "Open Web UI", path: "/open-webui" },
+  { name: "Mail Import", path: "/mail-import" },
   { name: "Settings", path: "/settings" },
 ];
 

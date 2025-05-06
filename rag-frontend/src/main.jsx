@@ -3,20 +3,20 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
-import Documents from "./pages/Documents";
+import Folders from "./pages/Folders";
 import Prompt from "./pages/Prompt";
 import Settings from "./pages/Settings";
-import OpenWebUI from "./pages/OpenWebUI";
+import MailImport from "./pages/OpenWebUI";
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Dashboard />} />
-        <Route path="/documents" element={<Documents />} />
+<Route path="/folders" element={<Folders />} />
         <Route path="/prompt" element={<Prompt />} />
         <Route path="/settings" element={<Settings />} />
-        <Route path="/open-webui" element={<OpenWebUI />} />
+        <Route path="/mail-import" element={<MailImport />} />
       </Routes>
     </BrowserRouter>
   );

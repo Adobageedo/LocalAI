@@ -3,9 +3,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import List, Optional
-from rag_engine.Retrieve_rag_information import get_rag_response
+from rag_engine.retrieve_rag_information_modular import get_rag_response_modular
 from rag_engine.config import load_config
-from rag_engine.vectorstore import get_qdrant_client
+from rag_engine.vectorstore.vectorstore_manager import VectorStoreManager
 import sys
 import os
 import hashlib
@@ -41,12 +41,12 @@ class SourceUsed(BaseModel):
 
 class PromptResponse(BaseModel):
     answer: str
-    sources: List[SourceUsed]
-    filter_fallback: bool
+    sources: List[str]
 
 # --- ENDPOINTS ---
 
-from setup.imap_ingest import main_with_args
+from update_vdb.sources.document_ingest import fetch_and_sync_documents
+from update_vdb.sources.email_ingest import fetch_and_sync_emails
 from pydantic import BaseModel
 
 # --- IMAP INGESTION STATUS (in-memory, demo) ---
@@ -76,13 +76,10 @@ def get_ingest_status(user: str):
 @app.post("/ingest/imap")
 def ingest_imap_emails(creds: ImapCredentials):
     user = creds.imap_user or creds.user
-    set_imap_status(user, "connection to the mail")
+    set_imap_status(user, "starting")
     try:
-        set_imap_status(user, "connection to the mail")
-        # You may want to add status updates in main_with_args as well for more granularity
-        set_imap_status(user, "retrieving emails")
-        set_imap_status(user, "indexing with qdrant")
-        main_with_args(
+        fetch_and_sync_emails(
+            method="imap",
             imap_server=creds.host,
             imap_port=creds.port,
             imap_user=creds.user,
@@ -101,8 +98,9 @@ def ingest_imap_emails(creds: ImapCredentials):
 
 @app.get("/documents/count-by-type")
 def count_documents_by_type():
-    client = get_qdrant_client()
     collection = os.getenv("COLLECTION_NAME", "rag_documents")
+    manager = VectorStoreManager(collection)
+    client = manager.get_qdrant_client()
     points, _ = client.scroll(
         collection_name=collection,
         offset=None,
@@ -157,8 +155,9 @@ def count_documents_by_type():
 @app.get("/documents")
 def list_documents(q: Optional[str] = Query(None), page: int = 1, page_size: int = 20):
     # Listing direct depuis Qdrant
-    client = get_qdrant_client()
     collection = os.getenv("COLLECTION_NAME", "rag_documents")
+    manager = VectorStoreManager(collection)
+    client = manager.get_qdrant_client()
     offset = (page - 1) * page_size
     # Recherche simple (filtre sur source_path ou subject si q)
     filter_ = None
@@ -219,19 +218,16 @@ from fastapi import UploadFile, File, Request,BackgroundTasks
 from typing import List
 import shutil
 import tempfile
-from setup import ingest_documents
+from update_vdb.sources.document_ingest import fetch_and_sync_documents
 
 @app.post("/documents")
 def upload_documents(files: List[UploadFile] = File(...), background_tasks: BackgroundTasks = None):
     print(f"[DEBUG] Received {len(files)} files for import.", flush=True)
-
-    # Save all uploaded files to the backend data directory
     data_dir = DATA_DIR
     os.makedirs(data_dir, exist_ok=True)
     saved_files = []
     for file in files:
         dest_path = os.path.join(data_dir, file.filename)
-        # Avoid overwriting existing files by adding a suffix if needed
         base, ext = os.path.splitext(dest_path)
         counter = 1
         while os.path.exists(dest_path):
@@ -242,22 +238,60 @@ def upload_documents(files: List[UploadFile] = File(...), background_tasks: Back
         saved_files.append(dest_path)
     def run_ingest():
         try:
-            ingest_documents.main()
+            fetch_and_sync_documents(
+                method="local",
+                directory=data_dir,
+                collection_name=os.getenv("COLLECTION_NAME", "rag_documents768"),
+                user="api_upload"
+            )
             print(f"[DEBUG] (Background) Ingestion completed successfully.")
         except Exception as e:
             print(f"[DEBUG] (Background) Ingestion failed: {e}")
     if background_tasks is not None:
         background_tasks.add_task(run_ingest)
+    else:
+        run_ingest()
     return {"success": True, "files": [os.path.basename(f) for f in saved_files], "message": "Ingestion started in background."}
 
 @app.delete("/documents/{doc_id}")
 def delete_document(doc_id: str):
     return {"success": True}
 
+from rag_engine.retrieve_rag_information_modular import get_rag_response_modular
+
 @app.post("/prompt", response_model=PromptResponse)
 def prompt_ia(data: dict):
     question = data.get("question")
     if not question:
         raise HTTPException(status_code=400, detail="Champ 'question' requis.")
-    rag_result = get_rag_response(question)
-    return rag_result
+    # Add instruction to the prompt for the LLM to cite sources as [filename.ext]
+    llm_instruction = (
+        ""
+    )
+    user_question = data.get("question")
+    question = f"{llm_instruction}\n\n{user_question}"
+    rag_result = get_rag_response_modular(question)
+
+    # Extract filenames cited in the answer (e.g., [contract.pdf])
+    import re, os
+    answer = rag_result.get("answer", "")
+    cited_filenames = set(re.findall(r'\[([^\[\]]+)\]', answer))
+
+    # Only include sources whose filename is actually cited in the answer
+    sources = []
+    seen = set()
+    for doc in rag_result.get("documents", []):
+        metadata = getattr(doc, "metadata", {}) or {}
+        path = metadata.get("source_path")
+        if path:
+            filename = os.path.basename(path)
+            if filename in cited_filenames and path not in seen:
+                sources.append(path)
+                seen.add(path)
+        if len(sources) == 5:
+            break
+
+    return {
+        "answer": answer,
+        "sources": sources
+    }

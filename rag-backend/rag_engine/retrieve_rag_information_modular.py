@@ -28,16 +28,21 @@ def get_rag_response_modular(question: str, metadata_filter=None, top_k=None) ->
     )
     print(f"Number of retrieved documents: {len(docs)}")
 
-    # Build context from docs
-    context = "\n\n".join([d.page_content for d in docs])
+    import os
+    def get_chunk_source(doc):
+        metadata = getattr(doc, "metadata", {}) or {}
+        source_path = metadata.get("source_path", "")
+        filename = os.path.basename(source_path) if source_path else "unknown"
+        return f"[{filename}]\n{doc.page_content}"
+    context = "\n\n".join([get_chunk_source(d) for d in docs])
     # Use system prompt from config if available
     prompt_template = (
         config.get("system_prompt") or
-        "You are an assistant. Answer the question using only the passages below. If you don't know, say you don't know.\n\n" +
+        "You are an assistant. Answer the question using only the passages below. For each source used in your answer, cite it by showing only the filename in brackets, for example: [filename.ext]. Never display the full file path or any other information. If you don't know, say you don't know.\n\n" +
         "{context}\n\nQuestion: {question}\nAnswer:"
     )
     full_prompt = prompt_template.format(context=context, question=question)
-
+    print(context)
     # Route to LLM
     router = LLMRouter()
     llm = router.route(question)

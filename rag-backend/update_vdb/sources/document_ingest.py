@@ -1,7 +1,9 @@
 import argparse
+import sys
 import os
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 from typing import Optional
-from core.ingest_core import ingest_document
+from update_vdb.core.ingest_core import ingest_document
 
 from rag_engine.vectorstore.vectorstore_manager import VectorStoreManager
 import hashlib

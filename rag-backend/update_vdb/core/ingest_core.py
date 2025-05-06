@@ -19,7 +19,7 @@ def compute_doc_id(filepath):
     base = f"{filepath}:{stat.st_size}:{stat.st_mtime}"
     return hashlib.sha256(base.encode()).hexdigest()
 
-def ingest_document(filepath, user, collection=None, doc_id=None):
+def ingest_document(filepath, user, collection=None, doc_id=None, metadata=None):
     """
     Loads, chunks, and uploads a document or email to Qdrant with enriched metadata.
     For emails (.eml), also adds sender, receiver, subject if available.
