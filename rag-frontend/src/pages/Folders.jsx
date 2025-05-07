@@ -8,7 +8,32 @@ import { Button, CircularProgress, TextField } from "@mui/material";
 export default function Folders() {
   const [docs, setDocs] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadMsg, setUploadMsg] = useState("");
   const [q, setQ] = useState("");
+
+  const handleFileUpload = async (e) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    setUploadMsg("");
+    const formData = new FormData();
+    for (let i = 0; i < files.length; i++) {
+      formData.append("files", files[i]);
+    }
+    try {
+      await axios.post(`${API_BASE_URL}/documents`, formData);
+      setUploadMsg(`Successfully uploaded ${files.length} file${files.length > 1 ? "s" : ""}.`);
+      // Refresh docs list
+      setTimeout(() => setUploadMsg(""), 4000);
+      setTimeout(() => window.location.reload(), 1000);
+    } catch (err) {
+      setUploadMsg("Upload failed. Please try again.");
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  }
 
   useEffect(() => {
     setLoading(true);
@@ -49,7 +74,7 @@ export default function Folders() {
               webkitdirectory="true"
               directory="true"
               hidden
-              onChange={(e) => alert('Import not implemented yet')} // TODO: hook to backend
+              onChange={handleFileUpload}
             />
           </Button>
           <Button variant="outlined" color="primary" onClick={() => alert('Google Drive import not implemented yet')}>Import from Drive</Button>
@@ -63,6 +88,8 @@ export default function Folders() {
           onChange={(e) => setQ(e.target.value)}
           style={{ marginBottom: 16 }}
         />
+        {uploading && <div style={{ color: '#1976d2', marginBottom: 10 }}>Uploading...</div>}
+        {uploadMsg && <div style={{ color: uploadMsg.startsWith('Successfully') ? '#388e3c' : '#d32f2f', marginBottom: 10 }}>{uploadMsg}</div>}
         {loading ? (
           <CircularProgress />
         ) : (

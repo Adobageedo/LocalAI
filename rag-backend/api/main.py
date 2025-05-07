@@ -16,6 +16,9 @@ sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 app = FastAPI()
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 
+from .openai_compat import router as openai_router
+app.include_router(openai_router)
+
 # Autoriser le frontend React local
 app.add_middleware(
     CORSMiddleware,

@@ -34,5 +34,5 @@ pypdf2
 python-docx
 # For unstructured email partitioning (already present):
 unstructured
-
+openpyxl
 langchain-qdrant
