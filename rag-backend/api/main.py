@@ -101,12 +101,29 @@ def count_documents_by_type():
     collection = os.getenv("COLLECTION_NAME", "rag_documents")
     manager = VectorStoreManager(collection)
     client = manager.get_qdrant_client()
-    points, _ = client.scroll(
-        collection_name=collection,
-        offset=None,
-        limit=10000,  # Increase if you have more documents
-        with_payload=True
-    )
+    try:
+        points, _ = client.scroll(
+            collection_name=collection,
+            offset=None,
+            limit=10000,  # Increase if you have more documents
+            with_payload=True
+        )
+    except Exception as e:
+        if hasattr(e, 'response') and getattr(e.response, 'status_code', None) == 404:
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "message": f"Collection '{collection}' does not exist. Please import your first document or email to create it."
+                }
+            )
+        if 'doesn\'t exist' in str(e) or 'Not found' in str(e):
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "message": f"Collection '{collection}' does not exist. Please import your first document or email to create it."
+                }
+            )
+        raise
     # Map unique_id (or doc_id) to document_type (unique documents)
     # Only count one per unique_id/doc_id (not per chunk)
     id_to_type = {}
@@ -166,12 +183,29 @@ def list_documents(q: Optional[str] = Query(None), page: int = 1, page_size: int
             {"key": "source_path", "match": {"value": q}},
             {"key": "subject", "match": {"value": q}}
         ]}
-    points, _ = client.scroll(
-        collection_name=collection,
-        offset=None,
-        limit=1000, # pagination simple côté API
-        with_payload=True
-    )
+    try:
+        points, _ = client.scroll(
+            collection_name=collection,
+            offset=None,
+            limit=1000, # pagination simple côté API
+            with_payload=True
+        )
+    except Exception as e:
+        if hasattr(e, 'response') and getattr(e.response, 'status_code', None) == 404:
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "message": f"Collection '{collection}' does not exist. Please import your first document or email to create it."
+                }
+            )
+        if 'doesn\'t exist' in str(e) or 'Not found' in str(e):
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "message": f"Collection '{collection}' does not exist. Please import your first document or email to create it."
+                }
+            )
+        raise
     docs = []
     for p in points:
         payload = p.payload or {}

@@ -22,3 +22,17 @@ google-auth-oauthlib
 google-api-python-client
 langchain-core
 langchain-community
+langchain_openai
+# --- Added from import analysis ---
+PyYAML  # for yaml
+python-dotenv  # for dotenv
+tqdm  # sometimes used for progress bars
+# Google API client dependencies (already present):
+# google-auth, google-auth-oauthlib, google-api-python-client
+# For PDF/docx loaders (already present):
+pypdf2
+python-docx
+# For unstructured email partitioning (already present):
+unstructured
+
+langchain-qdrant

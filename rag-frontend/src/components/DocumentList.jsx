@@ -15,6 +15,14 @@ export default function DocumentList() {
     axios
       .get(`${API_BASE_URL}/documents`, { params: { q } })
       .then((res) => setDocs(res.data.documents || []))
+      .catch((err) => {
+        if (err.response && err.response.status === 404 && err.response.data && err.response.data.message) {
+          setDocs([]);
+          setError(err.response.data.message);
+        } else {
+          setError("Erreur lors du chargement des documents.");
+        }
+      })
       .finally(() => setLoading(false));
   }, [q, refresh]);
 
@@ -36,6 +44,12 @@ export default function DocumentList() {
       />
       {loading ? (
         <CircularProgress />
+      ) : error ? (
+        <div style={{ color: "#d32f2f", marginTop: 24, fontWeight: 500 }} role="alert">
+          {error}
+          <br />
+          <span>Importez votre premier document ou email via l'onglet <b>Settings</b> ou <b>Mail Import</b>.</span>
+        </div>
       ) : (
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>

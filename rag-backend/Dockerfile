@@ -30,5 +30,5 @@ COPY . .
 # Expose port for FastAPI (if used)
 EXPOSE 8000
 
-# Default command (can be overridden)
-CMD ["python", "main.py"]
+# Start the app with Gunicorn and Uvicorn worker, bind to $PORT (Heroku)
+CMD exec gunicorn --bind :${PORT:-8000} -k uvicorn.workers.UvicornWorker api.main:app
