@@ -365,9 +365,6 @@ const NextcloudExplorer = () => {
         [file.name]: 100
       }));
       
-      // Synchroniser avec Qdrant après le téléversement
-      synchronizeWithQdrant();
-      
       return true;
     } catch (error) {
       console.error(`Erreur lors de l'upload de ${file.name}:`, error);
@@ -530,6 +527,9 @@ const NextcloudExplorer = () => {
       setUploadFolderDialog(false);
       setFolders([]);
       await loadDirectoryContents();
+      
+      // Synchroniser avec Qdrant après le téléversement de dossiers
+      synchronizeWithQdrant();
     } catch (err) {
       console.error('Erreur lors du téléversement des dossiers:', err);
       setError('Erreur lors du téléversement des dossiers.');
@@ -615,6 +615,9 @@ const NextcloudExplorer = () => {
         loadDirectoryContents();
         setSelectedItems([]);
         setIsSelectionMode(false);
+        
+        // Synchroniser avec Qdrant après la suppression multiple
+        synchronizeWithQdrant();
       } catch (err) {
         console.error('Erreur lors de la suppression multiple:', err);
         setError(`Erreur lors de la suppression: ${err.message || 'Erreur inconnue'}`);
@@ -649,6 +652,9 @@ const NextcloudExplorer = () => {
       loadDirectoryContents();
       setSelectedItems([]);
       setIsSelectionMode(false);
+      
+      // Synchroniser avec Qdrant après le déplacement
+      synchronizeWithQdrant();
     } catch (err) {
       console.error('Erreur lors du déplacement multiple:', err);
       setError(`Erreur lors du déplacement: ${err.message || 'Erreur inconnue'}`);
@@ -664,6 +670,9 @@ const NextcloudExplorer = () => {
       nextcloudService.deleteItem(selectedItem.path)
         .then(() => {
           loadDirectoryContents();
+          
+          // Synchroniser avec Qdrant après la suppression
+          synchronizeWithQdrant();
         })
         .catch(err => {
           console.error('Erreur lors de la suppression:', err);

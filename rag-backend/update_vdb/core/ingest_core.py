@@ -52,7 +52,7 @@ def ingest_document(filepath, user, collection=None, doc_id=None, metadata=None,
     try:
         split_docs = load_and_split_document(filepath)
     except Exception as e:
-        print(f"Failed to process {filepath}: {e}")
+        print(f"Failed to process after chunking {filepath}: {e}")
         return
     docs_to_upload = []
     for i, doc in enumerate(split_docs):
