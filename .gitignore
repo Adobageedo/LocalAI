@@ -13,3 +13,11 @@ __pycache__/
 *.swp
 *.bak
 *.tmp
+.env
+*.env
+*.env.*
+set_heroku_env.sh
+.env
+*.env
+*.env.*
+set_heroku_env.sh
