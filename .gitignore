@@ -1,0 +1,15 @@
+.env
+*.env
+*.env.*
+set_heroku_env.sh
+__pycache__/
+*.py[cod]
+*.pyo
+*.log
+.DS_Store
+.git/
+.gitmodules
+*~
+*.swp
+*.bak
+*.tmp
