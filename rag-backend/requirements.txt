@@ -39,3 +39,23 @@ langchain-qdrant
 # --- Added for Nextcloud integration ---
 pyjwt  # Pour la gestion des tokens JWT
 webdavclient3  # Pour l'interaction WebDAV avec Nextcloud
+
+# --- Added for expanded file format support ---
+# Base unstructured with extensions
+unstructured[pdf,doc,ppt,md]  # Extensions for handling different file types
+pytesseract  # For OCR capabilities
+
+# Office documents support
+python-pptx>=1.0.2  # PowerPoint files
+odfpy>=1.4.1  # OpenDocument Text files (ODT)
+markdown  # Markdown files
+
+# PDF processing
+pdfminer.six  # Enhanced PDF text extraction
+pikepdf  # Advanced PDF manipulation
+pdf2image  # Convert PDF to images for processing
+
+# Already included but important for these formats
+# python-docx  # Word documents
+# openpyxl  # Excel files
+# pandas  # CSV and data processing

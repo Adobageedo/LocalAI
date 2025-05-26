@@ -48,6 +48,9 @@ logging.getLogger("httpcore").setLevel(logging.WARNING)
 logging.getLogger("httpcore.http11").setLevel(logging.WARNING)
 logging.getLogger("httpcore.connection").setLevel(logging.WARNING)
 logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+logging.getLogger("openai._base_client").setLevel(logging.WARNING)
+logging.getLogger("unstructured.trace").setLevel(logging.WARNING)
+logging.getLogger("chardet.universaldetector").setLevel(logging.WARNING)
 
 # Logger principal pour ce module
 logger = logging.getLogger(__name__)
@@ -58,8 +61,24 @@ NEXTCLOUD_URL = os.getenv("NEXTCLOUD_URL", "http://localhost:8080")
 NEXTCLOUD_USERNAME = os.getenv("NEXTCLOUD_USERNAME", "admin")
 NEXTCLOUD_PASSWORD = os.getenv("NEXTCLOUD_PASSWORD", "admin_password")
 
-# Extensions de fichiers supportées par défaut
-DEFAULT_SUPPORTED_EXTENSIONS = ['.pdf', '.docx', '.txt', '.md', '.ppt', '.pptx', '.csv', '.json']
+# Chargement des extensions supportées depuis le fichier de configuration
+def get_supported_extensions_from_config():
+    try:
+        config = load_config()
+        supported_types = config.get('ingestion', {}).get('supported_types', [])
+        # Convertir les types en extensions avec un point devant
+        supported_extensions = [f'.{ext.lower()}' for ext in supported_types]
+        if not supported_extensions:
+            logger.warning("Aucune extension supportée trouvée dans la configuration, utilisation des valeurs par défaut")
+            return ['.pdf', '.docx', '.txt', '.md', '.ppt', '.pptx', '.csv', '.json']
+        else:
+            logger.info(f"Extensions supportées chargées depuis la configuration: {supported_extensions}")
+        return supported_extensions
+    except Exception as e:
+        logger.warning(f"Erreur lors du chargement des extensions supportées depuis la configuration: {str(e)}")
+        return ['.pdf', '.docx', '.txt', '.md', '.ppt', '.pptx', '.csv', '.json']
+
+DEFAULT_SUPPORTED_EXTENSIONS = get_supported_extensions_from_config()
 
 # =============================================
 # Fonctions pour l'interaction avec WebDAV/Nextcloud
@@ -361,7 +380,6 @@ def process_document(file_path: str, auth: Tuple[str, str], collection: str,
         file_hash = get_file_hash(file_content)
         
         # Vérifier si le document existe déjà et si son contenu a changé
-        needs_ingestion = True
         doc_id = None
         
         # Utiliser uniquement le registre pour vérifier si le fichier existe et s'il a changé
@@ -376,7 +394,7 @@ def process_document(file_path: str, auth: Tuple[str, str], collection: str,
                     old_doc_id = file_registry.get_doc_id(file_path)
                     if old_doc_id and vector_store:
                         # Supprimer l'ancien document de Qdrant
-                        delete_document_by_id(vector_store, old_doc_id)
+                        vector_store.delete_by_doc_id(old_doc_id)
         
         # Créer un fichier temporaire pour traiter le contenu
         with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file_path)[1]) as temp_file:
@@ -400,31 +418,36 @@ def process_document(file_path: str, auth: Tuple[str, str], collection: str,
             
             # Ingérer le document
             logger.info(f"Ingérer le document dans Qdrant: {file_path}")
-            ingest_document(
-                filepath=temp_file_path,
-                user="nextcloud",
-                collection=collection,
-                metadata=metadata,
-                original_filepath=file_path,
-                doc_id=doc_id
-            )
-            
-            # Mettre à jour le registre des fichiers
-            if file_registry:
-                file_registry.add_file(
-                    file_path=file_path,
-                    doc_id=doc_id,
-                    file_hash=file_hash,
-                    source_path=file_path,
-                    last_modified=last_modified,
-                    metadata={
-                        "file_name": os.path.basename(file_path),
-                        "extension": os.path.splitext(file_path)[1].lower()
-                    }
+            try:
+                ingest_document(
+                    filepath=temp_file_path,
+                    user="nextcloud",
+                    collection=collection,
+                    metadata=metadata,
+                    original_filepath=file_path,
+                    original_filename=os.path.basename(file_path),
+                    doc_id=doc_id
                 )
-            
-            logger.info(f"Document ingéré avec succès: {file_path}")
-            return True
+                
+                # Mettre à jour le registre des fichiers uniquement si l'ingestion a réussi
+                if file_registry:
+                    logger.info(f"Mise à jour du registre pour: {file_path}")
+                    file_registry.add_file(
+                        file_path=file_path,
+                        doc_id=doc_id,
+                        file_hash=file_hash,
+                        source_path=file_path,
+                        last_modified=last_modified,
+                        metadata={
+                            "file_name": os.path.basename(file_path),
+                            "extension": os.path.splitext(file_path)[1].lower()
+                        }
+                    )
+                logger.info(f"Document ingéré avec succès: {file_path}")
+                return True
+            except Exception as e:
+                logger.error(f"Erreur lors de l'ingestion dans Qdrant: {file_path} - {str(e)}")
+                return False
             
         except Exception as e:
             logger.error(f"Erreur lors de l'ingestion du document {file_path}: {str(e)}")
@@ -509,12 +532,11 @@ def process_directory(path: str, auth: Tuple[str, str], supported_extensions: Li
             logger.debug(f"Extension non supportée pour {file_path}, fichier ignoré")
             continue
         
-        # Ajouter le fichier à la liste des fichiers traités
-        processed_files.add(file_path)
-        
         # Traiter le document en passant le registre de fichiers
         if process_document(file_path, auth, collection, force_reingest, vector_store, file_registry):
             ingested_count += 1
+        # Ajouter le fichier à la liste des fichiers traités
+        processed_files.add(file_path)
     
     # Traiter ensuite les sous-répertoires
     for directory in directories:
@@ -654,7 +676,7 @@ def get_qdrant_files_by_prefix(vector_store: VectorStoreManager, path_prefix: st
     return qdrant_files
 
 
-def delete_missing_files(nextcloud_files: Set[str], qdrant_files: Set[str], vector_store: VectorStoreManager) -> int:
+def delete_missing_files(nextcloud_files: Set[str], qdrant_files: Set[str], vector_store: VectorStoreManager, file_registry: Optional[FileRegistry] = None) -> int:
     """
     Supprime de Qdrant les fichiers qui n'existent plus dans Nextcloud.
     
@@ -733,6 +755,11 @@ def delete_missing_files(nextcloud_files: Set[str], qdrant_files: Set[str], vect
                 logger.debug(f"Suppression réussie pour {file_path} ({chunk_count} chunks)")
                 deleted_count += 1
                 total_chunks_deleted += chunk_count
+                
+                # Mettre à jour le registre de fichiers si disponible
+                if file_registry and file_registry.file_exists(file_path):
+                    logger.info(f"Suppression du fichier {file_path} du registre")
+                    file_registry.remove_file(file_path)
             else:
                 logger.warning(f"Suppression partielle pour {file_path}: {post_count}/{chunk_count} chunks restants")
                 total_chunks_deleted += (chunk_count - post_count)
@@ -820,21 +847,19 @@ def fetch_nextcloud_documents(path: str = "/",
         
         logger.info(f"Extensions supportées: {', '.join(supported_extensions)}")
         
-        # Initialiser le vectorstore pour vérifier les documents existants
+        # Initialiser le vectorstore pour l'ingestion et la suppression des documents
         vector_store = None
-        if not skip_duplicate_check or clean_deleted:
-            try:
-                logger.info("Initialisation de la connexion à Qdrant")
-                vector_store = VectorStoreManager(collection_name=collection)
-                logger.info(f"Connexion à Qdrant établie, collection: {collection}")
-            except Exception as e:
-                error_msg = f"Erreur lors de l'initialisation de Qdrant: {str(e)}"
-                logger.error(error_msg)
-                if clean_deleted:
-                    logger.error("Impossible de nettoyer les fichiers supprimés sans connexion à Qdrant")
-                if not skip_duplicate_check:
-                    logger.warning("Vérification des documents existants désactivée")
-                result["warnings"] = [error_msg]
+        try:
+            logger.info("Initialisation de la connexion à Qdrant pour l'ingestion/suppression")
+            vector_store = VectorStoreManager(collection_name=collection)
+            logger.info(f"Connexion à Qdrant établie, collection: {collection}")
+        except Exception as e:
+            error_msg = f"Erreur lors de l'initialisation de Qdrant: {str(e)}"
+            logger.error(error_msg)
+            logger.error("Impossible d'ingérer ou de supprimer des documents sans connexion à Qdrant")
+            result["warnings"] = [error_msg]
+            result["error"] = "Erreur de connexion à Qdrant, synchronisation impossible"  
+            return result  # Retourner directement car on ne peut pas continuer sans Qdrant
         
         # Initialiser le registre de fichiers pour suivre les fichiers ingérés
         file_registry = None
@@ -867,7 +892,7 @@ def fetch_nextcloud_documents(path: str = "/",
                     for missing_file in missing_files:
                         doc_id = file_registry.get_doc_id(missing_file)
                         if doc_id and vector_store:
-                            if delete_document_by_id(vector_store, doc_id):
+                            if vector_store.delete_by_doc_id(doc_id):
                                 logger.info(f"Suppression du fichier qui n'existe plus dans Nextcloud: {missing_file}")
                                 file_registry.remove_file(missing_file)
                                 deleted_count += 1
@@ -912,8 +937,12 @@ def fetch_nextcloud_documents(path: str = "/",
             
             if qdrant_files:
                 logger.info("Suppression des fichiers qui n'existent plus dans Nextcloud...")
-                deleted_count = delete_missing_files(nextcloud_files, qdrant_files, vector_store)
+                deleted_count = delete_missing_files(nextcloud_files, qdrant_files, vector_store, file_registry)
                 result["deleted"] = deleted_count
+                
+                # Message informatif si le registre a été mis à jour
+                if file_registry:
+                    logger.info(f"Registre de fichiers mis à jour après suppression: {len(file_registry.registry)} fichiers restants")
             else:
                 logger.info("Aucun fichier trouvé dans Qdrant, rien à supprimer")
         

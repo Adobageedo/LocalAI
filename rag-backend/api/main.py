@@ -4,6 +4,8 @@ import hashlib
 import logging
 import traceback
 import datetime
+import re
+import json
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 from fastapi import FastAPI, UploadFile, File, HTTPException, Query, BackgroundTasks, Depends
@@ -26,6 +28,15 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger("rag-backend")
+
+# Configuration des logs pour supprimer les messages de débogage des bibliothèques HTTP
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("httpcore.http11").setLevel(logging.WARNING)
+logging.getLogger("httpcore.connection").setLevel(logging.WARNING)
+logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+logging.getLogger("openai._base_client").setLevel(logging.WARNING)
+logging.getLogger("unstructured.trace").setLevel(logging.WARNING)
 
 app = FastAPI()
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
@@ -267,9 +278,63 @@ def count_documents_by_type():
     return {"counts": type_counts, "details": type_to_names}
 
 @app.get("/documents")
-def list_documents(q: Optional[str] = Query(None), page: int = 1, page_size: int = 2000):
-    # Listing direct depuis Qdrant
+def list_documents(q: Optional[str] = Query(None), page: int = 1, page_size: int = 2000, use_registry: bool = Query(True)):
     collection = os.getenv("COLLECTION_NAME", "rag_documents1536")
+    docs = []
+    
+    # Chemin vers le fichier de registre JSON
+    registry_path = os.path.join(os.path.dirname(__file__), "..", "update_vdb", "data", "file_registry.json")
+    
+    if use_registry and os.path.exists(registry_path):
+        # Utiliser le registre JSON comme source d'information
+        logger.info(f"Listing documents from registry file: {registry_path}")
+        try:
+            with open(registry_path, 'r', encoding='utf-8') as f:
+                registry_data = json.load(f)
+                
+            # Convertir les données du registre en format compatible avec l'API
+            for file_path, file_info in registry_data.items():
+                # Filtrer par requête si spécifiée
+                if q and q.lower() not in file_path.lower():
+                    continue
+                    
+                # Extraire les métadonnées
+                doc = {
+                    "doc_id": file_info.get("doc_id", ""),
+                    "document_type": file_info.get("metadata", {}).get("extension", "").lstrip("."),
+                    "source_path": file_info.get("source_path", ""),
+                    "attachment_name": file_info.get("metadata", {}).get("file_name", ""),
+                    "last_modified": file_info.get("last_modified", ""),
+                    "last_synced": file_info.get("last_synced", ""),
+                    "hash": file_info.get("hash", "")
+                }
+                docs.append(doc)
+                
+            # Trier par chemin source
+            docs.sort(key=lambda x: x.get("source_path", ""))
+            
+            # Pagination manuelle
+            start_idx = (page - 1) * page_size
+            end_idx = start_idx + page_size
+            docs_page = docs[start_idx:end_idx]
+            
+            return {
+                "documents": docs_page,
+                "total": len(docs),
+                "page": page,
+                "page_size": page_size,
+                "pages": (len(docs) + page_size - 1) // page_size,
+                "source": "registry"
+            }
+                
+        except Exception as e:
+            logger.error(f"Error reading registry file: {str(e)}")
+            logger.error(traceback.format_exc())
+            # Fallback to Qdrant if registry fails
+            logger.info("Falling back to Qdrant for document listing")
+    
+    # Fallback: Listing direct depuis Qdrant
+    logger.info(f"Listing documents from Qdrant collection: {collection}")
     manager = VectorStoreManager(collection)
     client = manager.get_qdrant_client()
     offset = (page - 1) * page_size
@@ -303,49 +368,102 @@ def list_documents(q: Optional[str] = Query(None), page: int = 1, page_size: int
                 }
             )
         raise
+    seen_docs = {}
     docs = []
-    for p in points:
-        payload = p.payload or {}
-        doc = {
-            "doc_id": payload.get("doc_id") or payload.get("metadata", {}).get("doc_id"),
-            "document_type": payload.get("document_type") or payload.get("metadata", {}).get("document_type"),
-            "source_path": payload.get("source_path") or payload.get("metadata", {}).get("source_path"),
-            "attachment_name": payload.get("attachment_name") or payload.get("metadata", {}).get("attachment_name"),
-            "subject": payload.get("subject") or payload.get("metadata", {}).get("subject"),
-            "user": payload.get("user") or payload.get("metadata", {}).get("user"),
-            "date": payload.get("date") or payload.get("metadata", {}).get("date"),
-        }
-        if q:
-            # Filtrage simple
-            if (q.lower() not in str(doc["source_path"]).lower()) and (q.lower() not in str(doc["subject"]).lower()):
-                continue
-        docs.append(doc)
-    # Regrouper par unique_id (ou doc_id si unique_id absent), and use same display logic as dashboard
-    unique_docs = {}
-    for doc in docs:
-        # Try both top-level and nested metadata for unique_id/doc_id
-        unique_id = doc.get("unique_id") or doc.get("doc_id")
-        doc_type = doc.get("document_type")
-        # Use same display name logic as dashboard
-        if doc_type == 'email':
-            name = doc.get("subject") or '[Sans objet]'
-        else:
-            name = doc.get("attachment_name")
-            if not name:
-                sp = doc.get("source_path")
-                name = sp.split("/")[-1] if sp else '[Document sans nom]'
-        key = unique_id or doc.get("doc_id")
-        if key and key not in unique_docs:
-            display_doc = doc.copy()
-            display_doc['display_name'] = name
-            unique_docs[key] = display_doc
-    docs = list(unique_docs.values())
-    # Pagination côté API
-    total = len(docs)
-    docs = docs[offset:offset+page_size]
-    return {"documents": docs, "total": total}
+    for point in points:
+        payload = point.payload or {}
+        doc_id = None
+        if "doc_id" in payload:
+            doc_id = payload["doc_id"]
+        elif "metadata" in payload and isinstance(payload["metadata"], dict):
+            doc_id = payload["metadata"].get("doc_id")
+        
+        if not doc_id:
+            continue
 
-from fastapi import UploadFile, File, Request,BackgroundTasks
+        # Skip if we've already seen this doc_id (only take the first point)
+        if doc_id in seen_docs:
+            continue
+        
+        # Extract metadata
+        document_type = ""
+        source_path = ""
+        attachment_name = ""
+        subject = ""
+        user = ""
+        date = ""
+        
+        # Extract from root level
+        if "document_type" in payload:
+            document_type = payload["document_type"]
+        if "source_path" in payload:
+            source_path = payload["source_path"]
+        if "attachment_name" in payload:
+            attachment_name = payload["attachment_name"]
+        if "subject" in payload:
+            subject = payload["subject"]
+        if "user" in payload:
+            user = payload["user"]
+        if "date" in payload:
+            date = payload["date"]
+            
+        # Extract from metadata if available and not already set
+        metadata = payload.get("metadata", {})
+        if isinstance(metadata, dict):
+            if not document_type and "document_type" in metadata:
+                document_type = metadata["document_type"]
+            if not source_path and "source_path" in metadata:
+                source_path = metadata["source_path"]
+            if not attachment_name and "attachment_name" in metadata:
+                attachment_name = metadata["attachment_name"]
+            if not subject and "subject" in metadata:
+                subject = metadata["subject"]
+            if not user and "user" in metadata:
+                user = metadata["user"]
+            if not date and "date" in metadata:
+                date = metadata["date"]
+        
+        # Filter by query if specified
+        if q:
+            if source_path and q.lower() in source_path.lower():
+                pass # Match
+            elif subject and q.lower() in subject.lower():
+                pass # Match
+            else:
+                continue # No match
+        
+        # Add to docs list
+        docs.append({
+            "doc_id": doc_id,
+            "document_type": document_type,
+            "source_path": source_path,
+            "attachment_name": attachment_name,
+            "subject": subject,
+            "user": user,
+            "date": date
+        })
+        seen_docs[doc_id] = True
+
+    # Sort by source_path
+    docs.sort(key=lambda x: x.get("source_path", ""))
+    
+    # Apply pagination
+    start = (page - 1) * page_size
+    end = start + page_size
+    total = len(docs)
+    pages = (total + page_size - 1) // page_size if page_size > 0 else 1
+    docs_page = docs[start:end]
+    
+    return {
+        "documents": docs_page,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "pages": pages,
+        "source": "qdrant"
+    }
+
+from fastapi import UploadFile, File, Request, BackgroundTasks
 from typing import List
 import shutil
 import tempfile
