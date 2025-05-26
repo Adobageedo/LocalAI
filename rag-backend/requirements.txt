@@ -1,0 +1,41 @@
+fastapi
+uvicorn
+python-dotenv
+qdrant-client
+langchain
+openai
+huggingface_hub
+ollama
+pydantic
+python-multipart
+pdfplumber
+python-docx
+unstructured
+sentence-transformers
+langchain-huggingface
+gunicorn
+pandas
+requests
+pyyaml
+google-auth
+google-auth-oauthlib
+google-api-python-client
+langchain-core
+langchain-community
+langchain_openai
+# --- Added from import analysis ---
+PyYAML  # for yaml
+python-dotenv  # for dotenv
+tqdm  # sometimes used for progress bars
+# Google API client dependencies (already present):
+# google-auth, google-auth-oauthlib, google-api-python-client
+# For PDF/docx loaders (already present):
+pypdf2
+python-docx
+# For unstructured email partitioning (already present):
+unstructured
+openpyxl
+langchain-qdrant
+# --- Added for Nextcloud integration ---
+pyjwt  # Pour la gestion des tokens JWT
+webdavclient3  # Pour l'interaction WebDAV avec Nextcloud

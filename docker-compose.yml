@@ -1,0 +1,121 @@
+version: '3'
+
+services:
+  # Frontend en mode développement avec Node 20
+  frontend:
+    image: node:20-alpine
+    container_name: rag-frontend
+    working_dir: /app
+    volumes:
+      - ./rag-frontend:/app
+      - frontend_node_modules:/app/node_modules
+    ports:
+      - "5173:5173"
+    environment:
+      - NODE_ENV=development
+      # Utiliser les adresses internes Docker au lieu de localhost
+      - VITE_NEXTCLOUD_URL=http://nextcloud
+      - VITE_NEXTCLOUD_USERNAME=admin
+      - VITE_NEXTCLOUD_PASSWORD=admin_password
+      - VITE_KEYCLOAK_URL=http://keycloak:8081
+      - VITE_KEYCLOAK_REALM=newsflix
+      - VITE_KEYCLOAK_CLIENT_ID=rag-frontend
+      - VITE_SUPABASE_URL=http://localhost:9000
+      - VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTl9.Quy04IFG2K7mCjIW2EU4ixoivlpsVR2yFB2v6n5GPLs
+      # Désactiver les dépendances natives de Rollup
+      - ROLLUP_SKIP_NODEJS_NATIVE_WRAPPERS=true
+      # Configuration pour Vite/Rollup
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
+    command: >
+      sh -c "mkdir -p node_modules && 
+             npm ci --prefer-offline --no-audit && 
+             npm run dev -- --host 0.0.0.0"
+    networks:
+      - rag-network
+    depends_on:
+      - nextcloud
+      - keycloak
+
+  # Nextcloud
+  nextcloud:
+    image: nextcloud:latest
+    container_name: nextcloud
+    restart: always
+    ports:
+      - "8080:80"
+    volumes:
+      - nextcloud_data:/var/www/html
+    environment:
+      - MYSQL_HOST=nextcloud-db
+      - MYSQL_DATABASE=nextcloud
+      - MYSQL_USER=nextcloud
+      - MYSQL_PASSWORD=nextcloud
+      - NEXTCLOUD_ADMIN_USER=admin
+      - NEXTCLOUD_ADMIN_PASSWORD=admin_password
+      - NEXTCLOUD_TRUSTED_DOMAINS=nextcloud localhost 127.0.0.1
+    networks:
+      - rag-network
+    depends_on:
+      - nextcloud-db
+
+  # Base de données Nextcloud
+  nextcloud-db:
+    image: mariadb:10.6
+    container_name: nextcloud-db
+    restart: always
+    command: --transaction-isolation=READ-COMMITTED --log-bin=binlog --binlog-format=ROW
+    volumes:
+      - nextcloud_db:/var/lib/mysql
+    environment:
+      - MYSQL_ROOT_PASSWORD=nextcloud
+      - MYSQL_PASSWORD=nextcloud
+      - MYSQL_DATABASE=nextcloud
+      - MYSQL_USER=nextcloud
+    networks:
+      - rag-network
+
+  # Keycloak
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    container_name: keycloak
+    environment:
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin
+      - KC_DB=postgres
+      - KC_DB_URL=jdbc:postgresql://keycloak-db:5432/keycloak
+      - KC_DB_USERNAME=keycloak
+      - KC_DB_PASSWORD=keycloak
+      - KC_HOSTNAME=localhost
+    command: 
+      - start-dev
+      - --http-port=8081
+    ports:
+      - "8081:8081"
+    depends_on:
+      - keycloak-db
+    networks:
+      - rag-network
+
+  # Base de données Keycloak
+  keycloak-db:
+    image: postgres:14
+    container_name: keycloak-db
+    environment:
+      - POSTGRES_DB=keycloak
+      - POSTGRES_USER=keycloak
+      - POSTGRES_PASSWORD=keycloak
+    volumes:
+      - keycloak_db:/var/lib/postgresql/data
+    networks:
+      - rag-network
+
+networks:
+  rag-network:
+    driver: bridge
+
+volumes:
+  nextcloud_data:
+  nextcloud_db:
+  keycloak_db:
+  frontend_node_modules:

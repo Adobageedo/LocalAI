@@ -1,0 +1,182 @@
+{
+  "/Carte avantage.pdf": {
+    "doc_id": "1e9fca21c64250985787bec698b72dff",
+    "hash": "760674be70ce47c9c99dc768428c4a211315f369cccbc4bcdd4f7034bc0dd439",
+    "last_modified": "2025-05-25T12:48:25+00:00",
+    "last_synced": "2025-05-26T19:20:57.803482",
+    "metadata": {
+      "file_name": "Carte avantage.pdf",
+      "extension": ".pdf"
+    }
+  },
+  "/Document scanné 2.pdf": {
+    "doc_id": "3acf158fc535d1754184bb533b7bde7b",
+    "hash": "c7a77171959a1cde0ccb499c342bec99121b4fd31f35f95665023dc713c87b9d",
+    "last_modified": "2025-05-25T11:05:38+00:00",
+    "last_synced": "2025-05-26T19:20:58.029563",
+    "metadata": {
+      "file_name": "Document scanné 2.pdf",
+      "extension": ".pdf"
+    }
+  },
+  "/Document scanné.pdf": {
+    "doc_id": "6c36c367f1d9483f5e030d7eb4ec5c39",
+    "hash": "314e8e7ceade97d47bd45c7c4e059ae80830164c8abdb1187c232a70b67494ee",
+    "last_modified": "2025-05-25T11:27:07+00:00",
+    "last_synced": "2025-05-26T19:20:58.188820",
+    "metadata": {
+      "file_name": "Document scanné.pdf",
+      "extension": ".pdf"
+    }
+  },
+  "/EM2_Conduction.pdf": {
+    "doc_id": "c82dfb245a301190c8310e381e7f9855",
+    "hash": "7c5fa11948009c37681cde8662ad61050dc93218cda8f34d8cb6ebf75e809cd5",
+    "last_modified": "2025-05-25T10:31:32+00:00",
+    "last_synced": "2025-05-26T19:21:02.887184",
+    "metadata": {
+      "file_name": "EM2_Conduction.pdf",
+      "extension": ".pdf"
+    }
+  },
+  "/LDV mémoire cha.pdf": {
+    "doc_id": "f4044ea13440848d91f2b5c1052310cf",
+    "hash": "11ca7f80c5812f0420f9f24dc8938f8eaa07f63c7f0860aa96c8e4746f74fd16",
+    "last_modified": "2025-05-25T12:34:39+00:00",
+    "last_synced": "2025-05-26T19:21:04.321864",
+    "metadata": {
+      "file_name": "LDV mémoire cha.pdf",
+      "extension": ".pdf"
+    }
+  },
+  "/Nextcloud Manual.pdf": {
+    "doc_id": "9b836856c23c2752dbd32b8bf0507130",
+    "hash": "9b389154cb805238a251658faa39ac425b4698c6dd67a802686f586440aa6351",
+    "last_modified": "2025-05-24T21:01:27+00:00",
+    "last_synced": "2025-05-26T19:21:14.551387",
+    "metadata": {
+      "file_name": "Nextcloud Manual.pdf",
+      "extension": ".pdf"
+    }
+  },
+  "/Readme.md": {
+    "doc_id": "e0bc7a8908a81dbaf836ac211685528a",
+    "hash": "c341111ab39965e94c246c4f46411d7e8e9637c983b3f41660cc05282ae6cdf0",
+    "last_modified": "2025-05-24T21:01:27+00:00",
+    "last_synced": "2025-05-26T19:21:14.713161",
+    "metadata": {
+      "file_name": "Readme.md",
+      "extension": ".md"
+    }
+  },
+  "/Reasons to use Nextcloud.pdf": {
+    "doc_id": "ef6963e0be4b7ce57f25bc08d084ea6d",
+    "hash": "c972ac295f81e16aa278fe30c486f049be095a3d7955b19b5af72a9f37107588",
+    "last_modified": "2025-05-24T21:01:25+00:00",
+    "last_synced": "2025-05-26T19:21:16.605771",
+    "metadata": {
+      "file_name": "Reasons to use Nextcloud.pdf",
+      "extension": ".pdf"
+    }
+  },
+  "/Templates credits.md": {
+    "doc_id": "652ee540e7233fd1f441f00a43ab9791",
+    "hash": "cc7d281b75cc51b5bf295177afd21789382f749a05c51925e49d1325f5b9a413",
+    "last_modified": "2025-05-24T21:01:27+00:00",
+    "last_synced": "2025-05-26T19:21:16.766300",
+    "metadata": {
+      "file_name": "Templates credits.md",
+      "extension": ".md"
+    }
+  },
+  "/carte grise recto.pdf": {
+    "doc_id": "55ccfb9d42acc066f6f8a0ee6c93dfb3",
+    "hash": "328eee91c96b7519a45a0388f4b35d92d2d6feec585181273fd2157e3753b63e",
+    "last_modified": "2025-05-25T12:32:46+00:00",
+    "last_synced": "2025-05-26T19:21:16.922729",
+    "metadata": {
+      "file_name": "carte grise recto.pdf",
+      "extension": ".pdf"
+    }
+  },
+  "/Documents/Example.md": {
+    "doc_id": "31ab180cf9d0b6b3977b98985fdd7c27",
+    "hash": "15c1e3a150322a2c43346d0c8550dd7f9bf4634239a5b88ae2f8f3e7303d66fa",
+    "last_modified": "2025-05-24T21:01:27+00:00",
+    "last_synced": "2025-05-26T19:21:17.269725",
+    "metadata": {
+      "file_name": "Example.md",
+      "extension": ".md"
+    }
+  },
+  "/Documents/Nextcloud flyer.pdf": {
+    "doc_id": "04fab51335a3949a0ef14fb291ec10c8",
+    "hash": "8d3464e367c7b4dbe69d5a7ec23fd78399b9d7232b43364b0ce14715ebef9802",
+    "last_modified": "2025-05-24T21:01:27+00:00",
+    "last_synced": "2025-05-26T19:21:18.801592",
+    "metadata": {
+      "file_name": "Nextcloud flyer.pdf",
+      "extension": ".pdf"
+    }
+  },
+  "/Documents/Readme.md": {
+    "doc_id": "c60245141d3da283d60c01605f6fdc5c",
+    "hash": "83c21981976b200ad259f706d5943ee7452a2eab9875ba6f4642492b6287a3cc",
+    "last_modified": "2025-05-24T21:01:27+00:00",
+    "last_synced": "2025-05-26T19:21:19.061117",
+    "metadata": {
+      "file_name": "Readme.md",
+      "extension": ".md"
+    }
+  },
+  "/Documents/Welcome to Nextcloud Hub.docx": {
+    "doc_id": "23c47c48655ac35fcd8f0bb7b0090c16",
+    "hash": "ec70c039261c244f203a2c1900a49d4f5cd4ee4d6d1d12caf592e624fe604aa4",
+    "last_modified": "2025-05-24T21:01:27+00:00",
+    "last_synced": "2025-05-26T19:21:20.357635",
+    "metadata": {
+      "file_name": "Welcome to Nextcloud Hub.docx",
+      "extension": ".docx"
+    }
+  },
+  "/Photos/Readme.md": {
+    "doc_id": "ca9bd03b332fe3e7480ab17c29da1de7",
+    "hash": "03a26da0cc5857d40595d3df7044f7e63b4d7cd7fccbcb2ecc2d905089b69f0e",
+    "last_modified": "2025-05-24T21:01:25+00:00",
+    "last_synced": "2025-05-26T19:21:20.710615",
+    "metadata": {
+      "file_name": "Readme.md",
+      "extension": ".md"
+    }
+  },
+  "/Templates/Meeting notes.md": {
+    "doc_id": "b51127a620ea4b8ec5fff4b594f785fd",
+    "hash": "f4c4c0936544e57df6b50508169b37d0cd223aab1e467b60fe421ba80ceb1f2d",
+    "last_modified": "2025-05-24T21:01:26+00:00",
+    "last_synced": "2025-05-26T19:21:21.057722",
+    "metadata": {
+      "file_name": "Meeting notes.md",
+      "extension": ".md"
+    }
+  },
+  "/Templates/Product plan.md": {
+    "doc_id": "eb1d3fb2f6c9500e48e77f7cb5f7e2b9",
+    "hash": "ed4c0b8b05d4e660f9073419ffdb58ddd3c587d1d3d1a09d115319545edbdd3b",
+    "last_modified": "2025-05-24T21:01:26+00:00",
+    "last_synced": "2025-05-26T19:21:21.214843",
+    "metadata": {
+      "file_name": "Product plan.md",
+      "extension": ".md"
+    }
+  },
+  "/Templates/Readme.md": {
+    "doc_id": "f64c159044a076f8216511b5d7d7b742",
+    "hash": "f1d32ae0e3802094fea2016aab5716bb23ee6a423bbcd8ecdda4490308fc80fa",
+    "last_modified": "2025-05-24T21:01:27+00:00",
+    "last_synced": "2025-05-26T19:21:21.425193",
+    "metadata": {
+      "file_name": "Readme.md",
+      "extension": ".md"
+    }
+  }
+}

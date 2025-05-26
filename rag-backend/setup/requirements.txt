@@ -1,0 +1,11 @@
+# Python dependencies for update_vdb
+python-dotenv
+PyYAML
+langchain
+langchain-community
+langchain-core
+qdrant-client
+unstructured
+pypdf2
+python-docx
+tqdm
