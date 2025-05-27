@@ -51,7 +51,8 @@ logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
 logging.getLogger("openai._base_client").setLevel(logging.WARNING)
 logging.getLogger("unstructured.trace").setLevel(logging.WARNING)
 logging.getLogger("chardet.universaldetector").setLevel(logging.WARNING)
-
+logging.getLogger("chardet.charsetprober").setLevel(logging.WARNING)
+logging.getLogger("chardet").setLevel(logging.WARNING)
 # Logger principal pour ce module
 logger = logging.getLogger(__name__)
 logger.info(f"Niveau de log configuré à: {log_level}")
