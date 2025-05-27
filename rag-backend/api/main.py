@@ -109,7 +109,6 @@ class PromptResponse(BaseModel):
 # --- ENDPOINTS ---
 
 from update_vdb.sources.document_ingest import fetch_and_sync_documents
-from update_vdb.sources.email_ingest import fetch_and_sync_emails
 from update_vdb.sources.ingest_imap_emails import ingest_emails_to_qdrant
 from pydantic import BaseModel
 
