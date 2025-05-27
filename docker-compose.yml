@@ -161,19 +161,11 @@ services:
     networks:
       - rag-network
       
-  # Certbot - Gestion automatique des certificats SSL
-  certbot:
-    image: certbot/certbot:latest
-    container_name: certbot
-    volumes:
-      - ./certbot/www:/var/www/certbot  # Pour la validation du challenge
-      - ./nginx/ssl:/etc/letsencrypt    # Pour stocker les certificats
-    command: certonly --webroot --webroot-path=/var/www/certbot --email admin@chardouin.fr --agree-tos --no-eff-email --force-renewal -d chardouin.fr -d www.chardouin.fr
-    depends_on:
-      - nginx
-    restart: unless-stopped
-    networks:
-      - rag-network
+  # Note: Le service Certbot a été supprimé car il n'est pas nécessaire
+  # en environnement de développement. Pour la production, vous pouvez :
+  # 1. Installer Certbot directement sur l'hôte
+  # 2. Utiliser un service géré comme Cloudflare
+  # 3. Configurer Let's Encrypt via votre hébergeur
 
 networks:
   rag-network:
