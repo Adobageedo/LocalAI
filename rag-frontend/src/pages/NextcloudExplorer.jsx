@@ -783,7 +783,7 @@ const NextcloudExplorer = () => {
       setSnackbarMessage(`Synchronisation avec Qdrant démarrée pour: ${currentPath}`);
       setSnackbarOpen(true);
       
-      const response = await axios.post(`${API_BASE_URL}/api/nextcloud/ingest-directory`, requestBody);
+      const response = await axios.post(`${API_BASE_URL}/nextcloud/ingest-directory`, requestBody);
       
       // Mettre à jour le statut
       setIngestLoading(false);
@@ -836,7 +836,7 @@ const NextcloudExplorer = () => {
         max_files: maxFiles ? parseInt(maxFiles) : null
       };
       
-      const response = await axios.post(`${API_BASE_URL}/api/nextcloud/ingest-directory`, requestBody);
+      const response = await axios.post(`${API_BASE_URL}/nextcloud/ingest-directory`, requestBody);
       
       setIngestSuccess(true);
       setSnackbarMessage(`Ingestion démarrée: ${response.data.path} (${response.data.status})`);

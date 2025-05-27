@@ -18,7 +18,8 @@ NEXTCLOUD_USERNAME = os.getenv("NEXTCLOUD_USERNAME", "admin")
 NEXTCLOUD_PASSWORD = os.getenv("NEXTCLOUD_PASSWORD", "admin_password")
 
 # Initialisation du router et du logger
-router = APIRouter(prefix="/api/sources", tags=["sources"])
+# Note: Le préfixe /api est maintenant défini dans main.py
+router = APIRouter(prefix="/sources", tags=["sources"])
 logger = logging.getLogger(__name__)
 
 @router.get("/download")
