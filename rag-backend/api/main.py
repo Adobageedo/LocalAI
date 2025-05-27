@@ -110,6 +110,7 @@ class PromptResponse(BaseModel):
 
 from update_vdb.sources.document_ingest import fetch_and_sync_documents
 from update_vdb.sources.email_ingest import fetch_and_sync_emails
+from update_vdb.sources.ingest_imap_emails import ingest_emails_to_qdrant
 from pydantic import BaseModel
 
 # --- IMAP INGESTION STATUS (in-memory, demo) ---
@@ -129,12 +130,17 @@ class ImapCredentials(BaseModel):
     port: int
     user: str
     password: str
-    ssl: bool = True  # Not currently used, only SSL supported
-    mailbox: str = "INBOX"
-    limit: int = 10
-    collection_name: str = None  # Will use config or env var if None
-    imap_user: str = None  # Will use the user field if None
+    ssl: bool = True
+    # Support pour dossiers multiples
+    mailbox: str = "INBOX"  # Pour compatibilité avec l'existant
+    folders: Optional[List[str]] = None  # Nouveau: liste de dossiers à ingérer
+    limit: int = 50  # Augmenté à 50 par défaut
+    collection_name: str = None
+    imap_user: str = None
+    # Paramètres spécifiques à notre nouvelle implémentation
     save_attachments: bool = True
+    force_reingest: bool = False
+    # Pour compatibilité avec l'existant
     save_email_body: bool = True
     delete_after_import: bool = False  # Whether to mark emails as deleted after import
 
@@ -156,46 +162,61 @@ def ingest_imap_emails(creds: ImapCredentials):
     if not collection_name:
         collection_name = os.getenv("COLLECTION_NAME", config.get('retrieval', {}).get('vectorstore', {}).get('collection', 'rag_documents1536'))
     
-    logger.info(f"IMAP INGEST: Using collection {collection_name}")
+    # Chemin du registre JSON
+    registry_path = os.path.join(os.path.dirname(__file__), "..", "update_vdb", "data", "file_registry.json")
+    
+    logger.info(f"IMAP INGEST: Using collection {collection_name} and registry at {registry_path}")
     set_imap_status(user, "starting")
     
     try:
-        # Enrichir les métadonnées avec des informations supplémentaires
-        metadata = {
-            "ingest_source": "imap",
-            "ingest_time": datetime.datetime.now().isoformat(),
-            "user": user,
-            "imap_server": creds.host,
-            "imap_folder": creds.mailbox
-        }
+        # Déterminer les dossiers IMAP à utiliser
+        if creds.folders is not None and len(creds.folders) > 0:
+            # Utiliser les dossiers spécifiés dans le nouveau paramètre 'folders'
+            imap_folders = creds.folders
+        else:
+            # Fallback sur le paramètre 'mailbox' pour compatibilité
+            imap_folders = [creds.mailbox] if isinstance(creds.mailbox, str) else [creds.mailbox]
         
-        logger.info(f"IMAP INGEST: Connecting to {creds.host}:{creds.port} for mailbox {creds.mailbox}")
+        logger.info(f"IMAP INGEST: Connecting to {creds.host}:{creds.port} for folders {imap_folders}")
         
-        # Appeler la fonction d'ingestion avec tous les paramètres
-        fetch_and_sync_emails(
-            method="imap",
+        # Utiliser notre nouveau script d'ingestion IMAP optimisé
+        result = ingest_emails_to_qdrant(
             imap_server=creds.host,
             imap_port=creds.port,
             imap_user=creds.user,
             imap_password=creds.password,
-            imap_folder=creds.mailbox,
-            collection_name=collection_name,
-            user=user,
+            imap_folders=imap_folders,
+            collection=collection_name,
             limit=creds.limit,
             save_attachments=creds.save_attachments,
-            save_email_body=creds.save_email_body,
-            delete_after_import=creds.delete_after_import,
-            metadata=metadata
+            force_reingest=creds.force_reingest,  # Utiliser le paramètre de force_reingest
+            registry_path=registry_path,
+            verbose=True
         )
         
-        logger.info(f"IMAP INGEST: Successfully completed ingestion for user {user}")
-        set_imap_status(user, "completed")
-        return {
-            "success": True, 
-            "message": f"Emails ingested successfully from {creds.host}:{creds.port}/{creds.mailbox}",
-            "collection": collection_name,
-            "user": user
-        }
+        # Vérifier le résultat de l'ingestion
+        if result["success"]:
+            logger.info(f"IMAP INGEST: Successfully completed ingestion for user {user}")
+            logger.info(f"IMAP INGEST: Ingested {result['ingested_emails']} emails and {result['ingested_attachments']} attachments")
+            set_imap_status(user, "completed")
+            
+            return {
+                "success": True, 
+                "message": f"Emails ingested successfully from {creds.host}:{creds.port}",
+                "collection": collection_name,
+                "user": user,
+                "stats": {
+                    "ingested_emails": result['ingested_emails'],
+                    "ingested_attachments": result['ingested_attachments'],
+                    "skipped_emails": result['skipped_emails'],
+                    "duration": result['duration']
+                }
+            }
+        else:
+            error_msg = "\n".join(result["errors"]) if result["errors"] else "Unknown error"
+            logger.error(f"IMAP INGEST ERROR: {error_msg}")
+            set_imap_status(user, f"error: {error_msg}")
+            return {"success": False, "error": error_msg}
     except Exception as e:
         error_msg = str(e)
         logger.error(f"IMAP INGEST ERROR: {error_msg}")

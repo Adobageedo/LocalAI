@@ -32,6 +32,14 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger("ingest-imap")
+logging.getLogger("httpx").setLevel(logging.WARNING)
+logging.getLogger("httpcore").setLevel(logging.WARNING)
+logging.getLogger("httpcore.http11").setLevel(logging.WARNING)
+logging.getLogger("httpcore.connection").setLevel(logging.WARNING)
+logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
+logging.getLogger("openai._base_client").setLevel(logging.WARNING)
+logging.getLogger("unstructured.trace").setLevel(logging.WARNING)
+logging.getLogger("chardet.universaldetector").setLevel(logging.WARNING)
 
 def compute_email_hash(email: Email) -> str:
     """
@@ -189,10 +197,17 @@ def ingest_emails_to_qdrant(
                             logger.info(f"Suppression de l'ancien document: {old_doc_id}")
                             vector_store.delete_by_doc_id(old_doc_id)
             
+            # Formats personnalisés pour les chemins
+            email_subject_safe = email.metadata.subject.replace('/', '_').replace('\\', '_') if email.metadata.subject else 'sans_sujet'
+            formatted_path = f"{email_id}+{email_subject_safe}"
+            formatted_original_path = f"/IMAP/{imap_user}/{email.metadata.date}/{email_id}"
+            
             # Préparer les métadonnées pour l'ingestion
             metadata = {
                 "source": "imap",
                 "source_path": email_path,
+                "original_path": formatted_original_path,
+                "original_filename": formatted_path,
                 "subject": email.metadata.subject,
                 "sender": email.metadata.sender,
                 "receiver": email.metadata.receiver,
@@ -266,10 +281,18 @@ def ingest_emails_to_qdrant(
                             att_file.write(attachment.content)
                             att_tmp_path = att_file.name
                         
+                        # Formats personnalisés pour les pièces jointes
+                        email_subject_safe = email.metadata.subject.replace('/', '_').replace('\\', '_') if email.metadata.subject else 'sans_sujet'
+                        att_filename_safe = attachment.filename.replace('/', '_').replace('\\', '_') if attachment.filename else 'sans_nom'
+                        formatted_att_path = f"{email_id}+{email_subject_safe}+attachments+{att_filename_safe}"
+                        formatted_att_original_path = f"/IMAP/{imap_user}/{email.metadata.date}/{email_id}/attachments/{attachment.filename}"
+                        
                         # Métadonnées spécifiques pour la pièce jointe
                         att_metadata = {
                             "source": "imap_attachment",
                             "source_path": att_path,
+                            "original_path": formatted_att_original_path,
+                            "original_filename": formatted_att_path,
                             "document_type": "email_attachment",
                             "parent_email_id": email_id,
                             "content_type": attachment.content_type,
@@ -347,14 +370,14 @@ def ingest_emails_to_qdrant(
 def main():
     """Point d'entrée principal du script."""
     parser = argparse.ArgumentParser(description="Ingestion d'emails IMAP dans Qdrant avec registre JSON.")
-    parser.add_argument('--server', default="mail.newsflix.fr", help='Serveur IMAP')
+    parser.add_argument('--server', default="imap.gmail.com", help='Serveur IMAP')
     parser.add_argument('--port', type=int, default=993, help='Port IMAP')
-    parser.add_argument('--user', default="noreply@newsflix.fr", help='Utilisateur IMAP')
-    parser.add_argument('--password', default="enzo789luigi", help='Mot de passe IMAP')
-    parser.add_argument('--folders', nargs='+', default=['INBOX'], help='Dossiers IMAP (liste séparée par des espaces)')
+    parser.add_argument('--user', default="edoardogenissel@gmail.com", help='Utilisateur IMAP')
+    parser.add_argument('--password', default="dctzkzzqvfctjtln", help='Mot de passe IMAP ou mot de passe d\'application Google')
+    parser.add_argument('--folders', nargs='+', default=['INBOX', 'Sent'], help='Dossiers IMAP (liste séparée par des espaces)')
     parser.add_argument('--collection', default="rag_documents1536", help='Collection Qdrant cible')
-    parser.add_argument('--limit', type=int, default=10, help='Nombre maximum d\'emails à ingérer')
-    parser.add_argument('--registry-path', help='Chemin vers le fichier de registre JSON (utilise le chemin par défaut si non spécifié)')
+    parser.add_argument('--limit', type=int, default=50, help='Nombre maximum d\'emails à ingérer')
+    parser.add_argument('--registry-path', default='/Users/edoardo/Documents/LocalAI/rag-backend/update_vdb/data/file_registry.json', help='Chemin vers le fichier de registre JSON')
     parser.add_argument('--force-reingest', action='store_true', help='Forcer la réingestion même si l\'email existe déjà')
     parser.add_argument('--no-attachments', action='store_true', help='Ne pas ingérer les pièces jointes')
     parser.add_argument('--verbose', action='store_true', help='Mode verbeux')
