@@ -143,7 +143,7 @@ class NextcloudService {
       console.log(`[NEXTCLOUD API] Suppression de l'élément: ${path}`);
       
       // Appel à l'API backend pour supprimer un fichier/dossier
-      await apiClient.delete(`//nextcloud/files?path=${encodeURIComponent(path)}`);
+      await apiClient.delete(`/nextcloud/files?path=${encodeURIComponent(path)}`);
       console.log(`[NEXTCLOUD API] Élément ${path} supprimé avec succès`);
       
       return true;

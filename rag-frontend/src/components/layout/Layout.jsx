@@ -116,9 +116,18 @@ export default function Layout({ children }) {
                 </IconButton>
               )}
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                <img src="/logo-small.png" alt="NewsflIx" height="28" style={{ marginRight: '10px' }} />
+                <img 
+                  src="/images/logo.png" 
+                  alt="LocalAI" 
+                  style={{ 
+                    height: '30px', 
+                    maxWidth: '40px', 
+                    objectFit: 'contain',
+                    marginRight: '12px' 
+                  }} 
+                />
                 <Typography variant="h6" component="div" sx={{ fontWeight: 'bold' }}>
-                  NewsflIx RAG
+                  LocalAI RAG
                 </Typography>
               </Box>
             </Box>
