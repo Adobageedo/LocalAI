@@ -128,8 +128,8 @@ services:
       dockerfile: Dockerfile
     container_name: rag-backend
     # On expose seulement sur le réseau interne, Nginx fera le proxy
-    expose:
-      - "8000"
+    ports:
+      - "8000:8000"
     env_file: ./rag-backend/.env
     volumes:
       - ./rag-backend:/app  # Pour le développement, permet de modifier les fichiers en direct
