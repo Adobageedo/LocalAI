@@ -17,7 +17,7 @@ retrieval:
   vectorstore:
     path: ./data/vectorstore      # Path to vector store
     type: qdrant                  # qdrant, faiss, chroma, etc.
-    host: localhost
+    host: qdrant
     port: 6333
     collection: rag_documents1536
   filter_fallback: false           # Fallback to no-filter if filtered results are empty
@@ -64,8 +64,8 @@ ingestion:
     "csv",    # Fichiers de données CSV
     "json",   # Fichiers JSON
     "email",  # Emails
-    "odt",    # Documents OpenDocument Text
-    "ods",    # Feuilles de calcul OpenDocument
+    #"odt",    # Documents OpenDocument Text
+    #"ods",    # Feuilles de calcul OpenDocument
     "excel",  # Feuilles de calcul Excel (inclut xlsx, xlsm, xls)
     "xls",    # Feuilles de calcul Excel (ancien format)
     "xlsx",   # Feuilles de calcul Excel (format Office 2007+)
