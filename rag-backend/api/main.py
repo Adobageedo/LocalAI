@@ -37,6 +37,9 @@ logging.getLogger("httpcore.connection").setLevel(logging.WARNING)
 logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
 logging.getLogger("openai._base_client").setLevel(logging.WARNING)
 logging.getLogger("unstructured.trace").setLevel(logging.WARNING)
+logging.getLogger("chardet.universaldetector").setLevel(logging.WARNING)
+logging.getLogger("chardet.charsetprober").setLevel(logging.WARNING)
+logging.getLogger("chardet").setLevel(logging.WARNING)
 
 app = FastAPI()
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
@@ -597,6 +600,115 @@ from rag_engine.retrieve_rag_information_modular import get_rag_response_modular
 def health_check():
     """Endpoint simple pour vérifier que l'API est en cours d'exécution."""
     return {"status": "ok", "timestamp": datetime.datetime.now().isoformat()}
+
+
+@app.get("/documents/stats")
+def get_document_stats():
+    """Récupère le nombre d'emails ingérés par utilisateur dans Qdrant."""
+    try:
+        # Déterminer la collection à utiliser
+        config = load_config()
+        collection_name = os.getenv("COLLECTION_NAME", config.get('retrieval', {}).get('vectorstore', {}).get('collection', 'rag_documents1536'))
+        
+        logger.info(f"EMAIL COUNT: Querying collection {collection_name} for email counts by user")
+        
+        # Initialiser le gestionnaire de stockage vectoriel
+        vector_store = VectorStoreManager(collection_name)
+        
+        # Récupérer tous les documents (sans filtre)
+        filter_condition = {}
+        
+        # Pour débogage, inclure un paramètre pour voir tous les types de documents
+        include_all_types = True
+        
+        # Utiliser la méthode de l'API qui permet de filtrer sans vecteur de requête
+        search_result = vector_store.client.scroll(
+            collection_name=collection_name,
+            scroll_filter=filter_condition,
+            limit=10000,  # Limite raisonnable pour les emails
+            with_payload=True,
+            with_vectors=False
+        )
+        
+        # Traiter les résultats pour compter par utilisateur et par type
+        user_counts = {}
+        type_counts = {}
+        total_documents = 0
+        metadata_fields = set()  # Pour lister tous les champs de métadonnées disponibles
+        
+        # Parcourir tous les lots de résultats retournés par scroll()
+        for batch in search_result:
+            # Chaque lot contient une liste de points
+            points = batch.points if hasattr(batch, 'points') else []
+            
+            for point in points:
+                # Récupérer les métadonnées du document
+                payload = point.payload if hasattr(point, 'payload') else {}
+                
+                # Collecter tous les champs de métadonnées disponibles
+                if payload:
+                    metadata_fields.update(payload.keys())
+                
+                # Extraire l'utilisateur IMAP
+                user = payload.get("imap_user", None)
+                
+                # Extraire le type de document
+                doc_type = payload.get("document_type", "unknown")
+                source = payload.get("source", "unknown")
+                
+                # Utiliser une combinaison de type et source pour la classification
+                type_key = f"{doc_type} ({source})" if doc_type != "unknown" else source
+                
+                # Compter par type de document
+                if type_key in type_counts:
+                    type_counts[type_key] += 1
+                else:
+                    type_counts[type_key] = 1
+                
+                # Si un utilisateur IMAP est présent, compter par utilisateur
+                if user:
+                    if user in user_counts:
+                        user_counts[user] += 1
+                    else:
+                        user_counts[user] = 1
+                    
+                total_documents += 1
+        
+        # Convertir les statistiques utilisateurs en liste pour le tri
+        user_stats = [
+            {"user": user, "document_count": count}
+            for user, count in user_counts.items()
+        ]
+        
+        # Trier par nombre de documents (ordre décroissant)
+        user_stats.sort(key=lambda x: x["document_count"], reverse=True)
+        
+        # Convertir les statistiques de type en liste pour le tri
+        type_stats = [
+            {"type": doc_type, "count": count}
+            for doc_type, count in type_counts.items()
+        ]
+        
+        # Trier par nombre de documents (ordre décroissant)
+        type_stats.sort(key=lambda x: x["count"], reverse=True)
+        
+        logger.info(f"DOCUMENT COUNT: Found {total_documents} documents, {len(user_stats)} users, {len(type_stats)} types")
+        
+        return {
+            "success": True,
+            "total_documents": total_documents,
+            "user_count": len(user_stats),
+            "type_count": len(type_stats),
+            "users": user_stats,
+            "document_types": type_stats,
+            "available_metadata_fields": list(metadata_fields)
+        }
+        
+    except Exception as e:
+        error_msg = str(e)
+        logger.error(f"EMAIL COUNT ERROR: {error_msg}")
+        logger.error(traceback.format_exc())
+        return {"success": False, "error": error_msg}
 
 
 @app.post("/prompt", response_model=PromptResponse)

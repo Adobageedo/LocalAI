@@ -1,12 +1,12 @@
 {
-  "/Document scanné.pdf": {
-    "doc_id": "6c36c367f1d9483f5e030d7eb4ec5c39",
-    "hash": "314e8e7ceade97d47bd45c7c4e059ae80830164c8abdb1187c232a70b67494ee",
-    "source_path": "/Document scanné.pdf",
-    "last_modified": "2025-05-25T11:27:07+00:00",
-    "last_synced": "2025-05-26T22:03:45.035439",
+  "/2024 GENISSEL Edoardo contrat CDI.pdf": {
+    "doc_id": "fddc75f391f56e7b382045746f8528bf",
+    "hash": "88152f17e87546fc04560ef5330bf3c0cbea8cac65e7489beba4d9962fe68b8d",
+    "source_path": "/2024 GENISSEL Edoardo contrat CDI.pdf",
+    "last_modified": "2025-05-27T12:47:40+00:00",
+    "last_synced": "2025-05-27T18:20:19.954977",
     "metadata": {
-      "file_name": "Document scanné.pdf",
+      "file_name": "2024 GENISSEL Edoardo contrat CDI.pdf",
       "extension": ".pdf"
     }
   },
@@ -15,7 +15,7 @@
     "hash": "11ca7f80c5812f0420f9f24dc8938f8eaa07f63c7f0860aa96c8e4746f74fd16",
     "source_path": "/LDV mémoire cha.pdf",
     "last_modified": "2025-05-25T12:34:39+00:00",
-    "last_synced": "2025-05-26T22:03:46.902253",
+    "last_synced": "2025-05-27T18:20:21.904755",
     "metadata": {
       "file_name": "LDV mémoire cha.pdf",
       "extension": ".pdf"
@@ -26,7 +26,7 @@
     "hash": "5579adaa19a49d7299c8a6a07fec3fa1985ce466a867e366fc8b7f4e1ddabcca",
     "source_path": "/Projet Immo.xlsx",
     "last_modified": "2025-05-26T19:11:58+00:00",
-    "last_synced": "2025-05-26T22:03:54.967714",
+    "last_synced": "2025-05-27T18:20:30.067157",
     "metadata": {
       "file_name": "Projet Immo.xlsx",
       "extension": ".xlsx"
@@ -37,7 +37,7 @@
     "hash": "c341111ab39965e94c246c4f46411d7e8e9637c983b3f41660cc05282ae6cdf0",
     "source_path": "/Readme.md",
     "last_modified": "2025-05-24T21:01:27+00:00",
-    "last_synced": "2025-05-26T22:03:58.223685",
+    "last_synced": "2025-05-27T18:20:31.184366",
     "metadata": {
       "file_name": "Readme.md",
       "extension": ".md"
@@ -48,7 +48,7 @@
     "hash": "68197123e3f697dc909e9abc9dab252743b907d4b81befca76189f704db5baab",
     "source_path": "/Documents/Copie de RAPPORT DE CAS CLINIQUE.docx",
     "last_modified": "2025-05-26T18:39:04+00:00",
-    "last_synced": "2025-05-26T22:04:05.956287",
+    "last_synced": "2025-05-27T18:20:38.210696",
     "metadata": {
       "file_name": "Copie de RAPPORT DE CAS CLINIQUE.docx",
       "extension": ".docx"
@@ -59,7 +59,7 @@
     "hash": "15c1e3a150322a2c43346d0c8550dd7f9bf4634239a5b88ae2f8f3e7303d66fa",
     "source_path": "/Documents/Example.md",
     "last_modified": "2025-05-24T21:01:27+00:00",
-    "last_synced": "2025-05-26T22:04:08.055301",
+    "last_synced": "2025-05-27T18:20:39.864612",
     "metadata": {
       "file_name": "Example.md",
       "extension": ".md"
@@ -70,539 +70,10 @@
     "hash": "83c21981976b200ad259f706d5943ee7452a2eab9875ba6f4642492b6287a3cc",
     "source_path": "/Documents/Readme.md",
     "last_modified": "2025-05-24T21:01:27+00:00",
-    "last_synced": "2025-05-26T22:04:09.202641",
+    "last_synced": "2025-05-27T18:20:41.232507",
     "metadata": {
       "file_name": "Readme.md",
       "extension": ".md"
-    }
-  },
-  "/Documents/Welcome to Nextcloud Hub.docx": {
-    "doc_id": "23c47c48655ac35fcd8f0bb7b0090c16",
-    "hash": "ec70c039261c244f203a2c1900a49d4f5cd4ee4d6d1d12caf592e624fe604aa4",
-    "source_path": "/Documents/Welcome to Nextcloud Hub.docx",
-    "last_modified": "2025-05-24T21:01:27+00:00",
-    "last_synced": "2025-05-26T22:04:11.354447",
-    "metadata": {
-      "file_name": "Welcome to Nextcloud Hub.docx",
-      "extension": ".docx"
-    }
-  },
-  "/Documents/Carte avantage.pdf": {
-    "doc_id": "0aa957d700c7e2fade07a74d29f9f33f",
-    "hash": "760674be70ce47c9c99dc768428c4a211315f369cccbc4bcdd4f7034bc0dd439",
-    "source_path": "/Documents/Carte avantage.pdf",
-    "last_modified": "2025-05-26T20:08:07+00:00",
-    "last_synced": "2025-05-26T22:10:57.194680",
-    "metadata": {
-      "file_name": "Carte avantage.pdf",
-      "extension": ".pdf"
-    }
-  },
-  "/2024 GENISSEL Edoardo contrat CDI.pdf": {
-    "doc_id": "fddc75f391f56e7b382045746f8528bf",
-    "hash": "88152f17e87546fc04560ef5330bf3c0cbea8cac65e7489beba4d9962fe68b8d",
-    "source_path": "/2024 GENISSEL Edoardo contrat CDI.pdf",
-    "last_modified": "2025-05-27T12:47:40+00:00",
-    "last_synced": "2025-05-27T14:47:55.085869",
-    "metadata": {
-      "file_name": "2024 GENISSEL Edoardo contrat CDI.pdf",
-      "extension": ".pdf"
-    }
-  },
-  "/IMAP/edoardogenissel@gmail.com/2025-05-27T07:21:07+00:00/462ec9a9cc787752f02bdf80c7307173": {
-    "doc_id": "462ec9a9cc787752f02bdf80c7307173",
-    "hash": "0147a9f7cb93111b03ffa21c2da6ffe5475508f49a163eae76c08c23cc1f4077",
-    "source_path": "/IMAP/edoardogenissel@gmail.com/2025-05-27T07:21:07+00:00/462ec9a9cc787752f02bdf80c7307173",
-    "last_modified": "2025-05-27T07:21:07+00:00",
-    "last_synced": "2025-05-27T15:23:41.536309",
-    "metadata": {
-      "file_name": "Email: Payez avec l’iPhone, où que vous alliez cet été.",
-      "extension": ".eml"
-    }
-  },
-  "/IMAP/edoardogenissel@gmail.com/2025-05-27T00:30:01-07:00/0a8f5c4de78bd1521f1c551367f57cbe": {
-    "doc_id": "0a8f5c4de78bd1521f1c551367f57cbe",
-    "hash": "6e2c976d2ae7a66c5f309a46a8fae59dee0ced40bcac2f5ac10f8e2e25b09232",
-    "source_path": "/IMAP/edoardogenissel@gmail.com/2025-05-27T00:30:01-07:00/0a8f5c4de78bd1521f1c551367f57cbe",
-    "last_modified": "2025-05-27T00:30:01-07:00",
-    "last_synced": "2025-05-27T15:23:47.507756",
-    "metadata": {
-      "file_name": "Email: [GitHub] Your Dependabot alerts for the week of May 20 - May 27",
-      "extension": ".eml"
-    }
-  },
-  "/IMAP/edoardogenissel@gmail.com/2025-05-27T09:40:26+02:00/2fcc67efc282dbd583670c72a8a030b5": {
-    "doc_id": "2fcc67efc282dbd583670c72a8a030b5",
-    "hash": "1c0c3621a737f894a8f0befd43cccca741449b49d8c420d4e701ab154b8f0536",
-    "source_path": "/IMAP/edoardogenissel@gmail.com/2025-05-27T09:40:26+02:00/2fcc67efc282dbd583670c72a8a030b5",
-    "last_modified": "2025-05-27T09:40:26+02:00",
-    "last_synced": "2025-05-27T15:23:52.575670",
-    "metadata": {
-      "file_name": "Email: Finalisez l'achat de votre article !",
-      "extension": ".eml"
-    }
-  },
-  "/IMAP/edoardogenissel@gmail.com/2025-05-27T07:52:21+00:00/0fbbfa6eddb62ee9a5ee1bc14f9182ce": {
-    "doc_id": "0fbbfa6eddb62ee9a5ee1bc14f9182ce",
-    "hash": "2d0653be407a57022c9ec342dac97b383e31d8eb7070656420a2151bdcd3ea7b",
-    "source_path": "/IMAP/edoardogenissel@gmail.com/2025-05-27T07:52:21+00:00/0fbbfa6eddb62ee9a5ee1bc14f9182ce",
-    "last_modified": "2025-05-27T07:52:21+00:00",
-    "last_synced": "2025-05-27T15:24:00.115219",
-    "metadata": {
-      "file_name": "Email: “project manager” : Canva - Project Coordinator – Commercial Fit-Outs (6-Month Contract) et plus encore",
-      "extension": ".eml"
-    }
-  },
-  "/IMAP/edoardogenissel@gmail.com/2025-05-27T08:02:01+00:00/9e00dfb6df40e5fcbf1355bd138e9b6c": {
-    "doc_id": "9e00dfb6df40e5fcbf1355bd138e9b6c",
-    "hash": "f97413cad3e7ae6300ac7241962775f066f1be13cc03f1179f954331adc977bb",
-    "source_path": "/IMAP/edoardogenissel@gmail.com/2025-05-27T08:02:01+00:00/9e00dfb6df40e5fcbf1355bd138e9b6c",
-    "last_modified": "2025-05-27T08:02:01+00:00",
-    "last_synced": "2025-05-27T15:24:02.304738",
-    "metadata": {
-      "file_name": "Email: Mise à jour du logiciel interne de votre appareil Amazon",
-      "extension": ".eml"
-    }
-  },
-  "/IMAP/edoardogenissel@gmail.com/2025-05-27T10:25:26+02:00/5f30ce049b3edea7302ab9ed2db3f9d0": {
-    "doc_id": "5f30ce049b3edea7302ab9ed2db3f9d0",
-    "hash": "79c162e1e9fc9d3fb862b9c07b4e3f31224c8436806315c2152aea71316a124d",
-    "source_path": "/IMAP/edoardogenissel@gmail.com/2025-05-27T10:25:26+02:00/5f30ce049b3edea7302ab9ed2db3f9d0",
-    "last_modified": "2025-05-27T10:25:26+02:00",
-    "last_synced": "2025-05-27T15:24:07.477516",
-    "metadata": {
-      "file_name": "Email: 3 idées de destinations en Auvergne-Rhône-Alpes !",
-      "extension": ".eml"
-    }
-  },
-  "/IMAP/edoardogenissel@gmail.com/2025-05-27T10:29:52+02:00/ef7a6863dd5bcb23b055eb8949860b6c": {
-    "doc_id": "ef7a6863dd5bcb23b055eb8949860b6c",
-    "hash": "8e1b66f5a7c02a504b3410af683096afc7d4cd62998fd5398701c78b8e8bc354",
-    "source_path": "/IMAP/edoardogenissel@gmail.com/2025-05-27T10:29:52+02:00/ef7a6863dd5bcb23b055eb8949860b6c",
-    "last_modified": "2025-05-27T10:29:52+02:00",
-    "last_synced": "2025-05-27T15:24:09.372241",
-    "metadata": {
-      "file_name": "Email: Votre colis 13063186 a été pris en charge",
-      "extension": ".eml"
-    }
-  },
-  "/IMAP/edoardogenissel@gmail.com/2025-05-27T09:12:38+00:00/4c4c98100d83c623766ec489303e32ba": {
-    "doc_id": "4c4c98100d83c623766ec489303e32ba",
-    "hash": "c98f1d3a70be5e19404a82646950e50e7574b9178a4755b5b0dd7b1f8c518d0b",
-    "source_path": "/IMAP/edoardogenissel@gmail.com/2025-05-27T09:12:38+00:00/4c4c98100d83c623766ec489303e32ba",
-    "last_modified": "2025-05-27T09:12:38+00:00",
-    "last_synced": "2025-05-27T15:24:13.676299",
-    "metadata": {
-      "file_name": "Email: Votre ventre fait tout trembler ? 🫨",
-      "extension": ".eml"
-    }
-  },
-  "/IMAP/edoardogenissel@gmail.com/2025-05-27T05:16:57-04:00/6fc7731b565c5403797ca02184a167fc": {
-    "doc_id": "6fc7731b565c5403797ca02184a167fc",
-    "hash": "0baae53c41f012d10239ee2bc5590c8c9c140bcc87f574284530c63e112e308e",
-    "source_path": "/IMAP/edoardogenissel@gmail.com/2025-05-27T05:16:57-04:00/6fc7731b565c5403797ca02184a167fc",
-    "last_modified": "2025-05-27T05:16:57-04:00",
-    "last_synced": "2025-05-27T15:24:16.372892",
-    "metadata": {
-      "file_name": "Email: Edoardo, explore your future with INSEAD, join us in Paris",
-      "extension": ".eml"
-    }
-  },
-  "/IMAP/edoardogenissel@gmail.com/2025-05-27T02:20:52-07:00/8275f591730f542c9a7e7eae7b97ffb9": {
-    "doc_id": "8275f591730f542c9a7e7eae7b97ffb9",
-    "hash": "e902e76568dbdefa76acfcc80ec9b98156ae58cdf6c8131f8496f326e79eff67",
-    "source_path": "/IMAP/edoardogenissel@gmail.com/2025-05-27T02:20:52-07:00/8275f591730f542c9a7e7eae7b97ffb9",
-    "last_modified": "2025-05-27T02:20:52-07:00",
-    "last_synced": "2025-05-27T15:24:18.088852",
-    "metadata": {
-      "file_name": "Email: Vous devez confirmer ou annuler votre réservationRLFGX2",
-      "extension": ".eml"
-    }
-  },
-  "/IMAP/edoardogenissel@gmail.com/2025-05-27T02:41:24-07:00/04e98605b8374949160904e73a2dd3ea": {
-    "doc_id": "04e98605b8374949160904e73a2dd3ea",
-    "hash": "5fa700573433cd781c3a5f1f807a2dabb16ad85d08ca15a6705fa835837c4cd2",
-    "source_path": "/IMAP/edoardogenissel@gmail.com/2025-05-27T02:41:24-07:00/04e98605b8374949160904e73a2dd3ea",
-    "last_modified": "2025-05-27T02:41:24-07:00",
-    "last_synced": "2025-05-27T15:24:19.071084",
-    "metadata": {
-      "file_name": "Email: Votre voyage à BOURG EN BRESSE du 30/05/2025",
-      "extension": ".eml"
-    }
-  },
-  "/IMAP/edoardogenissel@gmail.com/2025-05-27T09:55:10+00:00/92ada850e700579db17ffa46236cf604": {
-    "doc_id": "92ada850e700579db17ffa46236cf604",
-    "hash": "a2ebc6c0a33db083ae0ab29a96e4b4174ccf68e4fca60adb5656e935d2c0c47f",
-    "source_path": "/IMAP/edoardogenissel@gmail.com/2025-05-27T09:55:10+00:00/92ada850e700579db17ffa46236cf604",
-    "last_modified": "2025-05-27T09:55:10+00:00",
-    "last_synced": "2025-05-27T15:24:24.146861",
-    "metadata": {
-      "file_name": "Email: 1 nouvelle offre d’emploi pour “renewable”",
-      "extension": ".eml"
-    }
-  },
-  "/IMAP/edoardogenissel@gmail.com/2025-05-27T12:03:18+02:00/99d06a022a09cd756307c95c4a6bd130": {
-    "doc_id": "99d06a022a09cd756307c95c4a6bd130",
-    "hash": "ca94eb538e36f5e2b4a29cb2ea69d7229ad36897340cf8f4f6958da04d735675",
-    "source_path": "/IMAP/edoardogenissel@gmail.com/2025-05-27T12:03:18+02:00/99d06a022a09cd756307c95c4a6bd130",
-    "last_modified": "2025-05-27T12:03:18+02:00",
-    "last_synced": "2025-05-27T15:24:27.607498",
-    "metadata": {
-      "file_name": "Email: Début du procès de Bastien Vivès, jugé pour \"fixation et diffusion d’images\" pédopornographiques",
-      "extension": ".eml"
-    }
-  },
-  "/IMAP/edoardogenissel@gmail.com/2025-05-27T10:05:33+00:00/175448d3a3ea15dd6b505c226b85d241": {
-    "doc_id": "175448d3a3ea15dd6b505c226b85d241",
-    "hash": "4a2e7a4381cf0dfb4eff11154d980e46c9655f8589a103827efb143dae5e6948",
-    "source_path": "/IMAP/edoardogenissel@gmail.com/2025-05-27T10:05:33+00:00/175448d3a3ea15dd6b505c226b85d241",
-    "last_modified": "2025-05-27T10:05:33+00:00",
-    "last_synced": "2025-05-27T15:24:30.789380",
-    "metadata": {
-      "file_name": "Email: Water wars",
-      "extension": ".eml"
-    }
-  },
-  "/IMAP/edoardogenissel@gmail.com/2025-05-27T10:08:03+00:00/2e8694f986e4a795527ffb9236d1becf": {
-    "doc_id": "2e8694f986e4a795527ffb9236d1becf",
-    "hash": "2646e6e6d3cf6be29e15d829c28bb7e8d02ecaa020ef238d6309ab67baeaf908",
-    "source_path": "/IMAP/edoardogenissel@gmail.com/2025-05-27T10:08:03+00:00/2e8694f986e4a795527ffb9236d1becf",
-    "last_modified": "2025-05-27T10:08:03+00:00",
-    "last_synced": "2025-05-27T15:24:33.678205",
-    "metadata": {
-      "file_name": "Email: 🔥 Les prix réduits c’estpar ici",
-      "extension": ".eml"
-    }
-  },
-  "/IMAP/edoardogenissel@gmail.com/2025-05-27T10:13:08+00:00/3ce883ea1736a945289a083e3a23bfdd": {
-    "doc_id": "3ce883ea1736a945289a083e3a23bfdd",
-    "hash": "047a3bf7b0eaedac4a89d7f05b450a44a4aaabf11a4069cb6fa5e08cebc94616",
-    "source_path": "/IMAP/edoardogenissel@gmail.com/2025-05-27T10:13:08+00:00/3ce883ea1736a945289a083e3a23bfdd",
-    "last_modified": "2025-05-27T10:13:08+00:00",
-    "last_synced": "2025-05-27T15:24:35.240303",
-    "metadata": {
-      "file_name": "Email: Edoardo, vos achats sont Heureux ou Remboursés",
-      "extension": ".eml"
-    }
-  },
-  "/IMAP/edoardogenissel@gmail.com/2025-05-27T12:21:33+02:00/caa8c198aaf3dc95dd36c47aae27281f": {
-    "doc_id": "caa8c198aaf3dc95dd36c47aae27281f",
-    "hash": "4219b718467ba6622452e25eabe950137e82a058d15444d0e85873aa83a4ec9c",
-    "source_path": "/IMAP/edoardogenissel@gmail.com/2025-05-27T12:21:33+02:00/caa8c198aaf3dc95dd36c47aae27281f",
-    "last_modified": "2025-05-27T12:21:33+02:00",
-    "last_synced": "2025-05-27T15:24:38.097578",
-    "metadata": {
-      "file_name": "Email: Proposition de loi agricole : une magouille navrante pour accélérer des reculs écologiques",
-      "extension": ".eml"
-    }
-  },
-  "/IMAP/edoardogenissel@gmail.com/2025-05-27T10:40:27+00:00/daab388a5b79d15ae5a9a23e09ee49cc": {
-    "doc_id": "daab388a5b79d15ae5a9a23e09ee49cc",
-    "hash": "604a7f53933c3974d6c334c0c607b31bb72b8b3acc09de2524e2524dfa75c0b2",
-    "source_path": "/IMAP/edoardogenissel@gmail.com/2025-05-27T10:40:27+00:00/daab388a5b79d15ae5a9a23e09ee49cc",
-    "last_modified": "2025-05-27T10:40:27+00:00",
-    "last_synced": "2025-05-27T15:24:41.625128",
-    "metadata": {
-      "file_name": "Email: Journal numérique - Mercredi 28 mai 2025",
-      "extension": ".eml"
-    }
-  },
-  "/IMAP/edoardogenissel@gmail.com/2025-05-27T10:45:16+00:00/ca2d0a7f6fdf847f4550b21a58b73f95": {
-    "doc_id": "ca2d0a7f6fdf847f4550b21a58b73f95",
-    "hash": "ee8c00ed5a1712fc1e9c7d70ed9f5621241f43d1b01be6a045b4898d6bea49de",
-    "source_path": "/IMAP/edoardogenissel@gmail.com/2025-05-27T10:45:16+00:00/ca2d0a7f6fdf847f4550b21a58b73f95",
-    "last_modified": "2025-05-27T10:45:16+00:00",
-    "last_synced": "2025-05-27T15:24:46.593279",
-    "metadata": {
-      "file_name": "Email: Le Point de midi – L'IA a votre smartphone dans le viseur",
-      "extension": ".eml"
-    }
-  },
-  "/IMAP/edoardogenissel@gmail.com/2025-05-27T11:25:56+00:00/0e0a29ae70beeb8d1e82c3225d3444bb": {
-    "doc_id": "0e0a29ae70beeb8d1e82c3225d3444bb",
-    "hash": "5cb82f454e318a74e38a5a65e6cef5dc23d26c3a06334316828193cff0429517",
-    "source_path": "/IMAP/edoardogenissel@gmail.com/2025-05-27T11:25:56+00:00/0e0a29ae70beeb8d1e82c3225d3444bb",
-    "last_modified": "2025-05-27T11:25:56+00:00",
-    "last_synced": "2025-05-27T15:24:52.609417",
-    "metadata": {
-      "file_name": "Email: Musk to address SpaceX staff",
-      "extension": ".eml"
-    }
-  },
-  "/IMAP/edoardogenissel@gmail.com/2025-05-27T13:36:59+02:00/9f5e2d823e1c9efaa15172ec6d02a7bc": {
-    "doc_id": "9f5e2d823e1c9efaa15172ec6d02a7bc",
-    "hash": "cb20b7677d29402f7e9acd27a3a598dc69835680136e90fb189e1e74d4a6c8ec",
-    "source_path": "/IMAP/edoardogenissel@gmail.com/2025-05-27T13:36:59+02:00/9f5e2d823e1c9efaa15172ec6d02a7bc",
-    "last_modified": "2025-05-27T13:36:59+02:00",
-    "last_synced": "2025-05-27T15:24:55.475316",
-    "metadata": {
-      "file_name": "Email: «Nous ne pouvons plus nous contenter du mot “horreur”, il faut aujourd’hui nommer le “génocide” à Gaza»",
-      "extension": ".eml"
-    }
-  },
-  "/IMAP/edoardogenissel@gmail.com/2025-05-27T12:04:03+00:00/55357a3eb971a87466fd21718a5b8243": {
-    "doc_id": "55357a3eb971a87466fd21718a5b8243",
-    "hash": "ee8db8cce98222d91037aa1f7cc7e497e9de0f05b44df277ca27739fcaf12244",
-    "source_path": "/IMAP/edoardogenissel@gmail.com/2025-05-27T12:04:03+00:00/55357a3eb971a87466fd21718a5b8243",
-    "last_modified": "2025-05-27T12:04:03+00:00",
-    "last_synced": "2025-05-27T15:24:59.731542",
-    "metadata": {
-      "file_name": "Email: Solar freedom from China has a price",
-      "extension": ".eml"
-    }
-  },
-  "/IMAP/edoardogenissel@gmail.com/2025-05-27T12:37:10+00:00/d650470ebb917662068f7b68989e5b5c": {
-    "doc_id": "d650470ebb917662068f7b68989e5b5c",
-    "hash": "0b77323a54a96a02b2fc8423a0db6fe69984a2c03e38a84719978a3c76b55dcd",
-    "source_path": "/IMAP/edoardogenissel@gmail.com/2025-05-27T12:37:10+00:00/d650470ebb917662068f7b68989e5b5c",
-    "last_modified": "2025-05-27T12:37:10+00:00",
-    "last_synced": "2025-05-27T15:25:02.481347",
-    "metadata": {
-      "file_name": "Email: (Australie) : un nouveau job",
-      "extension": ".eml"
-    }
-  },
-  "/IMAP/edoardogenissel@gmail.com/2025-05-27T13:09:06+00:00/431b37ea6827b73b1cba959885ed8981": {
-    "doc_id": "431b37ea6827b73b1cba959885ed8981",
-    "hash": "dd9c5280dea6e3879fa2ef77003d7f126ed8956dfae6a77cdb50b250ee48279b",
-    "source_path": "/IMAP/edoardogenissel@gmail.com/2025-05-27T13:09:06+00:00/431b37ea6827b73b1cba959885ed8981",
-    "last_modified": "2025-05-27T13:09:06+00:00",
-    "last_synced": "2025-05-27T15:25:03.545673",
-    "metadata": {
-      "file_name": "Email: Alerte de sécurité",
-      "extension": ".eml"
-    }
-  },
-  "/IMAP/edoardogenissel@gmail.com/2025-05-27T13:08:59+00:00/f3f176ba1c179c10376d3bdc6fab44bb": {
-    "doc_id": "f3f176ba1c179c10376d3bdc6fab44bb",
-    "hash": "9e157dc51eecffa041227ea5a5bb2a7028daaf9028b00eb2f487fe1b59cfd7ed",
-    "source_path": "/IMAP/edoardogenissel@gmail.com/2025-05-27T13:08:59+00:00/f3f176ba1c179c10376d3bdc6fab44bb",
-    "last_modified": "2025-05-27T13:08:59+00:00",
-    "last_synced": "2025-05-27T15:25:04.558236",
-    "metadata": {
-      "file_name": "Email: Alerte de sécurité",
-      "extension": ".eml"
-    }
-  },
-  "/IMAP/noreply@newsflix.fr/2025-04-18T10:34:23+02:00/11c97d82b5e84b966f070d0c3119503d": {
-    "doc_id": "11c97d82b5e84b966f070d0c3119503d",
-    "hash": "f26ebfe09898f6ff1923b12ae43aab97fc9aa5ba4021908cf3a778e4c51caa54",
-    "source_path": "/IMAP/noreply@newsflix.fr/2025-04-18T10:34:23+02:00/11c97d82b5e84b966f070d0c3119503d",
-    "last_modified": "2025-04-18T10:34:23+02:00",
-    "last_synced": "2025-05-27T15:51:44.092125",
-    "metadata": {
-      "file_name": "Email: Fwd: Rapport de Maintenance - FR_SEWA - WTG WTG_1",
-      "extension": ".eml"
-    }
-  },
-  "/IMAP/noreply@newsflix.fr/2025-04-18T10:34:32+02:00/38edee75d427ed9b31fec650aa7bfd20": {
-    "doc_id": "38edee75d427ed9b31fec650aa7bfd20",
-    "hash": "cc32160b769916ae529dd8c3d0098b040b580e2be910d4917f9063ac85b5d4a2",
-    "source_path": "/IMAP/noreply@newsflix.fr/2025-04-18T10:34:32+02:00/38edee75d427ed9b31fec650aa7bfd20",
-    "last_modified": "2025-04-18T10:34:32+02:00",
-    "last_synced": "2025-05-27T15:51:45.975344",
-    "metadata": {
-      "file_name": "Email: Fwd: [Pharmacie Du Four Bonaparte] Confirmation de commande",
-      "extension": ".eml"
-    }
-  },
-  "/IMAP/noreply@newsflix.fr/2025-04-18T10:34:32+02:00/38edee75d427ed9b31fec650aa7bfd20/attachments/#FA072742.pdf": {
-    "doc_id": "38edee75d427ed9b31fec650aa7bfd20_att1",
-    "hash": "09a151b4dea2388e019c7f433ddfc7d3870857fe2d21559b8a71557e37c5e5bb",
-    "source_path": "/IMAP/noreply@newsflix.fr/2025-04-18T10:34:32+02:00/38edee75d427ed9b31fec650aa7bfd20/attachments/#FA072742.pdf",
-    "last_modified": "2025-04-18T10:34:32+02:00",
-    "last_synced": "2025-05-27T15:51:47.196438",
-    "metadata": {
-      "file_name": "#FA072742.pdf",
-      "extension": ".pdf",
-      "parent_email_id": "38edee75d427ed9b31fec650aa7bfd20"
-    }
-  },
-  "/IMAP/noreply@newsflix.fr/2025-04-18T10:34:45+02:00/e1378946b62c219dfe2bafb7b3b5a5f5": {
-    "doc_id": "e1378946b62c219dfe2bafb7b3b5a5f5",
-    "hash": "37dd0fda1668191e31d0504b30ca944ad0232e05681c2d309bd01a0199dddc3e",
-    "source_path": "/IMAP/noreply@newsflix.fr/2025-04-18T10:34:45+02:00/e1378946b62c219dfe2bafb7b3b5a5f5",
-    "last_modified": "2025-04-18T10:34:45+02:00",
-    "last_synced": "2025-05-27T15:51:49.426562",
-    "metadata": {
-      "file_name": "Email: Fwd: [eleves] Réfection FabLab",
-      "extension": ".eml"
-    }
-  },
-  "/IMAP/noreply@newsflix.fr/2025-04-18T10:34:57+02:00/3d50b013f92d3e563f8129d2a5e689e5": {
-    "doc_id": "3d50b013f92d3e563f8129d2a5e689e5",
-    "hash": "a92e9dffa8e1f16a05d0a784010308ad55825269b3bbcc23a759e0bd7b00e1cc",
-    "source_path": "/IMAP/noreply@newsflix.fr/2025-04-18T10:34:57+02:00/3d50b013f92d3e563f8129d2a5e689e5",
-    "last_modified": "2025-04-18T10:34:57+02:00",
-    "last_synced": "2025-05-27T15:51:50.810359",
-    "metadata": {
-      "file_name": "Email: Fwd: [eleves] ERRATUM: Liste des candidatures aux élections du 8 avril sa",
-      "extension": ".eml"
-    }
-  },
-  "/IMAP/noreply@newsflix.fr/2025-04-18T10:34:57+02:00/3d50b013f92d3e563f8129d2a5e689e5/attachments/CANDIDATS AUX ELECTIONS 2025 - COLLEGE DES ELEVES INGENIEURS.pdf": {
-    "doc_id": "3d50b013f92d3e563f8129d2a5e689e5_att1",
-    "hash": "07f94f3b485c1ddd3eca1b26cac1484989ed077001440ae5391cf4fe23f419ec",
-    "source_path": "/IMAP/noreply@newsflix.fr/2025-04-18T10:34:57+02:00/3d50b013f92d3e563f8129d2a5e689e5/attachments/CANDIDATS AUX ELECTIONS 2025 - COLLEGE DES ELEVES INGENIEURS.pdf",
-    "last_modified": "2025-04-18T10:34:57+02:00",
-    "last_synced": "2025-05-27T15:51:51.998878",
-    "metadata": {
-      "file_name": "CANDIDATS AUX ELECTIONS 2025 - COLLEGE DES ELEVES INGENIEURS.pdf",
-      "extension": ".pdf",
-      "parent_email_id": "3d50b013f92d3e563f8129d2a5e689e5"
-    }
-  },
-  "/IMAP/noreply@newsflix.fr/2025-04-18T10:35:18+02:00/eb15c51daf42a1d3c2ee6f9e6e756da2": {
-    "doc_id": "eb15c51daf42a1d3c2ee6f9e6e756da2",
-    "hash": "1d2fe6e066cb6c0072dc0e1eccd98c4d5fd55bfc7f363f95d2100d84dfe7e1a8",
-    "source_path": "/IMAP/noreply@newsflix.fr/2025-04-18T10:35:18+02:00/eb15c51daf42a1d3c2ee6f9e6e756da2",
-    "last_modified": "2025-04-18T10:35:18+02:00",
-    "last_synced": "2025-05-27T15:51:53.890916",
-    "metadata": {
-      "file_name": "Email: Fwd: Devis 281 rue Paul Bert",
-      "extension": ".eml"
-    }
-  },
-  "/IMAP/noreply@newsflix.fr/2025-04-18T10:35:18+02:00/eb15c51daf42a1d3c2ee6f9e6e756da2/attachments/DEVIS 135 Paul Bert.pdf": {
-    "doc_id": "eb15c51daf42a1d3c2ee6f9e6e756da2_att1",
-    "hash": "d12608509d9119b06871338299f4ec2406e9d1fbc5a7fe2223f0358e3abb449e",
-    "source_path": "/IMAP/noreply@newsflix.fr/2025-04-18T10:35:18+02:00/eb15c51daf42a1d3c2ee6f9e6e756da2/attachments/DEVIS 135 Paul Bert.pdf",
-    "last_modified": "2025-04-18T10:35:18+02:00",
-    "last_synced": "2025-05-27T15:51:54.739405",
-    "metadata": {
-      "file_name": "DEVIS 135 Paul Bert.pdf",
-      "extension": ".pdf",
-      "parent_email_id": "eb15c51daf42a1d3c2ee6f9e6e756da2"
-    }
-  },
-  "/IMAP/noreply@newsflix.fr/2025-04-19T22:26:56+02:00/d321053ce3cfdd286957d5c041952a4e": {
-    "doc_id": "d321053ce3cfdd286957d5c041952a4e",
-    "hash": "187e1ef4a319bd045184c06b474c649cbd20240c0711544cf766b3bc8454110c",
-    "source_path": "/IMAP/noreply@newsflix.fr/2025-04-19T22:26:56+02:00/d321053ce3cfdd286957d5c041952a4e",
-    "last_modified": "2025-04-19T22:26:56+02:00",
-    "last_synced": "2025-05-27T15:51:56.858290",
-    "metadata": {
-      "file_name": "Email: Fwd: [eleves] Invitation au Challenge CodinGame – Relevez le défi dès le 3 avril à 15h30 !",
-      "extension": ".eml"
-    }
-  },
-  "/IMAP/noreply@newsflix.fr/2025-04-30T13:58:58+02:00/d1fd3215c2c79bc272f79cdb13820ac9": {
-    "doc_id": "d1fd3215c2c79bc272f79cdb13820ac9",
-    "hash": "b85a46013ae31c457b1a800d4223470a4f5e61086f0c3f9b519e9f1b5b593e76",
-    "source_path": "/IMAP/noreply@newsflix.fr/2025-04-30T13:58:58+02:00/d1fd3215c2c79bc272f79cdb13820ac9",
-    "last_modified": "2025-04-30T13:58:58+02:00",
-    "last_synced": "2025-05-27T15:51:58.286553",
-    "metadata": {
-      "file_name": "Email: Fwd: Bon de livraison Vorwerk France",
-      "extension": ".eml"
-    }
-  },
-  "/IMAP/noreply@newsflix.fr/2025-04-30T13:58:58+02:00/d1fd3215c2c79bc272f79cdb13820ac9/attachments/image001.png": {
-    "doc_id": "d1fd3215c2c79bc272f79cdb13820ac9_att1",
-    "hash": "c4f0ae9c015993b2653734d3c2543e401a7280f94b2d70a645f89e2151ce75b0",
-    "source_path": "/IMAP/noreply@newsflix.fr/2025-04-30T13:58:58+02:00/d1fd3215c2c79bc272f79cdb13820ac9/attachments/image001.png",
-    "last_modified": "2025-04-30T13:58:58+02:00",
-    "last_synced": "2025-05-27T15:51:58.301983",
-    "metadata": {
-      "file_name": "image001.png",
-      "extension": ".png",
-      "parent_email_id": "d1fd3215c2c79bc272f79cdb13820ac9"
-    }
-  },
-  "/IMAP/noreply@newsflix.fr/2025-04-30T13:58:58+02:00/d1fd3215c2c79bc272f79cdb13820ac9/attachments/image002.png": {
-    "doc_id": "d1fd3215c2c79bc272f79cdb13820ac9_att2",
-    "hash": "9b980e595bb69562883a6852f651791b041e9dbf9a4c6dfec6ba6fc293dd94d4",
-    "source_path": "/IMAP/noreply@newsflix.fr/2025-04-30T13:58:58+02:00/d1fd3215c2c79bc272f79cdb13820ac9/attachments/image002.png",
-    "last_modified": "2025-04-30T13:58:58+02:00",
-    "last_synced": "2025-05-27T15:51:58.315507",
-    "metadata": {
-      "file_name": "image002.png",
-      "extension": ".png",
-      "parent_email_id": "d1fd3215c2c79bc272f79cdb13820ac9"
-    }
-  },
-  "/IMAP/noreply@newsflix.fr/2025-04-30T13:58:58+02:00/d1fd3215c2c79bc272f79cdb13820ac9/attachments/image003.png": {
-    "doc_id": "d1fd3215c2c79bc272f79cdb13820ac9_att3",
-    "hash": "f7d2f505d222f127e605c4bf1db963013ec3f1025f9f0ad0a39260c0c8bd625d",
-    "source_path": "/IMAP/noreply@newsflix.fr/2025-04-30T13:58:58+02:00/d1fd3215c2c79bc272f79cdb13820ac9/attachments/image003.png",
-    "last_modified": "2025-04-30T13:58:58+02:00",
-    "last_synced": "2025-05-27T15:51:58.327803",
-    "metadata": {
-      "file_name": "image003.png",
-      "extension": ".png",
-      "parent_email_id": "d1fd3215c2c79bc272f79cdb13820ac9"
-    }
-  },
-  "/IMAP/noreply@newsflix.fr/2025-04-30T13:58:58+02:00/d1fd3215c2c79bc272f79cdb13820ac9/attachments/image004.png": {
-    "doc_id": "d1fd3215c2c79bc272f79cdb13820ac9_att4",
-    "hash": "afebb8b0f40c1e23af45b121f378f7f0ce69b359152016f0659fb2c58f13aaa8",
-    "source_path": "/IMAP/noreply@newsflix.fr/2025-04-30T13:58:58+02:00/d1fd3215c2c79bc272f79cdb13820ac9/attachments/image004.png",
-    "last_modified": "2025-04-30T13:58:58+02:00",
-    "last_synced": "2025-05-27T15:51:58.340733",
-    "metadata": {
-      "file_name": "image004.png",
-      "extension": ".png",
-      "parent_email_id": "d1fd3215c2c79bc272f79cdb13820ac9"
-    }
-  },
-  "/IMAP/noreply@newsflix.fr/2025-04-30T13:58:58+02:00/d1fd3215c2c79bc272f79cdb13820ac9/attachments/image005.png": {
-    "doc_id": "d1fd3215c2c79bc272f79cdb13820ac9_att5",
-    "hash": "945f348e1a529fe7562f7cb6333726abf6e2139d993fb6612abc8f69b4d2c8ec",
-    "source_path": "/IMAP/noreply@newsflix.fr/2025-04-30T13:58:58+02:00/d1fd3215c2c79bc272f79cdb13820ac9/attachments/image005.png",
-    "last_modified": "2025-04-30T13:58:58+02:00",
-    "last_synced": "2025-05-27T15:51:58.353486",
-    "metadata": {
-      "file_name": "image005.png",
-      "extension": ".png",
-      "parent_email_id": "d1fd3215c2c79bc272f79cdb13820ac9"
-    }
-  },
-  "/IMAP/noreply@newsflix.fr/2025-04-30T13:58:58+02:00/d1fd3215c2c79bc272f79cdb13820ac9/attachments/image006.png": {
-    "doc_id": "d1fd3215c2c79bc272f79cdb13820ac9_att6",
-    "hash": "457ec3524ae7c34e40dd0bedcdb766a618adb9d9ee52b3c9b5e3bc40ff57f9d8",
-    "source_path": "/IMAP/noreply@newsflix.fr/2025-04-30T13:58:58+02:00/d1fd3215c2c79bc272f79cdb13820ac9/attachments/image006.png",
-    "last_modified": "2025-04-30T13:58:58+02:00",
-    "last_synced": "2025-05-27T15:51:58.365369",
-    "metadata": {
-      "file_name": "image006.png",
-      "extension": ".png",
-      "parent_email_id": "d1fd3215c2c79bc272f79cdb13820ac9"
-    }
-  },
-  "/IMAP/noreply@newsflix.fr/2025-04-30T13:58:58+02:00/d1fd3215c2c79bc272f79cdb13820ac9/attachments/image007.png": {
-    "doc_id": "d1fd3215c2c79bc272f79cdb13820ac9_att7",
-    "hash": "0af7a292aad28667ba160e326898ad8819da1c21fdc4f362d222121d07960ff3",
-    "source_path": "/IMAP/noreply@newsflix.fr/2025-04-30T13:58:58+02:00/d1fd3215c2c79bc272f79cdb13820ac9/attachments/image007.png",
-    "last_modified": "2025-04-30T13:58:58+02:00",
-    "last_synced": "2025-05-27T15:51:58.379243",
-    "metadata": {
-      "file_name": "image007.png",
-      "extension": ".png",
-      "parent_email_id": "d1fd3215c2c79bc272f79cdb13820ac9"
-    }
-  },
-  "/IMAP/noreply@newsflix.fr/2025-04-30T13:58:58+02:00/d1fd3215c2c79bc272f79cdb13820ac9/attachments/image008.png": {
-    "doc_id": "d1fd3215c2c79bc272f79cdb13820ac9_att8",
-    "hash": "f4ffa2fa24ac883d4e9ca373bd37907aa0cee4937ce242471a39f9def4ead9a2",
-    "source_path": "/IMAP/noreply@newsflix.fr/2025-04-30T13:58:58+02:00/d1fd3215c2c79bc272f79cdb13820ac9/attachments/image008.png",
-    "last_modified": "2025-04-30T13:58:58+02:00",
-    "last_synced": "2025-05-27T15:51:58.391644",
-    "metadata": {
-      "file_name": "image008.png",
-      "extension": ".png",
-      "parent_email_id": "d1fd3215c2c79bc272f79cdb13820ac9"
-    }
-  },
-  "/IMAP/noreply@newsflix.fr/2025-04-30T13:58:58+02:00/d1fd3215c2c79bc272f79cdb13820ac9/attachments/1817296923.PDF": {
-    "doc_id": "d1fd3215c2c79bc272f79cdb13820ac9_att9",
-    "hash": "38bcedce80255cc0b10f260de8ce6dd1ecab62a89e40158b5c502b9892944841",
-    "source_path": "/IMAP/noreply@newsflix.fr/2025-04-30T13:58:58+02:00/d1fd3215c2c79bc272f79cdb13820ac9/attachments/1817296923.PDF",
-    "last_modified": "2025-04-30T13:58:58+02:00",
-    "last_synced": "2025-05-27T15:51:59.352282",
-    "metadata": {
-      "file_name": "1817296923.PDF",
-      "extension": ".PDF",
-      "parent_email_id": "d1fd3215c2c79bc272f79cdb13820ac9"
     }
   }
 }
