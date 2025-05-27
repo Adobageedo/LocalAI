@@ -202,12 +202,6 @@ server {
 }
 EOF
 
-# 6. Démarrage des services Docker
-echo "Démarrage des services Docker..."
-cd /Users/edoardo/Documents/LocalAI
-docker-compose down
-docker-compose up -d
-
 echo ""
 echo "=================================================================="
 echo "Configuration terminée !"
