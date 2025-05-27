@@ -75,5 +75,226 @@
       "file_name": "Readme.md",
       "extension": ".md"
     }
+  },
+  "/IMAP/noreply@newsflix.fr/2025-04-18T10:34:23+02:00/11c97d82b5e84b966f070d0c3119503d": {
+    "doc_id": "11c97d82b5e84b966f070d0c3119503d",
+    "hash": "f26ebfe09898f6ff1923b12ae43aab97fc9aa5ba4021908cf3a778e4c51caa54",
+    "source_path": "/IMAP/noreply@newsflix.fr/2025-04-18T10:34:23+02:00/11c97d82b5e84b966f070d0c3119503d",
+    "last_modified": "2025-04-18T10:34:23+02:00",
+    "last_synced": "2025-05-27T20:54:02.066401",
+    "metadata": {
+      "file_name": "Email: Fwd: Rapport de Maintenance - FR_SEWA - WTG WTG_1",
+      "extension": ".eml"
+    }
+  },
+  "/IMAP/noreply@newsflix.fr/2025-04-18T10:34:32+02:00/38edee75d427ed9b31fec650aa7bfd20": {
+    "doc_id": "38edee75d427ed9b31fec650aa7bfd20",
+    "hash": "cc32160b769916ae529dd8c3d0098b040b580e2be910d4917f9063ac85b5d4a2",
+    "source_path": "/IMAP/noreply@newsflix.fr/2025-04-18T10:34:32+02:00/38edee75d427ed9b31fec650aa7bfd20",
+    "last_modified": "2025-04-18T10:34:32+02:00",
+    "last_synced": "2025-05-27T20:54:05.970414",
+    "metadata": {
+      "file_name": "Email: Fwd: [Pharmacie Du Four Bonaparte] Confirmation de commande",
+      "extension": ".eml"
+    }
+  },
+  "/IMAP/noreply@newsflix.fr/2025-04-18T10:34:32+02:00/38edee75d427ed9b31fec650aa7bfd20/attachments/#FA072742.pdf": {
+    "doc_id": "38edee75d427ed9b31fec650aa7bfd20_att1",
+    "hash": "09a151b4dea2388e019c7f433ddfc7d3870857fe2d21559b8a71557e37c5e5bb",
+    "source_path": "/IMAP/noreply@newsflix.fr/2025-04-18T10:34:32+02:00/38edee75d427ed9b31fec650aa7bfd20/attachments/#FA072742.pdf",
+    "last_modified": "2025-04-18T10:34:32+02:00",
+    "last_synced": "2025-05-27T20:54:07.062535",
+    "metadata": {
+      "file_name": "#FA072742.pdf",
+      "extension": ".pdf",
+      "parent_email_id": "38edee75d427ed9b31fec650aa7bfd20"
+    }
+  },
+  "/IMAP/noreply@newsflix.fr/2025-04-18T10:34:45+02:00/e1378946b62c219dfe2bafb7b3b5a5f5": {
+    "doc_id": "e1378946b62c219dfe2bafb7b3b5a5f5",
+    "hash": "37dd0fda1668191e31d0504b30ca944ad0232e05681c2d309bd01a0199dddc3e",
+    "source_path": "/IMAP/noreply@newsflix.fr/2025-04-18T10:34:45+02:00/e1378946b62c219dfe2bafb7b3b5a5f5",
+    "last_modified": "2025-04-18T10:34:45+02:00",
+    "last_synced": "2025-05-27T20:54:09.669012",
+    "metadata": {
+      "file_name": "Email: Fwd: [eleves] Réfection FabLab",
+      "extension": ".eml"
+    }
+  },
+  "/IMAP/noreply@newsflix.fr/2025-04-18T10:34:57+02:00/3d50b013f92d3e563f8129d2a5e689e5": {
+    "doc_id": "3d50b013f92d3e563f8129d2a5e689e5",
+    "hash": "a92e9dffa8e1f16a05d0a784010308ad55825269b3bbcc23a759e0bd7b00e1cc",
+    "source_path": "/IMAP/noreply@newsflix.fr/2025-04-18T10:34:57+02:00/3d50b013f92d3e563f8129d2a5e689e5",
+    "last_modified": "2025-04-18T10:34:57+02:00",
+    "last_synced": "2025-05-27T20:54:11.576000",
+    "metadata": {
+      "file_name": "Email: Fwd: [eleves] ERRATUM: Liste des candidatures aux élections du 8 avril sa",
+      "extension": ".eml"
+    }
+  },
+  "/IMAP/noreply@newsflix.fr/2025-04-18T10:34:57+02:00/3d50b013f92d3e563f8129d2a5e689e5/attachments/CANDIDATS AUX ELECTIONS 2025 - COLLEGE DES ELEVES INGENIEURS.pdf": {
+    "doc_id": "3d50b013f92d3e563f8129d2a5e689e5_att1",
+    "hash": "07f94f3b485c1ddd3eca1b26cac1484989ed077001440ae5391cf4fe23f419ec",
+    "source_path": "/IMAP/noreply@newsflix.fr/2025-04-18T10:34:57+02:00/3d50b013f92d3e563f8129d2a5e689e5/attachments/CANDIDATS AUX ELECTIONS 2025 - COLLEGE DES ELEVES INGENIEURS.pdf",
+    "last_modified": "2025-04-18T10:34:57+02:00",
+    "last_synced": "2025-05-27T20:54:13.116836",
+    "metadata": {
+      "file_name": "CANDIDATS AUX ELECTIONS 2025 - COLLEGE DES ELEVES INGENIEURS.pdf",
+      "extension": ".pdf",
+      "parent_email_id": "3d50b013f92d3e563f8129d2a5e689e5"
+    }
+  },
+  "/IMAP/noreply@newsflix.fr/2025-04-18T10:35:18+02:00/eb15c51daf42a1d3c2ee6f9e6e756da2": {
+    "doc_id": "eb15c51daf42a1d3c2ee6f9e6e756da2",
+    "hash": "1d2fe6e066cb6c0072dc0e1eccd98c4d5fd55bfc7f363f95d2100d84dfe7e1a8",
+    "source_path": "/IMAP/noreply@newsflix.fr/2025-04-18T10:35:18+02:00/eb15c51daf42a1d3c2ee6f9e6e756da2",
+    "last_modified": "2025-04-18T10:35:18+02:00",
+    "last_synced": "2025-05-27T20:54:14.226857",
+    "metadata": {
+      "file_name": "Email: Fwd: Devis 281 rue Paul Bert",
+      "extension": ".eml"
+    }
+  },
+  "/IMAP/noreply@newsflix.fr/2025-04-18T10:35:18+02:00/eb15c51daf42a1d3c2ee6f9e6e756da2/attachments/DEVIS 135 Paul Bert.pdf": {
+    "doc_id": "eb15c51daf42a1d3c2ee6f9e6e756da2_att1",
+    "hash": "d12608509d9119b06871338299f4ec2406e9d1fbc5a7fe2223f0358e3abb449e",
+    "source_path": "/IMAP/noreply@newsflix.fr/2025-04-18T10:35:18+02:00/eb15c51daf42a1d3c2ee6f9e6e756da2/attachments/DEVIS 135 Paul Bert.pdf",
+    "last_modified": "2025-04-18T10:35:18+02:00",
+    "last_synced": "2025-05-27T20:54:15.374524",
+    "metadata": {
+      "file_name": "DEVIS 135 Paul Bert.pdf",
+      "extension": ".pdf",
+      "parent_email_id": "eb15c51daf42a1d3c2ee6f9e6e756da2"
+    }
+  },
+  "/IMAP/noreply@newsflix.fr/2025-04-19T22:26:56+02:00/d321053ce3cfdd286957d5c041952a4e": {
+    "doc_id": "d321053ce3cfdd286957d5c041952a4e",
+    "hash": "187e1ef4a319bd045184c06b474c649cbd20240c0711544cf766b3bc8454110c",
+    "source_path": "/IMAP/noreply@newsflix.fr/2025-04-19T22:26:56+02:00/d321053ce3cfdd286957d5c041952a4e",
+    "last_modified": "2025-04-19T22:26:56+02:00",
+    "last_synced": "2025-05-27T20:54:17.011982",
+    "metadata": {
+      "file_name": "Email: Fwd: [eleves] Invitation au Challenge CodinGame – Relevez le défi dès le 3 avril à 15h30 !",
+      "extension": ".eml"
+    }
+  },
+  "/IMAP/noreply@newsflix.fr/2025-04-30T13:58:58+02:00/d1fd3215c2c79bc272f79cdb13820ac9": {
+    "doc_id": "d1fd3215c2c79bc272f79cdb13820ac9",
+    "hash": "b85a46013ae31c457b1a800d4223470a4f5e61086f0c3f9b519e9f1b5b593e76",
+    "source_path": "/IMAP/noreply@newsflix.fr/2025-04-30T13:58:58+02:00/d1fd3215c2c79bc272f79cdb13820ac9",
+    "last_modified": "2025-04-30T13:58:58+02:00",
+    "last_synced": "2025-05-27T20:54:20.869721",
+    "metadata": {
+      "file_name": "Email: Fwd: Bon de livraison Vorwerk France",
+      "extension": ".eml"
+    }
+  },
+  "/IMAP/noreply@newsflix.fr/2025-04-30T13:58:58+02:00/d1fd3215c2c79bc272f79cdb13820ac9/attachments/image001.png": {
+    "doc_id": "d1fd3215c2c79bc272f79cdb13820ac9_att1",
+    "hash": "c4f0ae9c015993b2653734d3c2543e401a7280f94b2d70a645f89e2151ce75b0",
+    "source_path": "/IMAP/noreply@newsflix.fr/2025-04-30T13:58:58+02:00/d1fd3215c2c79bc272f79cdb13820ac9/attachments/image001.png",
+    "last_modified": "2025-04-30T13:58:58+02:00",
+    "last_synced": "2025-05-27T20:54:20.897902",
+    "metadata": {
+      "file_name": "image001.png",
+      "extension": ".png",
+      "parent_email_id": "d1fd3215c2c79bc272f79cdb13820ac9"
+    }
+  },
+  "/IMAP/noreply@newsflix.fr/2025-04-30T13:58:58+02:00/d1fd3215c2c79bc272f79cdb13820ac9/attachments/image002.png": {
+    "doc_id": "d1fd3215c2c79bc272f79cdb13820ac9_att2",
+    "hash": "9b980e595bb69562883a6852f651791b041e9dbf9a4c6dfec6ba6fc293dd94d4",
+    "source_path": "/IMAP/noreply@newsflix.fr/2025-04-30T13:58:58+02:00/d1fd3215c2c79bc272f79cdb13820ac9/attachments/image002.png",
+    "last_modified": "2025-04-30T13:58:58+02:00",
+    "last_synced": "2025-05-27T20:54:20.924626",
+    "metadata": {
+      "file_name": "image002.png",
+      "extension": ".png",
+      "parent_email_id": "d1fd3215c2c79bc272f79cdb13820ac9"
+    }
+  },
+  "/IMAP/noreply@newsflix.fr/2025-04-30T13:58:58+02:00/d1fd3215c2c79bc272f79cdb13820ac9/attachments/image003.png": {
+    "doc_id": "d1fd3215c2c79bc272f79cdb13820ac9_att3",
+    "hash": "f7d2f505d222f127e605c4bf1db963013ec3f1025f9f0ad0a39260c0c8bd625d",
+    "source_path": "/IMAP/noreply@newsflix.fr/2025-04-30T13:58:58+02:00/d1fd3215c2c79bc272f79cdb13820ac9/attachments/image003.png",
+    "last_modified": "2025-04-30T13:58:58+02:00",
+    "last_synced": "2025-05-27T20:54:20.950722",
+    "metadata": {
+      "file_name": "image003.png",
+      "extension": ".png",
+      "parent_email_id": "d1fd3215c2c79bc272f79cdb13820ac9"
+    }
+  },
+  "/IMAP/noreply@newsflix.fr/2025-04-30T13:58:58+02:00/d1fd3215c2c79bc272f79cdb13820ac9/attachments/image004.png": {
+    "doc_id": "d1fd3215c2c79bc272f79cdb13820ac9_att4",
+    "hash": "afebb8b0f40c1e23af45b121f378f7f0ce69b359152016f0659fb2c58f13aaa8",
+    "source_path": "/IMAP/noreply@newsflix.fr/2025-04-30T13:58:58+02:00/d1fd3215c2c79bc272f79cdb13820ac9/attachments/image004.png",
+    "last_modified": "2025-04-30T13:58:58+02:00",
+    "last_synced": "2025-05-27T20:54:20.977106",
+    "metadata": {
+      "file_name": "image004.png",
+      "extension": ".png",
+      "parent_email_id": "d1fd3215c2c79bc272f79cdb13820ac9"
+    }
+  },
+  "/IMAP/noreply@newsflix.fr/2025-04-30T13:58:58+02:00/d1fd3215c2c79bc272f79cdb13820ac9/attachments/image005.png": {
+    "doc_id": "d1fd3215c2c79bc272f79cdb13820ac9_att5",
+    "hash": "945f348e1a529fe7562f7cb6333726abf6e2139d993fb6612abc8f69b4d2c8ec",
+    "source_path": "/IMAP/noreply@newsflix.fr/2025-04-30T13:58:58+02:00/d1fd3215c2c79bc272f79cdb13820ac9/attachments/image005.png",
+    "last_modified": "2025-04-30T13:58:58+02:00",
+    "last_synced": "2025-05-27T20:54:21.003967",
+    "metadata": {
+      "file_name": "image005.png",
+      "extension": ".png",
+      "parent_email_id": "d1fd3215c2c79bc272f79cdb13820ac9"
+    }
+  },
+  "/IMAP/noreply@newsflix.fr/2025-04-30T13:58:58+02:00/d1fd3215c2c79bc272f79cdb13820ac9/attachments/image006.png": {
+    "doc_id": "d1fd3215c2c79bc272f79cdb13820ac9_att6",
+    "hash": "457ec3524ae7c34e40dd0bedcdb766a618adb9d9ee52b3c9b5e3bc40ff57f9d8",
+    "source_path": "/IMAP/noreply@newsflix.fr/2025-04-30T13:58:58+02:00/d1fd3215c2c79bc272f79cdb13820ac9/attachments/image006.png",
+    "last_modified": "2025-04-30T13:58:58+02:00",
+    "last_synced": "2025-05-27T20:54:21.029783",
+    "metadata": {
+      "file_name": "image006.png",
+      "extension": ".png",
+      "parent_email_id": "d1fd3215c2c79bc272f79cdb13820ac9"
+    }
+  },
+  "/IMAP/noreply@newsflix.fr/2025-04-30T13:58:58+02:00/d1fd3215c2c79bc272f79cdb13820ac9/attachments/image007.png": {
+    "doc_id": "d1fd3215c2c79bc272f79cdb13820ac9_att7",
+    "hash": "0af7a292aad28667ba160e326898ad8819da1c21fdc4f362d222121d07960ff3",
+    "source_path": "/IMAP/noreply@newsflix.fr/2025-04-30T13:58:58+02:00/d1fd3215c2c79bc272f79cdb13820ac9/attachments/image007.png",
+    "last_modified": "2025-04-30T13:58:58+02:00",
+    "last_synced": "2025-05-27T20:54:21.055727",
+    "metadata": {
+      "file_name": "image007.png",
+      "extension": ".png",
+      "parent_email_id": "d1fd3215c2c79bc272f79cdb13820ac9"
+    }
+  },
+  "/IMAP/noreply@newsflix.fr/2025-04-30T13:58:58+02:00/d1fd3215c2c79bc272f79cdb13820ac9/attachments/image008.png": {
+    "doc_id": "d1fd3215c2c79bc272f79cdb13820ac9_att8",
+    "hash": "f4ffa2fa24ac883d4e9ca373bd37907aa0cee4937ce242471a39f9def4ead9a2",
+    "source_path": "/IMAP/noreply@newsflix.fr/2025-04-30T13:58:58+02:00/d1fd3215c2c79bc272f79cdb13820ac9/attachments/image008.png",
+    "last_modified": "2025-04-30T13:58:58+02:00",
+    "last_synced": "2025-05-27T20:54:21.081812",
+    "metadata": {
+      "file_name": "image008.png",
+      "extension": ".png",
+      "parent_email_id": "d1fd3215c2c79bc272f79cdb13820ac9"
+    }
+  },
+  "/IMAP/noreply@newsflix.fr/2025-04-30T13:58:58+02:00/d1fd3215c2c79bc272f79cdb13820ac9/attachments/1817296923.PDF": {
+    "doc_id": "d1fd3215c2c79bc272f79cdb13820ac9_att9",
+    "hash": "38bcedce80255cc0b10f260de8ce6dd1ecab62a89e40158b5c502b9892944841",
+    "source_path": "/IMAP/noreply@newsflix.fr/2025-04-30T13:58:58+02:00/d1fd3215c2c79bc272f79cdb13820ac9/attachments/1817296923.PDF",
+    "last_modified": "2025-04-30T13:58:58+02:00",
+    "last_synced": "2025-05-27T20:54:21.985282",
+    "metadata": {
+      "file_name": "1817296923.PDF",
+      "extension": ".PDF",
+      "parent_email_id": "d1fd3215c2c79bc272f79cdb13820ac9"
+    }
   }
 }

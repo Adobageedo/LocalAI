@@ -44,13 +44,15 @@ logging.getLogger("chardet").setLevel(logging.WARNING)
 app = FastAPI()
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 
+# Import des routeurs
 from .openai_compat import router as openai_router
 from .nextcloud_router import router as nextcloud_router
 from .source_router import router as source_router
 
-app.include_router(openai_router)
-app.include_router(nextcloud_router)
-app.include_router(source_router)
+# Configuration des préfixes API centralisée
+app.include_router(openai_router, prefix="/api")
+app.include_router(nextcloud_router, prefix="/api/nextcloud")
+app.include_router(source_router, prefix="/api")
 
 # Chemins à exclure de la vérification d'authentification
 AUTH_EXCLUDE_PATHS = [
@@ -67,10 +69,12 @@ AUTH_EXCLUDE_PATHS = [
     "/api/auth/validate",  # Route de validation du token
     "/api/auth/token",  # Route de token
     "/api/auth/refresh",  # Route de refresh
-    "/api/count-by-type",  # Route de comptage par type
-    "/documents/count-by-type",  # Route de comptage par type
-    "/api/nextcloud/",
-    "/api/auth/validate"
+    "/api/documents/count-by-type",  # Route de comptage par type
+    "/api/nextcloud/",  # Routes Nextcloud
+    "/api/ingest/imap",  # Ingestion IMAP
+    "/api/ingest/imap/status",  # Statut d'ingestion IMAP
+    "/api/documents",  # Liste des documents
+    "/api/prompt"  # Endpoint pour les prompts IA
 ]
 
 # Authentification désactivée explicitement
@@ -146,11 +150,11 @@ class ImapCredentials(BaseModel):
     save_email_body: bool = True
     delete_after_import: bool = False  # Whether to mark emails as deleted after import
 
-@app.get("/ingest/imap/status")
+@app.get("/api/ingest/imap/status")
 def get_ingest_status(user: str):
     return {"status": get_imap_status(user)}
 
-@app.post("/ingest/imap")
+@app.post("/api/ingest/imap")
 def ingest_imap_emails(creds: ImapCredentials):
     # Utiliser les valeurs de configuration et d'environnement si non spécifiées
     config = load_config()
@@ -227,7 +231,7 @@ def ingest_imap_emails(creds: ImapCredentials):
         return {"success": False, "error": error_msg}
 
 
-@app.get("/documents/count-by-type")
+@app.get("/api/documents/count-by-type")
 def count_documents_by_type():
     collection = os.getenv("COLLECTION_NAME", "rag_documents")
     manager = VectorStoreManager(collection)
@@ -300,7 +304,7 @@ def count_documents_by_type():
     type_counts = {k: len(v) for k, v in type_to_names.items()}
     return {"counts": type_counts, "details": type_to_names}
 
-@app.get("/documents")
+@app.get("/api/documents")
 def list_documents(q: Optional[str] = Query(None), page: int = 1, page_size: int = 2000, use_registry: bool = Query(True)):
     collection = os.getenv("COLLECTION_NAME", "rag_documents1536")
     docs = []
@@ -492,7 +496,7 @@ import shutil
 import tempfile
 from update_vdb.sources.document_ingest import fetch_and_sync_documents
 
-@app.post("/documents")
+@app.post("/api/documents")
 def upload_documents(files: List[UploadFile] = File(...), background_tasks: BackgroundTasks = None):
     print(f"[DEBUG] Received {len(files)} files for import.", flush=True)
     logger.info(f"RECEIVED: Received {len(files)} files for import.")
@@ -565,7 +569,7 @@ def upload_documents(files: List[UploadFile] = File(...), background_tasks: Back
         "message": "Ingestion started in background. Files will be removed after processing."
     }
 
-@app.delete("/documents/{doc_id}")
+@app.delete("/api/documents/{doc_id}")
 def delete_document(doc_id: str):
     logger.info(f"DELETION: Starting deletion of document {doc_id}")
     collection = os.getenv("COLLECTION_NAME", "rag_documents1536")
@@ -602,7 +606,7 @@ def health_check():
     return {"status": "ok", "timestamp": datetime.datetime.now().isoformat()}
 
 
-@app.get("/documents/stats")
+@app.get("/api/documents/stats")
 def get_document_stats():
     """Récupère le nombre d'emails ingérés par utilisateur dans Qdrant."""
     try:
@@ -711,7 +715,7 @@ def get_document_stats():
         return {"success": False, "error": error_msg}
 
 
-@app.post("/prompt", response_model=PromptResponse)
+@app.post("/api/prompt", response_model=PromptResponse)
 def prompt_ia(data: dict):
     question = data.get("question")
     if not question:

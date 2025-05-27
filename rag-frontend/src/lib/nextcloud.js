@@ -13,7 +13,7 @@ const apiClient = axios.create({
 const checkNextcloudStatus = async () => {
   try {
     console.log('[NEXTCLOUD API] Vérification de l\'accessibilité de Nextcloud');
-    const response = await apiClient.get('/api/nextcloud/status');
+    const response = await apiClient.get('/nextcloud/status');
     console.log('[NEXTCLOUD API] Nextcloud est accessible');
     return true;
   } catch (error) {
@@ -36,7 +36,7 @@ class NextcloudService {
       console.log(`[NEXTCLOUD API] Listing du répertoire: ${path}`);
       
       // Appel à notre API backend qui fait le proxy vers Nextcloud
-      const response = await apiClient.get(`/api/nextcloud/files?path=${encodeURIComponent(path)}`);
+      const response = await apiClient.get(`/nextcloud/files?path=${encodeURIComponent(path)}`);
       console.log(`[NEXTCLOUD API] Récupéré les éléments du répertoire avec succès`);
       
       return response.data.files;
@@ -56,7 +56,7 @@ class NextcloudService {
       console.log(`[NEXTCLOUD API] Création du répertoire: ${path}`);
       
       // Appel à l'API backend pour créer un dossier
-      const response = await apiClient.post('/api/nextcloud/directory', { path });
+      const response = await apiClient.post('/nextcloud/directory', { path });
       console.log(`[NEXTCLOUD API] Répertoire créé avec succès: ${path}`);
       
       return true;
@@ -76,7 +76,7 @@ class NextcloudService {
       console.log(`[NEXTCLOUD API] Téléchargement du fichier: ${path}`);
       
       // Appel à notre API backend pour télécharger le fichier
-      const response = await apiClient.get(`/api/nextcloud/download?path=${encodeURIComponent(path)}`, {
+      const response = await apiClient.get(`/nextcloud/download?path=${encodeURIComponent(path)}`, {
         responseType: 'arraybuffer'
       });
       console.log(`[NEXTCLOUD API] Fichier téléchargé avec succès: ${path}`);
@@ -123,7 +123,7 @@ class NextcloudService {
       formData.append('path', parentPath);
       
       // Appel à notre API backend pour uploader le fichier
-      await apiClient.post('/api/nextcloud/upload', formData);
+      await apiClient.post('/nextcloud/upload', formData);
       console.log(`[NEXTCLOUD API] Fichier téléversé avec succès: ${path}`);
       
       return true;
@@ -143,7 +143,7 @@ class NextcloudService {
       console.log(`[NEXTCLOUD API] Suppression de l'élément: ${path}`);
       
       // Appel à l'API backend pour supprimer un fichier/dossier
-      await apiClient.delete(`/api/nextcloud/files?path=${encodeURIComponent(path)}`);
+      await apiClient.delete(`//nextcloud/files?path=${encodeURIComponent(path)}`);
       console.log(`[NEXTCLOUD API] Élément ${path} supprimé avec succès`);
       
       return true;
@@ -164,7 +164,7 @@ class NextcloudService {
       console.log(`[NEXTCLOUD API] Déplacement de ${oldPath} vers ${newPath}`);
       
       // Appel à l'API backend pour déplacer un fichier/dossier
-      await apiClient.post('/api/nextcloud/move', {
+      await apiClient.post('/nextcloud/move', {
         sourcePath: oldPath,
         targetPath: newPath
       });
@@ -188,7 +188,7 @@ class NextcloudService {
       console.log(`[NEXTCLOUD API] Copie de ${sourcePath} vers ${targetPath}`);
       
       // Appel à l'API backend pour copier un fichier/dossier
-      await apiClient.post('/api/nextcloud/copy', {
+      await apiClient.post('/nextcloud/copy', {
         sourcePath: sourcePath,
         targetPath: targetPath
       });
@@ -271,7 +271,7 @@ class NextcloudService {
       console.log(`[NEXTCLOUD API] Création du partage pour: ${path}`);
       
       // Appel à l'API backend pour créer un partage
-      const response = await apiClient.post('/api/nextcloud/shares', {
+      const response = await apiClient.post('/nextcloud/shares', {
         path,
         permissions,
         shareWith,
@@ -295,7 +295,7 @@ class NextcloudService {
       console.log('[NEXTCLOUD API] Récupération des partages');
       
       // Appel à l'API backend pour récupérer les partages
-      const response = await apiClient.get('/api/nextcloud/shares');
+      const response = await apiClient.get('/nextcloud/shares');
       
       console.log('[NEXTCLOUD API] Partages récupérés avec succès');
       return response.data.shares;
@@ -315,7 +315,7 @@ class NextcloudService {
       console.log(`[NEXTCLOUD API] Suppression du partage: ${shareId}`);
       
       // Appel à l'API backend pour supprimer un partage
-      await apiClient.delete(`/api/nextcloud/shares/${shareId}`);
+      await apiClient.delete(`/nextcloud/shares/${shareId}`);
       
       console.log(`[NEXTCLOUD API] Partage ${shareId} supprimé avec succès`);
       return true;

@@ -21,7 +21,8 @@ from rag_engine.config import load_config
 logger = logging.getLogger(__name__)
 
 # Création du routeur FastAPI pour Nextcloud
-router = APIRouter(prefix="/api/nextcloud", tags=["nextcloud"])
+# Note: Le préfixe /api/nextcloud est maintenant défini dans main.py
+router = APIRouter(tags=["nextcloud"])
 
 # Configuration Nextcloud à partir des variables d'environnement
 NEXTCLOUD_URL = os.getenv("NEXTCLOUD_URL", "http://localhost:8080")
