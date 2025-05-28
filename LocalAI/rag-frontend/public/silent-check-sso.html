@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>Silent SSO Check</title>
+</head>
+<body>
+    <script>
+        // Cette page est utilisée par Keycloak pour vérifier si l'utilisateur est connecté
+        // sans interrompre l'expérience utilisateur
+        parent.postMessage(location.href, location.origin);
+    </script>
+</body>
+</html>

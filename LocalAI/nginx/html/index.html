@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LocalAI - Site statique</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        header {
+            background-color: #0078d7;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .content {
+            padding: 20px;
+            background-color: #f5f5f5;
+            border-radius: 5px;
+        }
+        .secure-badge {
+            background-color: #2ecc71;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-weight: bold;
+            display: inline-block;
+            margin-top: 10px;
+        }
+        footer {
+            margin-top: 20px;
+            text-align: center;
+            font-size: 0.8em;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>LocalAI</h1>
+        <p>Site web statique servi par Nginx avec HTTPS</p>
+        <div class="secure-badge">🔒 Connexion sécurisée</div>
+    </header>
+    
+    <div class="content">
+        <h2>Test réussi !</h2>
+        <p>Si vous voyez cette page, votre serveur Nginx en conteneur Docker est correctement configuré et fonctionne parfaitement avec HTTPS.</p>
+        
+        <h3>Votre infrastructure :</h3>
+        <ul>
+            <li><strong>Nginx</strong> - Serveur web et proxy inverse</li>
+            <li><strong>Qdrant</strong> - Base de données vectorielle</li>
+            <li><strong>API RAG</strong> - Accessible via /api/</li>
+            <li><strong>Nextcloud</strong> - Accessible via /nextcloud/</li>
+        </ul>
+        
+        <p>Date et heure du test : <span id="datetime"></span></p>
+        <script>
+            document.getElementById("datetime").textContent = new Date().toLocaleString();
+        </script>
+    </div>
+    
+    <footer>
+        <p>&copy; 2025 LocalAI - Tous droits réservés</p>
+    </footer>
+</body>
+</html>
