@@ -76,11 +76,10 @@ def get_outlook_token(client_id: str, client_secret: str, tenant_id: str, token_
             with open(token_path, 'r') as token_file:
                 token_cache.deserialize(token_file.read())
         
-        # Créer l'application MSAL comme client confidentiel (avec secret)
-        # Nous utilisons le client_secret pour l'échange de tokens
-        app = msal.ConfidentialClientApplication(
+        # Créer l'application MSAL comme client public
+        # C'est plus adapté pour une application bureau où l'utilisateur est présent
+        app = msal.PublicClientApplication(
             client_id=client_id,
-            client_credential=client_secret,  # Important: utiliser le client_secret ici
             authority=f"https://login.microsoftonline.com/{tenant_id}",
             token_cache=token_cache
         )
@@ -91,56 +90,26 @@ def get_outlook_token(client_id: str, client_secret: str, tenant_id: str, token_
         
         if accounts:
             # Si un compte est déjà connecté, utiliser le refresh token
+            logger.info(f"Compte trouvé dans le cache : {accounts[0].get('username', 'compte inconnu')}")
             result = app.acquire_token_silent(SCOPES, account=accounts[0])
         
         if not result:
-            # Nous allons utiliser un client public temporaire pour l'authentification initiale
-            # car c'est plus simple pour l'utilisateur en ligne de commande
-            from msal import PublicClientApplication
-            public_app = PublicClientApplication(
-                client_id=client_id,
-                authority=f"https://login.microsoftonline.com/{tenant_id}"
+            logger.info("Aucun token valide trouvé, lancement de l'authentification interactive")
+            
+            # Pour une application bureau, utiliser le flux d'authentification avec serveur local
+            # comme pour Gmail, qui est plus convivial pour l'utilisateur
+            result = app.acquire_token_interactive(
+                scopes=SCOPES,
+                prompt="select_account",  # Permet à l'utilisateur de choisir un compte
+                redirect_uri="http://localhost",  # URI de redirection explicite 
+                port=0  # Port aléatoire pour le serveur local
             )
             
-            # Initialiser le flux de code d'appareil (device code flow)
-            # qui est idéal pour les applications CLI
-            device_flow = public_app.initiate_device_flow(scopes=SCOPES)
-            
-            if "user_code" not in device_flow:
-                error_msg = device_flow.get('error_description', 'Erreur inconnue')
-                logger.error(f"Erreur lors de l'initialisation du flux de code d'appareil: {error_msg}")
-                raise Exception(f"Impossible d'obtenir le code d'appareil: {error_msg}")
-            
-            # Afficher les instructions pour l'utilisateur
-            print("\n" + "=" * 80)
-            print(device_flow["message"])
-            print("=" * 80 + "\n")
-            
-            # Attendre que l'utilisateur se soit authentifié
-            public_result = public_app.acquire_token_by_device_flow(device_flow)
-            
             # Vérifier si l'authentification a réussi
-            if "error" in public_result:
-                error_msg = public_result.get("error_description", "Erreur inconnue")
-                logger.error(f"Erreur lors de l'authentification: {error_msg}")
+            if "error" in result:
+                error_msg = result.get("error_description", "Erreur inconnue")
+                logger.error(f"Erreur lors de l'authentification interactive: {error_msg}")
                 raise Exception(f"Échec de l'authentification: {error_msg}")
-                
-            # Maintenant, nous avons besoin d'obtenir un token avec notre client confidentiel
-            # en utilisant le code d'autorisation que nous avons reçu
-            logger.info("Authentification réussie avec le client public, obtention du token avec client confidentiel...")
-            
-            # Utiliser le client confidentiel avec client_secret pour obtenir le token final
-            # en utilisant le code d'autorisation ou le refresh token selon ce qui est disponible
-            if "refresh_token" in public_result:
-                # Si nous avons un refresh token, l'utiliser avec le client confidentiel
-                result = app.acquire_token_by_refresh_token(
-                    public_result["refresh_token"],
-                    scopes=SCOPES
-                )
-            else:
-                # Si nous n'avons pas de refresh token, c'est un problème
-                logger.error("Aucun refresh token reçu du flux d'authentification")
-                raise Exception("Aucun refresh token reçu du flux d'authentification")
         
         # Sauvegarder le token pour les prochaines fois
         if token_cache.has_state_changed:

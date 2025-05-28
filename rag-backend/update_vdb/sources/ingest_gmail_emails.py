@@ -65,13 +65,17 @@ def get_gmail_service(credentials_path: str, token_path: str) -> Any:
     """
     creds = None
     
-    # Charger les credentials depuis .env
+    # Charger les credentials depuis les variables d'environnement
     client_id = os.getenv("GMAIL_CLIENT_ID")
     client_secret = os.getenv("GMAIL_CLIENT_SECRET")
     redirect_uri = os.getenv("GMAIL_REDIRECT_URI")
-
-    if not all([client_id, client_secret, redirect_uri]):
-        raise EnvironmentError("Variables .env manquantes pour OAuth2")
+    
+    # Vérifier que les variables essentielles sont présentes
+    if not all([client_id, client_secret]):
+        raise EnvironmentError("Variables GMAIL_CLIENT_ID et GMAIL_CLIENT_SECRET manquantes dans .env")
+    
+    # Informer l'utilisateur
+    logger.info(f"Utilisation des credentials depuis les variables d'environnement")
 
     # Vérifier si un token existe déjà
     if os.path.exists(token_path):
@@ -83,19 +87,20 @@ def get_gmail_service(credentials_path: str, token_path: str) -> Any:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
         else:
+            # Créer le flux d'authentification à partir des variables d'environnement
             flow = InstalledAppFlow.from_client_config(
                 {
                     "installed": {
                         "client_id": client_id,
                         "client_secret": client_secret,
                         "redirect_uris": [redirect_uri],
-                        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-                        "token_uri": "https://oauth2.googleapis.com/token"
+                        "auth_uri": os.getenv("GMAIL_AUTH_URI", "https://accounts.google.com/o/oauth2/auth"),
+                        "token_uri": os.getenv("GMAIL_TOKEN_URI", "https://oauth2.googleapis.com/token"),
+                        "auth_provider_x509_cert_url": os.getenv("GMAIL_AUTH_PROVIDER_X509_CERT_URL", "https://www.googleapis.com/oauth2/v1/certs")
                     }
                 },
                 SCOPES
             )
-            #flow = InstalledAppFlow.from_client_secrets_file(credentials_path, SCOPES)
             creds = flow.run_local_server(port=0)
         
         # Sauvegarder les credentials pour la prochaine exécution
@@ -222,7 +227,8 @@ def parse_gmail_message(message: Dict, gmail_service: Any, user: str) -> Optiona
                         attachments.append(EmailAttachment(
                             filename=filename,
                             content=content,
-                            content_type=mime_type
+                            content_type=mime_type,
+                            parent_email_id=temp_doc_id  # Ajouter l'ID de l'email parent
                         ))
                 
                 # Traiter les parties imbriquées
@@ -600,7 +606,7 @@ def ingest_gmail_emails_to_qdrant(
 def main():
     """Point d'entrée principal du script."""
     parser = argparse.ArgumentParser(description="Ingestion d'emails Gmail dans Qdrant avec authentification OAuth2.")
-    parser.add_argument('--credentials', default="credentials.json", help='Chemin vers le fichier de credentials OAuth2 (à télécharger depuis Google Cloud Console)')
+    parser.add_argument('--credentials', default="credentials.json", help='Chemin vers le fichier de credentials OAuth2 (optionnel, utilise .env par défaut)')
     parser.add_argument('--token', default="token.pickle", help='Chemin pour stocker le token d\'authentification')
     parser.add_argument('--labels', nargs='+', default=['INBOX', 'SENT'], help='Labels Gmail à traiter (liste séparée par des espaces)')
     parser.add_argument('--query', default=None, help='Requête de recherche Gmail (ex: "after:2023/01/01 before:2023/12/31")')

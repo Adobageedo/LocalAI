@@ -16,9 +16,9 @@ export default function MailImport() {
           onChange={e => setMode(e.target.value)}
           className="border px-3 py-2 rounded"
         >
-          <option value="imap">IMAP</option>
           <option value="gmail">Gmail</option>
           <option value="outlook">Outlook</option>
+          <option value="imap">IMAP</option>
         </select>
       </div>
       {mode === "imap" && <ImapConnect />}
