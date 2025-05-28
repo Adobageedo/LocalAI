@@ -1,0 +1,25 @@
+{
+    "manifest_version": 3,
+    "name": "Gmail AI Reply",
+    "description": "Ajouter une réponse automatique par AI aux emails dans Gmail.",
+    "version": "1.0",
+    "permissions": [
+      "activeTab",
+      "identity",
+      "https://mail.google.com/",
+      "https://your-api-url.com/*"
+    ],
+    "background": {
+      "service_worker": "background.js"
+    },
+    "content_scripts": [
+      {
+        "matches": ["https://mail.google.com/*"],
+        "js": ["content.js"]
+      }
+    ],
+    "host_permissions": [
+      "https://mail.google.com/*"
+    ]
+  }
+  
