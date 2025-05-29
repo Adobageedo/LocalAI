@@ -134,6 +134,7 @@ services:
     volumes:
       - ./rag-backend:/app  # Pour le développement, permet de modifier les fichiers en direct
       - ./rag-backend/data:/app/data  # Persistence des données (registre JSON)
+      - /tmp:/tmp  
     depends_on:
       - qdrant
       - nextcloud

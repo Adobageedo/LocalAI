@@ -9,7 +9,9 @@ import subprocess
 import json
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Request, status, BackgroundTasks
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import StreamingResponse, JSONResponse, HTMLResponse
+from google_auth_oauthlib.flow import Flow
+import pathlib
 from pydantic import BaseModel
 
 # Configuration
@@ -36,8 +38,85 @@ OUTLOOK_TOKEN_PATH = os.getenv("OUTLOOK_TOKEN_PATH", "outlook_token.json")
 
 # Initialisation du router et du logger
 # Note: Le préfixe /api est maintenant défini dans main.py
-router = APIRouter(prefix="/sources", tags=["sources"])
+router = APIRouter(tags=["sources"])
 logger = logging.getLogger(__name__)
+
+@router.get("/gmail/ingest_status")
+async def gmail_ingest_status():
+    import json, os
+    status_path = "/tmp/gmail_ingest_status.json"
+    if os.path.exists(status_path):
+        try:
+            with open(status_path, encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            return {"subject": None, "error": str(e)}
+    return {"subject": None}
+
+@router.get("/gmail/auth_url")
+async def get_gmail_auth_url():
+    logger.debug("[GMAIL OAUTH] Checking for existing token at %s", GMAIL_TOKEN_PATH)
+    # Check if token exists (simple file check, adapt as needed)
+    if pathlib.Path(GMAIL_TOKEN_PATH).exists():
+        logger.debug("[GMAIL OAUTH] Token found. Already authenticated.")
+        return JSONResponse({"authenticated": True})
+    # Otherwise, generate the OAuth URL
+    flow = Flow.from_client_config(
+        {
+            "web": {
+                "client_id": GMAIL_CLIENT_ID,
+                "client_secret": GMAIL_CLIENT_SECRET,
+                "redirect_uris": [GMAIL_REDIRECT_URI + "/api/sources/gmail/oauth2callback"],
+                "auth_uri": os.getenv("GMAIL_AUTH_URI"),
+                "token_uri": os.getenv("GMAIL_TOKEN_URI"),
+            }
+        },
+        scopes=["https://www.googleapis.com/auth/gmail.readonly"],
+        redirect_uri=GMAIL_REDIRECT_URI + "/api/sources/gmail/oauth2callback"
+    )
+    auth_url, state = flow.authorization_url(access_type='offline', include_granted_scopes='true')
+    logger.debug(f"[GMAIL OAUTH] Generated OAuth URL: {auth_url} (state: {state})")
+    # Optionally: save state for CSRF protection
+    return JSONResponse({"authenticated": False, "auth_url": auth_url})
+
+@router.get("/gmail/oauth2callback")
+async def gmail_oauth2_callback(request: Request):
+    logger.debug("[GMAIL OAUTH] OAuth2 callback hit.")
+    code = request.query_params.get("code")
+    if not code:
+        logger.error("[GMAIL OAUTH] Authorization code not found in callback.")
+        return HTMLResponse("<p>Authorization code not found.</p>")
+    logger.debug(f"[GMAIL OAUTH] Received code: {code}")
+    flow = Flow.from_client_config(
+        {
+            "web": {
+                "client_id": GMAIL_CLIENT_ID,
+                "client_secret": GMAIL_CLIENT_SECRET,
+                "redirect_uris": [GMAIL_REDIRECT_URI + "/api/sources/gmail/oauth2callback"],
+                "auth_uri": os.getenv("GMAIL_AUTH_URI"),
+                "token_uri": os.getenv("GMAIL_TOKEN_URI"),
+            }
+        },
+        scopes=["https://www.googleapis.com/auth/gmail.readonly"],
+        redirect_uri=GMAIL_REDIRECT_URI + "/api/sources/gmail/oauth2callback"
+    )
+    flow.fetch_token(code=code)
+    logger.debug("[GMAIL OAUTH] Token fetched and will be saved to %s", GMAIL_TOKEN_PATH)
+    # Save the credentials (token) for future use
+    import pickle
+    with open(GMAIL_TOKEN_PATH, "wb") as token:
+        pickle.dump(flow.credentials, token)
+    logger.debug("[GMAIL OAUTH] Token successfully saved.")
+    # Return HTML that closes the popup and notifies the main window
+    return HTMLResponse("""
+        <html><body>
+        <script>
+            window.opener && window.opener.postMessage('gmail_auth_success', '*');
+            window.close();
+        </script>
+        <p>Authentication successful. You can close this window.</p>
+        </body></html>
+    """)
 
 @router.get("/download")
 async def download_source(path: str):
@@ -113,40 +192,32 @@ class GmailIngestRequest(BaseModel):
 
 
 def run_gmail_ingestion(labels: List[str], limit: int, query: Optional[str], force_reingest: bool, no_attachments: bool):
-    """Exécute le script d'ingestion Gmail en arrière-plan"""
+    logger.debug(f"[GMAIL INGEST] Starting Gmail ingestion with labels={labels}, limit={limit}, query={query}, force_reingest={force_reingest}, no_attachments={no_attachments}")
     try:
-        script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
-                                "update_vdb/sources/ingest_gmail_emails.py")
+        # Import direct de la fonction d'ingestion
+        from update_vdb.sources.ingest_gmail_emails import ingest_gmail_emails_to_qdrant
+        import os
         
-        # Construire la commande
-        cmd = [
-            "python", script_path,
-            "--credentials", GMAIL_CREDENTIALS_PATH,
-            "--token", GMAIL_TOKEN_PATH,
-            "--limit", str(limit)
-        ]
+        credentials_path = os.environ.get("GMAIL_CREDENTIALS_PATH", "credentials.json")
+        token_path = os.environ.get("GMAIL_TOKEN_PATH", "token.pickle")
+        collection = os.environ.get("COLLECTION_NAME", "rag_documents1536")
+        registry_path = os.environ.get("FILE_REGISTRY_PATH", "/app/data/file_registry.json")
         
-        # Ajouter les labels
-        for label in labels:
-            cmd.extend(["--labels", label])
-            
-        # Ajouter les options facultatives
-        if query:
-            cmd.extend(["--query", query])
-        if force_reingest:
-            cmd.append("--force-reingest")
-        if no_attachments:
-            cmd.append("--no-attachments")
-        
-        # Exécuter le script en arrière-plan
-        logger.info(f"Exécution de la commande: {' '.join(cmd)}")
-        process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        
-        # Ne pas attendre la fin du processus
-        return {"status": "started", "process_id": process.pid}
-        
+        result = ingest_gmail_emails_to_qdrant(
+            credentials_path=credentials_path,
+            token_path=token_path,
+            labels=labels,
+            collection=collection,
+            limit=limit,
+            query=query,
+            registry_path=registry_path,
+            force_reingest=force_reingest,
+            save_attachments=not no_attachments,
+            verbose=True
+        )
+        return result
     except Exception as e:
-        logger.error(f"Erreur lors de l'exécution du script d'ingestion Gmail: {str(e)}")
+        logger.error(f"Erreur lors de l'exécution de l'ingestion Gmail: {str(e)}")
         return {"status": "error", "error": str(e)}
 
 

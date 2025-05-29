@@ -12,13 +12,64 @@ export function GmailConnect() {
   const [forceReingest, setForceReingest] = useState(false);
   const [noAttachments, setNoAttachments] = useState(false);
   const [newLabel, setNewLabel] = useState("");
+  const [currentSubject, setCurrentSubject] = useState(null);
+
+  // Poll for ingest status while loading
+  React.useEffect(() => {
+    let interval;
+    if (isLoading) {
+      interval = setInterval(async () => {
+        try {
+          const res = await axios.get(`${API_BASE_URL}/sources/gmail/ingest_status`);
+          if (res.data && res.data.subject) {
+            setCurrentSubject(res.data.subject);
+          } else {
+            setCurrentSubject(null);
+          }
+        } catch {
+          setCurrentSubject(null);
+        }
+      }, 2000);
+    } else {
+      setCurrentSubject(null);
+    }
+    return () => interval && clearInterval(interval);
+  }, [isLoading]);
 
   const handleImport = async () => {
     try {
       setIsLoading(true);
       setStatus(null);
-      
-      const response = await axios.post(`${API_BASE_URL}/api/sources/ingest/gmail`, {
+      // Step 1: Check if authentication is needed
+      const authCheck = await axios.get(`${API_BASE_URL}/sources/gmail/auth_url`);
+      if (authCheck.data.authenticated) {
+        // Already authenticated, start ingestion
+        await startIngestion();
+      } else if (authCheck.data.auth_url) {
+        // Not authenticated, open popup
+        const popup = window.open(authCheck.data.auth_url, "GmailAuth", "width=500,height=650");
+        // Listen for message from popup
+        const onMessage = async (event) => {
+          if (event.data === "gmail_auth_success") {
+            popup.close();
+            window.removeEventListener("message", onMessage);
+            await startIngestion();
+          }
+        };
+        window.addEventListener("message", onMessage);
+      } else {
+        setStatus("Erreur: Impossible de vérifier l'authentification Gmail.");
+        setIsLoading(false);
+      }
+    } catch (err) {
+      setStatus("Erreur lors de la vérification ou de l'import Gmail.");
+      setIsLoading(false);
+    }
+  };
+
+  const startIngestion = async () => {
+    try {
+      const response = await axios.post(`${API_BASE_URL}/sources/ingest/gmail`, {
         labels,
         limit,
         query: query || undefined,
@@ -154,7 +205,7 @@ export function GmailConnect() {
         </div>
       </div>
       
-      <div className="flex items-center">
+      <div className="flex items-center mb-4">
         <button
           onClick={handleImport}
           disabled={isLoading || labels.length === 0}
@@ -173,7 +224,7 @@ export function GmailConnect() {
             "Lancer l'importation Gmail"
           )}
         </button>
-        
+
         {status && (
           <div
             className={`ml-4 text-sm ${
@@ -184,6 +235,22 @@ export function GmailConnect() {
           </div>
         )}
       </div>
+
+      {/* Status box between import and import mode */}
+      {isLoading && (
+        <div className="mb-4 p-3 rounded border border-blue-300 bg-blue-50 flex items-center min-h-[44px]">
+          {currentSubject ? (
+            <span className="text-blue-800 font-semibold">
+              Ingestion de l'email : "{currentSubject}"
+            </span>
+          ) : (
+            <span className="flex items-center text-blue-600">
+              <CircularProgress size={18} color="inherit" className="mr-2" />
+              En attente de statut...
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }

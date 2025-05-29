@@ -12,6 +12,7 @@ import datetime
 import tempfile
 import base64
 import pickle
+import time
 from typing import List, Dict, Any, Optional, Tuple
 from email.mime.text import MIMEText
 from googleapiclient.discovery import build
@@ -434,6 +435,14 @@ def ingest_gmail_emails_to_qdrant(
                             logger.info(f"Suppression de l'ancien document: {old_doc_id}")
                             vector_store.delete_by_doc_id(old_doc_id)
             
+            # --- STATUS FILE: Write current subject for frontend polling ---
+            try:
+                status_path = "/tmp/gmail_ingest_status.json"
+                with open(status_path, "w", encoding="utf-8") as f:
+                    import json
+                    json.dump({"subject": email.metadata.subject or "(sans sujet)"}, f)
+            except Exception as e:
+                logger.warning(f"Failed to write Gmail ingest status file: {e}")
             # Formats personnalisés pour les chemins
             email_subject_safe = email.metadata.subject.replace('/', '_').replace('\\', '_') if email.metadata.subject else 'sans_sujet'
             formatted_path = f"{email_id}+{email_subject_safe}"
@@ -588,10 +597,18 @@ def ingest_gmail_emails_to_qdrant(
             result["errors"].append(f"Erreur traitement: {str(process_err)}")
     
     # Calculer la durée
-    end_time = datetime.datetime.now()
-    duration = (end_time - start_time).total_seconds()
+    end_time = time.time()
+    duration = end_time - start_time
     result["duration"] = duration
-    
+
+    # --- STATUS FILE: Clear at end of ingestion ---
+    try:
+        status_path = "/tmp/gmail_ingest_status.json"
+        if os.path.exists(status_path):
+            os.remove(status_path)
+    except Exception as e:
+        logger.warning(f"Failed to clear Gmail ingest status file: {e}")
+
     # Résumé
     logger.info(f"Ingestion terminée en {duration:.2f} secondes")
     logger.info(f"Emails ingérés: {result['ingested_emails']}")
