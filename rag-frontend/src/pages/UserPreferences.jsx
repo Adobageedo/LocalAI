@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Container, Paper, Typography, Box, TextField, Button, Switch, FormControlLabel, Divider, Alert, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
+import { useAuth } from '../auth/AuthProvider';
 
 // Préférences simulées de l'utilisateur
 const initialPreferences = {
@@ -44,11 +45,44 @@ const UserPreferences = () => {
     }, 3000);
   };
   
+  const { user, isAuthenticated, logout } = useAuth();
+  const navigate = useNavigate ? useNavigate() : () => {};
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/');
+  };
+
+  if (!isAuthenticated) {
+    return (
+      <Container maxWidth="sm">
+        <Paper elevation={3} sx={{ p: 4, mt: 4, textAlign: 'center' }}>
+          <Typography variant="h5">Vous devez être connecté pour accéder à vos préférences.</Typography>
+          <Button variant="contained" color="primary" sx={{ mt: 3 }} onClick={() => navigate('/login')}>
+            Se connecter
+          </Button>
+        </Paper>
+      </Container>
+    );
+  }
+
   return (
     <Container maxWidth="md">
       <Paper elevation={3} sx={{ p: 4, mt: 4 }}>
-        <Typography variant="h4" component="h1" gutterBottom>
-          Préférences
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="h4" component="h1" gutterBottom>
+            Préférences
+          </Typography>
+          <Button
+            variant="outlined"
+            color="error"
+            onClick={handleLogout}
+          >
+            Déconnexion
+          </Button>
+        </Box>
+        <Typography variant="body1" color="text.secondary" sx={{ mb: 2 }}>
+          {user?.email}
         </Typography>
         
         {successMessage && (

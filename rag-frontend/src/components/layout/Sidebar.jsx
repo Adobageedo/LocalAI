@@ -19,6 +19,8 @@ import {
 } from '@mui/material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import CloseIcon from '@mui/icons-material/Close';
+import LogoutIcon from '@mui/icons-material/Logout';
+import { useAuth } from '../../auth/AuthProvider';
 
 // Icons
 import DashboardIcon from '@mui/icons-material/Dashboard';
@@ -28,8 +30,6 @@ import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import SettingsIcon from '@mui/icons-material/Settings';
 import CloudIcon from '@mui/icons-material/Cloud';
 import EmailIcon from '@mui/icons-material/Email';
-import LoginIcon from '@mui/icons-material/Login';
-import LogoutIcon from '@mui/icons-material/Logout';
 
 const Sidebar = ({ width = 240, open = true, onClose }) => {
   const theme = useTheme();
@@ -87,6 +87,13 @@ const Sidebar = ({ width = 240, open = true, onClose }) => {
       return true;
     }
     return location.pathname.startsWith(path) && path !== '/';
+  };
+
+  const { isAuthenticated, logout } = useAuth();
+
+  const handleSidebarLogout = async () => {
+    await logout();
+    navigate('/');
   };
 
   return (
@@ -274,6 +281,19 @@ const Sidebar = ({ width = 240, open = true, onClose }) => {
           ))}
         </List>
       </>
+      {isAuthenticated && (
+        <Box sx={{ p: 2, mt: 2 }}>
+          <Button
+            variant="outlined"
+            color="error"
+            fullWidth
+            startIcon={<LogoutIcon />}
+            onClick={handleSidebarLogout}
+          >
+            Déconnexion
+          </Button>
+        </Box>
+      )}
     </>
   );
 };

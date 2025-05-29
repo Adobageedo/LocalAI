@@ -313,8 +313,10 @@ def run_outlook_ingestion(folders: List[str], limit: int, query: Optional[str], 
         return {"status": "error", "error": str(e)}
 
 
+from update_vdb.sources.ingest_outlook_emails import ingest_outlook_emails_to_qdrant
+
 @router.post("/ingest/outlook")
-async def ingest_outlook_emails(request: OutlookIngestRequest, background_tasks: BackgroundTasks):
+async def ingest_outlook_emails(request: OutlookIngestRequest):
     """Ingère des emails depuis Outlook en utilisant l'authentification OAuth2"""
     try:
         # Vérifier si les identifiants OAuth2 sont configurés
@@ -323,32 +325,31 @@ async def ingest_outlook_emails(request: OutlookIngestRequest, background_tasks:
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Les identifiants OAuth2 pour Outlook ne sont pas configurés"
             )
-        
-        # Exécuter l'ingestion en arrière-plan
-        background_tasks.add_task(
-            run_outlook_ingestion,
-            request.folders,
-            request.limit,
-            request.query,
-            request.force_reingest,
-            request.no_attachments
+        print("test")
+        # Call the ingestion function directly
+        result = ingest_outlook_emails_to_qdrant(
+            client_id=OUTLOOK_CLIENT_ID,
+            client_secret=OUTLOOK_CLIENT_SECRET,
+            tenant_id=OUTLOOK_TENANT_ID,
+            token_path=OUTLOOK_TOKEN_PATH,
+            folders=request.folders,
+            limit=request.limit,
+            query=request.query,
+            collection=None,  # Or set as needed
+            registry_path=None,  # Or set as needed
+            force_reingest=request.force_reingest,
+            save_attachments=not request.no_attachments,
+            verbose=True
         )
-        
+
         return JSONResponse(
-            status_code=status.HTTP_202_ACCEPTED,
+            status_code=status.HTTP_200_OK,
             content={
-                "status": "accepted",
-                "message": "L'ingestion des emails Outlook a été démarrée en arrière-plan",
-                "details": {
-                    "folders": request.folders,
-                    "limit": request.limit,
-                    "query": request.query,
-                    "force_reingest": request.force_reingest,
-                    "no_attachments": request.no_attachments
-                }
+                "status": "done" if result.get("success") else "failed",
+                "details": result
             }
         )
-        
+
     except Exception as e:
         logger.error(f"Erreur lors de l'ingestion des emails Outlook: {str(e)}")
         raise HTTPException(

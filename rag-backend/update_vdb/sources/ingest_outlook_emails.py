@@ -503,7 +503,7 @@ def ingest_outlook_emails_to_qdrant(
                 # Vérifier si l'email existe déjà dans le registre
                 email_path = f"/Outlook/{outlook_user}/{email.metadata.date}/{email_id}"
                 
-                if not force_reingest and registry.exists(email_path):
+                if not force_reingest and registry.file_exists(email_path):
                     logger.info(f"Email déjà présent dans le registre, ignoré: {email.metadata.subject}")
                     result["skipped_emails"] += 1
                     continue
@@ -539,14 +539,26 @@ def ingest_outlook_emails_to_qdrant(
                     metadata["has_attachments"] = True
                     metadata["attachment_count"] = len(attachment_paths)
                 
-                # Ingérer l'email dans Qdrant
-                ingest_document(
-                    content=email_content,
-                    metadata=metadata,
-                    document_id=email_id,
-                    file_registry=registry,
-                    vectorstore_manager=vectorstore_manager
-                )
+                # Écrire le contenu de l'email dans un fichier temporaire
+                with tempfile.NamedTemporaryFile('w+', suffix='.eml', delete=False) as temp_email_file:
+                    temp_email_file.write(email_content)
+                    temp_email_file_path = temp_email_file.name
+
+                try:
+                    ingest_document(
+                        filepath=temp_email_file_path,
+                        user=outlook_user,
+                        collection=collection,
+                        doc_id=email_id,
+                        metadata=metadata,
+                        original_filepath=email_path,
+                        original_filename=email.metadata.subject
+                    )
+                finally:
+                    # Nettoyer le fichier temporaire de l'email
+                    if os.path.exists(temp_email_file_path):
+                        os.remove(temp_email_file_path)
+
                 
                 # Ingérer les pièces jointes
                 for attachment_path in attachment_paths:
@@ -566,11 +578,13 @@ def ingest_outlook_emails_to_qdrant(
                         
                         # Ingérer la pièce jointe
                         ingest_document(
-                            file_path=attachment_path,
+                            filepath=attachment_path,
+                            user=outlook_user,
+                            collection=collection,
+                            doc_id=attachment_id,
                             metadata=attachment_metadata,
-                            document_id=attachment_id,
-                            file_registry=registry,
-                            vectorstore_manager=vectorstore_manager
+                            original_filepath=attachment_metadata["source_path"],
+                            original_filename=attachment_name
                         )
                     
                     except Exception as e:
@@ -593,9 +607,6 @@ def ingest_outlook_emails_to_qdrant(
         if temp_dir and os.path.exists(temp_dir):
             import shutil
             shutil.rmtree(temp_dir)
-        
-        # Sauvegarder le registre
-        registry.save()
         
         # Marquer comme succès même s'il y a des erreurs individuelles
         result["success"] = True

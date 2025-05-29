@@ -54,6 +54,8 @@ markdown  # Markdown files
 pdfminer.six  # Enhanced PDF text extraction
 pikepdf  # Advanced PDF manipulation
 pdf2image  # Convert PDF to images for processing
+msal
+firebase-admin
 
 # Already included but important for these formats
 # python-docx  # Word documents
