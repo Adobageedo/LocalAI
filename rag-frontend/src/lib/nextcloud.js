@@ -131,10 +131,6 @@ class NextcloudService {
       }
       formData.append('path', parentPath);
 
-      // Debug: afficher le contenu du FormData
-      for (let [key, value] of formData.entries()) {
-        console.log(`[UPLOAD DEBUG] FormData: ${key} =>`, value);
-      }
       // Appel à notre API backend pour uploader le fichier
       const res = await authFetch(`${config.apiUrl}/nextcloud/upload`, {
         method: 'POST',

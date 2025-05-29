@@ -320,10 +320,11 @@ async def download_file(path: str, request: Request = None,user=Depends(get_curr
 
 # Route pour uploader un fichier
 @router.post("/upload")
-async def upload_file(user=Depends(get_current_user),
+async def upload_file(
     file: UploadFile = File(...),
     path: str = Form(...),
-    request: Request = None
+    request: Request = None,
+    user=Depends(get_current_user)
 ):
     logger.info(f"Upload du fichier {file.filename} dans le répertoire: {path}")
     # Récupérer les identifiants Nextcloud de l'utilisateur
