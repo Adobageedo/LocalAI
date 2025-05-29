@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Container, Paper, Typography, Box, TextField, Button, Switch, FormControlLabel, Divider, Alert, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
 import { useAuth } from '../auth/AuthProvider';
+import { useNavigate } from 'react-router-dom';
 
 // Préférences simulées de l'utilisateur
 const initialPreferences = {
@@ -67,6 +68,7 @@ const UserPreferences = () => {
   }
 
   return (
+    <Layout>
     <Container maxWidth="md">
       <Paper elevation={3} sx={{ p: 4, mt: 4 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -226,6 +228,7 @@ const UserPreferences = () => {
         </Box>
       </Paper>
     </Container>
+    </Layout>
   );
 };
 
