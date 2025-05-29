@@ -125,14 +125,22 @@ class NextcloudService {
         fileName = path.substring(lastSlash + 1);
       }
       
+      // S'assurer que le chemin parent se termine par un '/'
+      if (!parentPath.endsWith('/')) {
+        parentPath += '/';
+      }
       formData.append('path', parentPath);
-      
+
+      // Debug: afficher le contenu du FormData
+      for (let [key, value] of formData.entries()) {
+        console.log(`[UPLOAD DEBUG] FormData: ${key} =>`, value);
+      }
       // Appel à notre API backend pour uploader le fichier
       const res = await authFetch(`${config.apiUrl}/nextcloud/upload`, {
-      method: 'POST',
-      body: formData,
-    });
-    if (!res.ok) throw new Error('Erreur lors du téléversement du fichier');
+        method: 'POST',
+        body: formData,
+      });
+      if (!res.ok) throw new Error('Erreur lors du téléversement du fichier');
       console.log(`[NEXTCLOUD API] Fichier téléversé avec succès: ${path}`);
       
       return true;
