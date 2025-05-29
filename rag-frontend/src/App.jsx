@@ -13,7 +13,6 @@ import UserProfilePage from './pages/UserProfilePage';
 import UserPreferences from './pages/UserPreferences';
 import NextcloudExplorer from './pages/NextcloudExplorer';
 import MailImport from './pages/OpenWebUI';
-import Nextcloud from './pages/Nextcloud';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Home from './pages/Home';
@@ -38,7 +37,6 @@ function App() {
           <Route path="/profile" element={<PrivateRoute><UserProfilePage /></PrivateRoute>} />
           <Route path="/preferences" element={<PrivateRoute><UserPreferences /></PrivateRoute>} />
           <Route path="/mail-import" element={<PrivateRoute><MailImport /></PrivateRoute>} />
-          <Route path="/nextcloud" element={<PrivateRoute><Nextcloud /></PrivateRoute>} />
           <Route path="/nextcloud-explorer" element={<PrivateRoute><NextcloudExplorer /></PrivateRoute>} />
 
           {/* Default route: Home for guests, Dashboard for users */}

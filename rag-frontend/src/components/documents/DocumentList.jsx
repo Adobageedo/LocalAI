@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import axios from "axios";
-import { API_BASE_URL } from "../config";
+import { authFetch } from '../../firebase/authFetch';
+import { API_BASE_URL } from "../../config";
 import { Button, TextField, IconButton, CircularProgress } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 
@@ -13,23 +13,29 @@ export default function DocumentList() {
 
   useEffect(() => {
     setLoading(true);
-    axios
-      .get(`${API_BASE_URL}/documents`, { params: { q } })
-      .then((res) => setDocs(res.data.documents || []))
-      .catch((err) => {
-        if (err.response && err.response.status === 404 && err.response.data && err.response.data.message) {
-          setDocs([]);
-          setError(err.response.data.message);
-        } else {
-          setError("Erreur lors du chargement des documents.");
+    authFetch(`${API_BASE_URL}/documents?q=${encodeURIComponent(q)}`)
+      .then(async (res) => {
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          if (res.status === 404 && data && data.message) {
+            setDocs([]);
+            setError(data.message);
+          } else {
+            setError("Erreur lors du chargement des documents.");
+          }
+          return;
         }
+        const data = await res.json();
+        setDocs(data.documents || []);
+        setError(null);
       })
+      .catch(() => setError("Erreur lors du chargement des documents."))
       .finally(() => setLoading(false));
   }, [q, refresh]);
 
   const handleDelete = async (doc_id) => {
     if (!window.confirm("Supprimer ce document ?")) return;
-    await axios.delete(`${API_BASE_URL}/documents/${doc_id}`);
+    await authFetch(`${API_BASE_URL}/documents/${doc_id}`, { method: 'DELETE' });
     setRefresh((r) => r + 1);
   };
 

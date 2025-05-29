@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import axios from "axios";
+import { authFetch } from '../../firebase/authFetch';
 import { API_BASE_URL } from "../../config";
 import ImapStatus from "./ImapStatus";
 
@@ -32,8 +32,13 @@ export default function ImapConnect() {
     setResult(null);
     setPolling(true);
     try {
-      const res = await axios.post(`${API_BASE_URL}/ingest/imap`, form);
-      setResult(res.data);
+      const res = await authFetch(`${API_BASE_URL}/ingest/imap`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      const data = await res.json();
+      setResult(data);
     } catch (err) {
       setResult({ success: false, error: err.message });
     }

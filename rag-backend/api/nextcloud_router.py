@@ -74,7 +74,24 @@ async def get_nextcloud_credentials(request: Request = None):
         "username": NEXTCLOUD_USERNAME,
         "password": NEXTCLOUD_PASSWORD
     }
+from fastapi import Request, HTTPException, status, Depends
+from firebase_admin import auth
+from firebase_utils import verify_token  # adjust import as needed
 
+def get_current_user(request: Request):
+    auth_header = request.headers.get("Authorization")
+    uid_header = request.headers.get("X-User-Uid")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid token")
+    token = auth_header.split(" ")[1]
+    try:
+        decoded_token = verify_token(token)
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    # Optional: check UID matches
+    if uid_header and uid_header != decoded_token.get("uid"):
+        raise HTTPException(status_code=401, detail="UID mismatch")
+    return decoded_token
 # Fonction pour vérifier si Nextcloud est accessible
 def is_nextcloud_accessible():
     try:
@@ -125,7 +142,7 @@ async def check_nextcloud_status():
 
 # Route pour lister les fichiers
 @router.get("/files", response_model=FileList)
-async def list_files(path: str = "/", request: Request = None):
+async def list_files(path: str = "/", request: Request = None,user=Depends(get_current_user)):
     logger.info(f"Liste des fichiers dans le répertoire: {path}")
     # Récupérer les identifiants Nextcloud de l'utilisateur
     creds = await get_nextcloud_credentials(request)
@@ -252,7 +269,7 @@ async def list_files(path: str = "/", request: Request = None):
 
 # Route pour télécharger un fichier
 @router.get("/download")
-async def download_file(path: str, request: Request = None):
+async def download_file(path: str, request: Request = None,user=Depends(get_current_user)):
     logger.info(f"Téléchargement du fichier: {path}")
     # Récupérer les identifiants Nextcloud de l'utilisateur
     creds = await get_nextcloud_credentials(request)
@@ -303,7 +320,7 @@ async def download_file(path: str, request: Request = None):
 
 # Route pour uploader un fichier
 @router.post("/upload")
-async def upload_file(
+async def upload_file(user=Depends(get_current_user),
     file: UploadFile = File(...),
     path: str = Form(...),
     request: Request = None
@@ -362,7 +379,8 @@ async def upload_file(
 @router.post("/directory")
 async def create_directory(
     dir_request: DirectoryRequest,
-    request: Request = None
+    request: Request = None,
+    user=Depends(get_current_user)
 ):
     logger.info(f"Création du dossier: {dir_request.path}")
     # Récupérer les identifiants Nextcloud de l'utilisateur
@@ -408,7 +426,8 @@ async def create_directory(
 @router.delete("/files")
 async def delete_item(
     path: str,
-    request: Request = None
+    request: Request = None,
+    user=Depends(get_current_user)
 ):
     logger.info(f"Suppression de l'élément: {path}")
     # Récupérer les identifiants Nextcloud de l'utilisateur
@@ -452,7 +471,8 @@ async def delete_item(
 @router.put("/move")
 async def move_item(
     move_request: MoveItemRequest,
-    request: Request = None
+    request: Request = None,
+    user=Depends(get_current_user)
 ):
     logger.info(f"Déplacement de {move_request.sourcePath} vers {move_request.targetPath}")
     # Récupérer les identifiants Nextcloud de l'utilisateur
@@ -509,7 +529,8 @@ async def move_item(
 @router.post("/copy")
 async def copy_item(
     copy_request: MoveItemRequest,  # Réutilisation du même modèle que pour move
-    request: Request = None
+    request: Request = None,
+    user=Depends(get_current_user)
 ):
     logger.info(f"Copie de {copy_request.sourcePath} vers {copy_request.targetPath}")
     # Récupérer les identifiants Nextcloud de l'utilisateur
@@ -566,7 +587,8 @@ async def copy_item(
 @router.post("/shares", response_model=ShareInfo)
 async def create_share(
     share_request: ShareRequest,
-    request: Request = None
+    request: Request = None,
+    user=Depends(get_current_user)
 ):
     logger.info(f"Création d'un partage pour: {share_request.path}")
     # Récupérer les identifiants Nextcloud de l'utilisateur
@@ -656,7 +678,7 @@ async def create_share(
 
 # Récupérer la liste des partages
 @router.get("/shares")
-async def get_shares(path: Optional[str] = None, request: Request = None):
+async def get_shares(path: Optional[str] = None, request: Request = None, user=Depends(get_current_user)):
     logger.info("Récupération des partages")
     # Récupérer les identifiants Nextcloud de l'utilisateur
     creds = await get_nextcloud_credentials(request)
@@ -747,7 +769,7 @@ async def get_shares(path: Optional[str] = None, request: Request = None):
 
 # Créer un utilisateur Nextcloud
 @router.post("/users")
-async def create_user(username: str, password: str, email: str, display_name: Optional[str] = None, admin_request: bool = False, request: Request = None):
+async def create_user(username: str, password: str, email: str, display_name: Optional[str] = None, admin_request: bool = False, request: Request = None, user=Depends(get_current_user)):
     logger.info(f"Création d'un utilisateur Nextcloud: {username}")
     # Si c'est une requête pour créer un utilisateur, utiliser toujours les identifiants admin
     if admin_request:
@@ -830,7 +852,7 @@ async def create_user(username: str, password: str, email: str, display_name: Op
 
 # Télécharger une source directement depuis Nextcloud
 @router.get("/download-source")
-async def download_source(path: str, request: Request = None):
+async def download_source(path: str, request: Request = None, user=Depends(get_current_user)):
     """
     Télécharge un fichier source directement depuis Nextcloud.
     Le chemin doit être un chemin complet tel que retourné par l'API de prompt.
@@ -897,7 +919,8 @@ class IngestDirectoryRequest(BaseModel):
 async def ingest_directory(
     ingest_request: IngestDirectoryRequest,
     background_tasks: BackgroundTasks,
-    request: Request = None
+    request: Request = None,
+    user=Depends(get_current_user)
 ):
     """
     Ingère récursivement les documents d'un répertoire Nextcloud dans Qdrant.
@@ -1071,7 +1094,7 @@ async def ingest_directory(
 
 # Supprimer un partage
 @router.delete("/shares/{share_id}")
-async def delete_share(share_id: str, request: Request = None):
+async def delete_share(share_id: str, request: Request = None, user=Depends(get_current_user)):
     logger.info(f"Suppression du partage: {share_id}")
     # Récupérer les identifiants Nextcloud de l'utilisateur
     creds = await get_nextcloud_credentials(request)

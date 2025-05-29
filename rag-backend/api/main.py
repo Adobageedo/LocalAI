@@ -40,7 +40,8 @@ logging.getLogger("unstructured.trace").setLevel(logging.WARNING)
 logging.getLogger("chardet.universaldetector").setLevel(logging.WARNING)
 logging.getLogger("chardet.charsetprober").setLevel(logging.WARNING)
 logging.getLogger("chardet").setLevel(logging.WARNING)
-
+logging.getLogger("cachecontrol.controller").setLevel(logging.WARNING)
+logging.getLogger("urllib3").setLevel(logging.WARNING)
 app = FastAPI()
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 
@@ -113,6 +114,26 @@ class PromptResponse(BaseModel):
     answer: str
     sources: List[str]
 
+
+from fastapi import Request, HTTPException, status, Depends
+from firebase_admin import auth
+from firebase_utils import verify_token  # adjust import as needed
+
+def get_current_user(request: Request):
+    auth_header = request.headers.get("Authorization")
+    uid_header = request.headers.get("X-User-Uid")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid token")
+    token = auth_header.split(" ")[1]
+    try:
+        decoded_token = verify_token(token)
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    # Optional: check UID matches
+    if uid_header and uid_header != decoded_token.get("uid"):
+        raise HTTPException(status_code=401, detail="UID mismatch")
+    return decoded_token
+
 # --- ENDPOINTS ---
 
 from update_vdb.sources.document_ingest import fetch_and_sync_documents
@@ -151,11 +172,11 @@ class ImapCredentials(BaseModel):
     delete_after_import: bool = False  # Whether to mark emails as deleted after import
 
 @app.get("/api/ingest/imap/status")
-def get_ingest_status(user: str):
+def get_ingest_status(user=Depends(get_current_user)):
     return {"status": get_imap_status(user)}
 
 @app.post("/api/ingest/imap")
-def ingest_imap_emails(creds: ImapCredentials):
+def ingest_imap_emails(creds: ImapCredentials,user=Depends(get_current_user)):
     # Utiliser les valeurs de configuration et d'environnement si non spécifiées
     config = load_config()
     
@@ -232,7 +253,7 @@ def ingest_imap_emails(creds: ImapCredentials):
 
 
 @app.get("/api/documents/count-by-type")
-def count_documents_by_type():
+def count_documents_by_type(user=Depends(get_current_user)):
     collection = os.getenv("COLLECTION_NAME", "rag_documents")
     manager = VectorStoreManager(collection)
     client = manager.get_qdrant_client()
@@ -305,7 +326,7 @@ def count_documents_by_type():
     return {"counts": type_counts, "details": type_to_names}
 
 @app.get("/api/documents")
-def list_documents(q: Optional[str] = Query(None), page: int = 1, page_size: int = 2000, use_registry: bool = Query(True)):
+def list_documents(user=Depends(get_current_user),q: Optional[str] = Query(None), page: int = 1, page_size: int = 2000, use_registry: bool = Query(True)):
     collection = os.getenv("COLLECTION_NAME", "rag_documents1536")
     docs = []
     
@@ -497,7 +518,7 @@ import tempfile
 from update_vdb.sources.document_ingest import fetch_and_sync_documents
 
 @app.post("/api/documents")
-def upload_documents(files: List[UploadFile] = File(...), background_tasks: BackgroundTasks = None):
+def upload_documents(user=Depends(get_current_user),files: List[UploadFile] = File(...), background_tasks: BackgroundTasks = None):
     print(f"[DEBUG] Received {len(files)} files for import.", flush=True)
     logger.info(f"RECEIVED: Received {len(files)} files for import.")
     
@@ -570,7 +591,7 @@ def upload_documents(files: List[UploadFile] = File(...), background_tasks: Back
     }
 
 @app.delete("/api/documents/{doc_id}")
-def delete_document(doc_id: str):
+def delete_document(doc_id: str,user=Depends(get_current_user)):
     logger.info(f"DELETION: Starting deletion of document {doc_id}")
     collection = os.getenv("COLLECTION_NAME", "rag_documents1536")
     logger.info(f"DELETION: Using collection: {collection}")
@@ -607,7 +628,7 @@ def health_check():
 
 
 @app.get("/api/documents/stats")
-def get_document_stats():
+def get_document_stats(user=Depends(get_current_user)):
     """Récupère le nombre d'emails ingérés par utilisateur dans Qdrant."""
     try:
         # Déterminer la collection à utiliser
@@ -716,7 +737,7 @@ def get_document_stats():
 
 
 @app.post("/api/prompt", response_model=PromptResponse)
-def prompt_ia(data: dict):
+def prompt_ia(data: dict,user=Depends(get_current_user)):
     question = data.get("question")
     if not question:
         raise HTTPException(status_code=400, detail="Champ 'question' requis.")

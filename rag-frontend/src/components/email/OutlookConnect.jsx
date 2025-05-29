@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import axios from "axios";
+import { authFetch } from '../../firebase/authFetch';
 import { API_BASE_URL } from "../../config";
 import { CircularProgress, Chip, TextField, Checkbox, FormControlLabel } from "@mui/material";
 
@@ -18,13 +18,15 @@ export function OutlookConnect() {
       setIsLoading(true);
       setStatus(null);
       
-      const response = await axios.post(`${API_BASE_URL}/api/sources/ingest/outlook`, {
-        folders,
-        limit,
-        query: query || undefined,
-        force_reingest: forceReingest,
-        no_attachments: noAttachments
+      const response = await authFetch(`${API_BASE_URL}/sources/ingest/outlook`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ folders, limit, query: query || undefined, force_reingest: forceReingest, no_attachments: noAttachments }),
       });
+      
+      if (!response.ok) {
+        throw new Error(response.statusText);
+      }
       
       setStatus({
         type: "success",

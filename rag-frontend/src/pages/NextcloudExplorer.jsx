@@ -55,7 +55,7 @@ import {
   DataObject as QdrantIcon
 } from '@mui/icons-material';
 import nextcloudService from '../lib/nextcloud';
-import axios from 'axios';
+import { authFetch } from '../firebase/authFetch';
 import { API_BASE_URL } from '../config';
 
 // Fonction utilitaire pour décoder les noms de fichiers URL-encodés
@@ -783,20 +783,24 @@ const NextcloudExplorer = () => {
       setSnackbarMessage(`Synchronisation avec Qdrant démarrée pour: ${currentPath}`);
       setSnackbarOpen(true);
       
-      const response = await axios.post(`${API_BASE_URL}/nextcloud/ingest-directory`, requestBody);
-      
+      const res = await authFetch(`${API_BASE_URL}/nextcloud/ingest-directory`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      });
+      if (!res.ok) throw new Error((await res.json()).detail || 'Erreur lors de la synchronisation avec Qdrant');
+      const data = await res.json();
       // Mettre à jour le statut
       setIngestLoading(false);
       setSnackbarMessage('Documents synchronisés avec Qdrant avec succès');
       setSnackbarOpen(true);
-      
       // Mise à jour du statut d'ingération avec succès
       setLastSyncInfo({
         status: 'success',
         message: `Synchronisation terminée avec succès`,
         timestamp: new Date(),
-        path: response.data.path,
-        fileCount: response.data.fileCount || '?'
+        path: data.path,
+        fileCount: data.fileCount || '?'
       });
       
     } catch (err) {
@@ -804,11 +808,10 @@ const NextcloudExplorer = () => {
       setSnackbarMessage('Erreur lors de la synchronisation avec Qdrant');
       setSnackbarOpen(true);
       setIngestLoading(false);
-      
       // Mise à jour du statut d'ingération avec erreur
       setLastSyncInfo({
         status: 'error',
-        message: `Erreur: ${err.response?.data?.detail || err.message || 'Erreur inconnue'}`,
+        message: `Erreur: ${err.message || 'Erreur inconnue'}`,
         timestamp: new Date(),
         path: currentPath,
         fileCount: 0
@@ -836,21 +839,24 @@ const NextcloudExplorer = () => {
         max_files: maxFiles ? parseInt(maxFiles) : null
       };
       
-      const response = await axios.post(`${API_BASE_URL}/nextcloud/ingest-directory`, requestBody);
-      
+      const res = await authFetch(`${API_BASE_URL}/nextcloud/ingest-directory`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(requestBody),
+      });
+      if (!res.ok) throw new Error((await res.json()).detail || 'Erreur lors de l\'ingestion');
+      const data = await res.json();
       setIngestSuccess(true);
-      setSnackbarMessage(`Ingestion démarrée: ${response.data.path} (${response.data.status})`);
+      setSnackbarMessage(`Ingestion démarrée: ${data.path} (${data.status})`);
       setSnackbarOpen(true);
-      
       // Mise à jour du statut d'ingération avec succès
       setLastSyncInfo({
         status: 'success',
-        message: `Ingestion démarrée avec succès: ${response.data.path}`,
+        message: `Ingestion démarrée avec succès: ${data.path}`,
         timestamp: new Date(),
-        path: response.data.path,
-        fileCount: response.data.fileCount || '?'
+        path: data.path,
+        fileCount: data.fileCount || '?'
       });
-      
       // Fermer le dialogue après un court délai
       setTimeout(() => {
         setIngestDialog(false);
@@ -859,19 +865,19 @@ const NextcloudExplorer = () => {
       
     } catch (err) {
       console.error('Erreur lors de l\'ingestion:', err);
-      setIngestError(err.response?.data?.detail || err.message || 'Erreur lors de l\'ingestion');
+      setIngestError(err.message || 'Erreur lors de l\'ingestion');
       setIngestLoading(false);
-      
       // Mise à jour du statut d'ingération avec erreur
       setLastSyncInfo({
         status: 'error',
-        message: `Erreur: ${err.response?.data?.detail || err.message || 'Erreur inconnue'}`,
+        message: `Erreur: ${err.message || 'Erreur inconnue'}`,
         timestamp: new Date(),
         path: currentPath,
         fileCount: 0
       });
     }
   };
+
   
   // Générer les éléments du fil d'Ariane
   const generateBreadcrumbs = () => {

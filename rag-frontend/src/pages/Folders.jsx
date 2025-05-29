@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { authFetch } from '../firebase/authFetch';
 import { Layout } from "../components/layout";
 import axios from "axios";
 import { API_BASE_URL } from "../config";
@@ -24,7 +25,12 @@ export default function Folders() {
       formData.append("files", files[i]);
     }
     try {
-      await axios.post(`${API_BASE_URL}/documents`, formData);
+      await authFetch(`${API_BASE_URL}/documents`, {
+        method: 'POST',
+        body: formData,
+        // Do NOT set Content-Type header for FormData
+        headers: {},
+      });
       setUploadMsg(`Successfully uploaded ${files.length} file${files.length > 1 ? "s" : ""}.`);
       // Refresh docs list
       setTimeout(() => setUploadMsg(""), 4000);
@@ -39,10 +45,10 @@ export default function Folders() {
 
   useEffect(() => {
     setLoading(true);
-    axios
-      .get(`${API_BASE_URL}/documents`, { params: { q } })
-      .then((res) => {
-        const docs = res.data.documents || [];
+    authFetch(`${API_BASE_URL}/documents?q=${encodeURIComponent(q)}`)
+      .then(async (res) => {
+        const data = await res.json();
+        const docs = data.documents || [];
         setDocs(docs);
         // Group by folder (using source_path up to last slash)
         const folderMap = {};
@@ -57,14 +63,18 @@ export default function Folders() {
         setFolders(folderMap);
         setLoading(false);
       })
-      .finally(() => setLoading(false));
+      .catch(() => setLoading(false));
   }, [q]);
 
   const handleDelete = async (doc_id) => {
     console.log(doc_id);
     // if (!window.confirm("Delete this document?")) return;
-    const response = await axios.delete(`${API_BASE_URL}/documents/${doc_id}`);
-    console.log("API response:", response.data); // Log the API response here
+    // Use authFetch to send token and uid
+    const response = await authFetch(`${API_BASE_URL}/documents/${doc_id}`, {
+      method: 'DELETE',
+    });
+    const data = await response.json();
+    console.log("API response:", data); // Log the API response here
     setFolders((prev) => {
       const newFolders = { ...prev };
       Object.keys(newFolders).forEach((folder) => {

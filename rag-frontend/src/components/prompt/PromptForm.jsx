@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import axios from "axios";
+import { authFetch } from '../../firebase/authFetch';
 import { API_BASE_URL } from "../../config";
 import { Button, TextField, CircularProgress, Card, CardContent } from "@mui/material";
 
@@ -15,8 +15,17 @@ export default function PromptForm() {
     setResponse(null);
     setError(null);
     try {
-      const res = await axios.post(`${API_BASE_URL}/prompt`, { question });
-      setResponse(res.data);
+      const res = await authFetch(`${API_BASE_URL}/prompt`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question }),
+      });
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || errData.detail || 'Erreur lors de la connexion au backend.');
+      }
+      const data = await res.json();
+      setResponse(data);
     } catch (err) {
       setError(
         err.response?.data?.error ||
