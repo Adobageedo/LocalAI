@@ -1,59 +1,54 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Container, Paper, Typography, Box, TextField, Button, Avatar, Alert } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../auth/AuthProvider';
 
 const UserProfilePage = () => {
   const navigate = useNavigate();
-  
-  // Utiliser des valeurs par défaut puisqu'il n'y a plus d'authentification
-  const [user, setUser] = useState({
-    email: 'utilisateur@exemple.com',
-    firstName: 'Utilisateur',
-    lastName: 'Démo',
-    avatar: null,
-  });
+  const { user, isAuthenticated, logout } = useAuth();
+  const [displayName, setDisplayName] = useState(user?.displayName || '');
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
   
-  // Gestion des modifications de formulaire
+  // Only allow editing display name (not email)
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setUser(prev => ({ ...prev, [name]: value }));
+    setDisplayName(e.target.value);
   };
-  
-  // Sauvegarder le profil
+
+  // Simulate saving display name (real update would use Firebase updateProfile)
   const handleSubmit = (e) => {
     e.preventDefault();
-    
-    // Validation simple
-    if (!user.firstName || !user.lastName) {
-      setErrorMessage('Les champs prénom et nom sont obligatoires');
+    if (!displayName) {
+      setErrorMessage('Le nom affiché est obligatoire');
       setSuccessMessage('');
       return;
     }
-    
-    // Note: Pour vraiment mettre à jour le profil, il faudrait appeler l'API Keycloak
-    // via une API backend. Pour l'instant, on simule juste une mise à jour réussie.
-    setSuccessMessage('Profil mis à jour avec succès');
+    setSuccessMessage('Nom affiché mis à jour localement (non persistant)');
     setErrorMessage('');
-    
-    // Réinitialiser les messages après 3 secondes
     setTimeout(() => {
       setSuccessMessage('');
       setErrorMessage('');
     }, 3000);
   };
-  
-  // Rediriger vers la page d'accueil (plus de déconnexion car plus d'authentification)
-  const handleLogout = () => {
+
+  const handleLogout = async () => {
+    await logout();
     navigate('/');
   };
-  
-  // Générer les initiales pour l'avatar
-  const getInitials = () => {
-    return `${user.firstName.charAt(0)}${user.lastName.charAt(0)}`;
-  };
-  
+
+  if (!isAuthenticated) {
+    return (
+      <Container maxWidth="sm">
+        <Paper elevation={3} sx={{ p: 4, mt: 4, textAlign: 'center' }}>
+          <Typography variant="h5">Vous devez être connecté pour accéder à votre profil.</Typography>
+          <Button variant="contained" color="primary" sx={{ mt: 3 }} onClick={() => navigate('/login')}>
+            Se connecter
+          </Button>
+        </Paper>
+      </Container>
+    );
+  }
+
   return (
     <Container maxWidth="md">
       <Paper elevation={3} sx={{ p: 4, mt: 4 }}>
@@ -84,6 +79,7 @@ const UserProfilePage = () => {
         
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
           <Avatar
+            src={user?.photoURL || undefined}
             sx={{ 
               width: 100, 
               height: 100, 
@@ -92,58 +88,43 @@ const UserProfilePage = () => {
               mr: 3
             }}
           >
-            {getInitials()}
+            {user?.displayName ? user.displayName[0] : (user?.email ? user.email[0] : '?')}
           </Avatar>
-          
           <Box>
             <Typography variant="h6" gutterBottom>
-              {user.firstName} {user.lastName}
+              {user?.displayName || '(Nom affiché non défini)'}
             </Typography>
             <Typography variant="body1" color="text.secondary">
-              {user.email}
+              {user?.email || '(Email inconnu)'}
             </Typography>
           </Box>
         </Box>
-        
+
         <Box component="form" onSubmit={handleSubmit}>
-          <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
-            <TextField
-              fullWidth
-              label="Prénom"
-              name="firstName"
-              value={user.firstName}
-              onChange={handleChange}
-              required
-            />
-            <TextField
-              fullWidth
-              label="Nom"
-              name="lastName"
-              value={user.lastName}
-              onChange={handleChange}
-              required
-            />
-          </Box>
-          
+          <TextField
+            fullWidth
+            label="Nom affiché"
+            name="displayName"
+            value={displayName}
+            onChange={handleChange}
+            required
+            sx={{ mb: 3 }}
+          />
           <TextField
             fullWidth
             label="Email"
             name="email"
-            value={user.email}
-            onChange={handleChange}
-            type="email"
+            value={user?.email || ''}
             disabled
             sx={{ mb: 3 }}
             helperText="L'adresse email ne peut pas être modifiée"
           />
-          
           <Box sx={{ mt: 3, mb: 2 }}>
             <Typography variant="subtitle1" gutterBottom>Options de compte</Typography>
             <Typography variant="body2" color="text.secondary">
-              Cette application fonctionne sans système d'authentification.
+              Pour changer votre mot de passe ou d'autres informations, utilisez les options de votre compte Google/Firebase.
             </Typography>
           </Box>
-          
           <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
             <Button
               type="submit"
