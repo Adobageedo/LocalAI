@@ -1,11 +1,8 @@
-import axios from 'axios';
+import { authFetch } from '../firebase/authFetch';
 import config from '../config';
 
 // Création du client axios pour communiquer avec le backend API
-const apiClient = axios.create({
-  baseURL: config.apiUrl,
-  timeout: 30000,
-});
+
 
 // Pas d'intercepteur d'authentification - mode sans auth
 
@@ -13,7 +10,8 @@ const apiClient = axios.create({
 const checkNextcloudStatus = async () => {
   try {
     console.log('[NEXTCLOUD API] Vérification de l\'accessibilité de Nextcloud');
-    const response = await apiClient.get('/nextcloud/status');
+    const res = await authFetch(`${config.apiUrl}/nextcloud/status`);
+    if (!res.ok) throw new Error('Erreur lors de la vérification de Nextcloud');
     console.log('[NEXTCLOUD API] Nextcloud est accessible');
     return true;
   } catch (error) {
@@ -36,10 +34,12 @@ class NextcloudService {
       console.log(`[NEXTCLOUD API] Listing du répertoire: ${path}`);
       
       // Appel à notre API backend qui fait le proxy vers Nextcloud
-      const response = await apiClient.get(`/nextcloud/files?path=${encodeURIComponent(path)}`);
+      const res = await authFetch(`${config.apiUrl}/nextcloud/files?path=${encodeURIComponent(path)}`);
+    if (!res.ok) throw new Error('Erreur lors de la récupération du contenu du répertoire');
+    const data = await res.json();
       console.log(`[NEXTCLOUD API] Récupéré les éléments du répertoire avec succès`);
       
-      return response.data.files;
+      return data.files;
     } catch (error) {
       console.error('[NEXTCLOUD API] Erreur lors de la récupération du contenu du répertoire:', error);
       throw error;
@@ -56,7 +56,12 @@ class NextcloudService {
       console.log(`[NEXTCLOUD API] Création du répertoire: ${path}`);
       
       // Appel à l'API backend pour créer un dossier
-      const response = await apiClient.post('/nextcloud/directory', { path });
+      const res = await authFetch(`${config.apiUrl}/nextcloud/directory`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path }),
+    });
+    if (!res.ok) throw new Error('Erreur lors de la création du dossier');
       console.log(`[NEXTCLOUD API] Répertoire créé avec succès: ${path}`);
       
       return true;
@@ -76,12 +81,12 @@ class NextcloudService {
       console.log(`[NEXTCLOUD API] Téléchargement du fichier: ${path}`);
       
       // Appel à notre API backend pour télécharger le fichier
-      const response = await apiClient.get(`/nextcloud/download?path=${encodeURIComponent(path)}`, {
-        responseType: 'arraybuffer'
-      });
+      const res = await authFetch(`${config.apiUrl}/nextcloud/download?path=${encodeURIComponent(path)}`);
+    if (!res.ok) throw new Error('Erreur lors du téléchargement du fichier');
+    const data = await res.arrayBuffer();
       console.log(`[NEXTCLOUD API] Fichier téléchargé avec succès: ${path}`);
       
-      return response.data;
+      return data;
     } catch (error) {
       console.error(`[NEXTCLOUD API] Erreur lors du téléchargement du fichier ${path}:`, error);
       throw error;
@@ -123,7 +128,11 @@ class NextcloudService {
       formData.append('path', parentPath);
       
       // Appel à notre API backend pour uploader le fichier
-      await apiClient.post('/nextcloud/upload', formData);
+      const res = await authFetch(`${config.apiUrl}/nextcloud/upload`, {
+      method: 'POST',
+      body: formData,
+    });
+    if (!res.ok) throw new Error('Erreur lors du téléversement du fichier');
       console.log(`[NEXTCLOUD API] Fichier téléversé avec succès: ${path}`);
       
       return true;
@@ -143,7 +152,8 @@ class NextcloudService {
       console.log(`[NEXTCLOUD API] Suppression de l'élément: ${path}`);
       
       // Appel à l'API backend pour supprimer un fichier/dossier
-      await apiClient.delete(`/nextcloud/files?path=${encodeURIComponent(path)}`);
+      const res = await authFetch(`${config.apiUrl}/nextcloud/files?path=${encodeURIComponent(path)}`,{ method: 'DELETE' });
+    if (!res.ok) throw new Error('Erreur lors de la suppression du fichier/dossier');
       console.log(`[NEXTCLOUD API] Élément ${path} supprimé avec succès`);
       
       return true;
@@ -164,10 +174,12 @@ class NextcloudService {
       console.log(`[NEXTCLOUD API] Déplacement de ${oldPath} vers ${newPath}`);
       
       // Appel à l'API backend pour déplacer un fichier/dossier
-      await apiClient.post('/nextcloud/move', {
-        sourcePath: oldPath,
-        targetPath: newPath
-      });
+      const res = await authFetch(`${config.apiUrl}/nextcloud/move`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sourcePath: oldPath, targetPath: newPath }),
+    });
+    if (!res.ok) throw new Error('Erreur lors du déplacement du fichier/dossier');
       console.log(`[NEXTCLOUD API] Élément déplacé avec succès de ${oldPath} vers ${newPath}`);
       
       return true;
@@ -188,10 +200,12 @@ class NextcloudService {
       console.log(`[NEXTCLOUD API] Copie de ${sourcePath} vers ${targetPath}`);
       
       // Appel à l'API backend pour copier un fichier/dossier
-      await apiClient.post('/nextcloud/copy', {
-        sourcePath: sourcePath,
-        targetPath: targetPath
-      });
+      const res = await authFetch(`${config.apiUrl}/nextcloud/copy`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sourcePath, targetPath }),
+    });
+    if (!res.ok) throw new Error('Erreur lors de la copie du fichier/dossier');
       console.log(`[NEXTCLOUD API] Élément copié avec succès de ${sourcePath} vers ${targetPath}`);
       
       return true;
@@ -271,15 +285,16 @@ class NextcloudService {
       console.log(`[NEXTCLOUD API] Création du partage pour: ${path}`);
       
       // Appel à l'API backend pour créer un partage
-      const response = await apiClient.post('/nextcloud/shares', {
-        path,
-        permissions,
-        shareWith,
-        shareType
-      });
+      const res = await authFetch(`${config.apiUrl}/nextcloud/shares`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path, permissions, shareWith, shareType }),
+    });
+    if (!res.ok) throw new Error('Erreur lors de la création du partage');
+    const data = await res.json();
       
       console.log(`[NEXTCLOUD API] Partage créé avec succès pour: ${path}`);
-      return response.data;
+      return data;
     } catch (error) {
       console.error(`[NEXTCLOUD API] Erreur lors de la création du partage pour ${path}:`, error);
       throw error;
@@ -295,10 +310,12 @@ class NextcloudService {
       console.log('[NEXTCLOUD API] Récupération des partages');
       
       // Appel à l'API backend pour récupérer les partages
-      const response = await apiClient.get('/nextcloud/shares');
+      const res = await authFetch(`${config.apiUrl}/nextcloud/shares`);
+    if (!res.ok) throw new Error('Erreur lors de la récupération des partages');
+    const data = await res.json();
       
       console.log('[NEXTCLOUD API] Partages récupérés avec succès');
-      return response.data.shares;
+      return data.shares;
     } catch (error) {
       console.error('[NEXTCLOUD API] Erreur lors de la récupération des partages:', error);
       return [];
@@ -315,7 +332,8 @@ class NextcloudService {
       console.log(`[NEXTCLOUD API] Suppression du partage: ${shareId}`);
       
       // Appel à l'API backend pour supprimer un partage
-      await apiClient.delete(`/nextcloud/shares/${shareId}`);
+      const res = await authFetch(`${config.apiUrl}/nextcloud/shares/${shareId}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error('Erreur lors de la suppression du partage');
       
       console.log(`[NEXTCLOUD API] Partage ${shareId} supprimé avec succès`);
       return true;

@@ -41,8 +41,27 @@ OUTLOOK_TOKEN_PATH = os.getenv("OUTLOOK_TOKEN_PATH", "outlook_token.json")
 router = APIRouter(tags=["sources"])
 logger = logging.getLogger(__name__)
 
+from fastapi import Request, HTTPException, status, Depends
+from firebase_admin import auth
+from firebase_utils import verify_token  # adjust import as needed
+
+def get_current_user(request: Request):
+    auth_header = request.headers.get("Authorization")
+    uid_header = request.headers.get("X-User-Uid")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid token")
+    token = auth_header.split(" ")[1]
+    try:
+        decoded_token = verify_token(token)
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    # Optional: check UID matches
+    if uid_header and uid_header != decoded_token.get("uid"):
+        raise HTTPException(status_code=401, detail="UID mismatch")
+    return decoded_token
+
 @router.get("/gmail/ingest_status")
-async def gmail_ingest_status():
+async def gmail_ingest_status(user=Depends(get_current_user)):
     import json, os
     status_path = "/tmp/gmail_ingest_status.json"
     if os.path.exists(status_path):
@@ -54,7 +73,7 @@ async def gmail_ingest_status():
     return {"subject": None}
 
 @router.get("/gmail/auth_url")
-async def get_gmail_auth_url():
+async def get_gmail_auth_url(user=Depends(get_current_user)):
     logger.debug("[GMAIL OAUTH] Checking for existing token at %s", GMAIL_TOKEN_PATH)
     # Check if token exists (simple file check, adapt as needed)
     if pathlib.Path(GMAIL_TOKEN_PATH).exists():
@@ -119,7 +138,7 @@ async def gmail_oauth2_callback(request: Request):
     """)
 
 @router.get("/download")
-async def download_source(path: str):
+async def download_source(path: str,user=Depends(get_current_user)):
     """
     Télécharge un fichier source directement depuis Nextcloud.
     Le chemin doit être un chemin complet tel que retourné par l'API de prompt.
@@ -222,7 +241,7 @@ def run_gmail_ingestion(labels: List[str], limit: int, query: Optional[str], for
 
 
 @router.post("/ingest/gmail")
-async def ingest_gmail_emails(request: GmailIngestRequest, background_tasks: BackgroundTasks):
+async def ingest_gmail_emails(request: GmailIngestRequest, background_tasks: BackgroundTasks,user=Depends(get_current_user)):
     """Ingère des emails depuis Gmail en utilisant l'authentification OAuth2"""
     try:
         # Vérifier si les identifiants OAuth2 sont configurés
@@ -316,7 +335,7 @@ def run_outlook_ingestion(folders: List[str], limit: int, query: Optional[str], 
 from update_vdb.sources.ingest_outlook_emails import ingest_outlook_emails_to_qdrant
 
 @router.post("/ingest/outlook")
-async def ingest_outlook_emails(request: OutlookIngestRequest):
+async def ingest_outlook_emails(request: OutlookIngestRequest,user=Depends(get_current_user)):
     """Ingère des emails depuis Outlook en utilisant l'authentification OAuth2"""
     try:
         # Vérifier si les identifiants OAuth2 sont configurés

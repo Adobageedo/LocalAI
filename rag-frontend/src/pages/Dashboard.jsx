@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { API_BASE_URL } from "../config";
+import { authFetch } from '../firebase/authFetch';
 import { Layout } from "../components/layout";
 
 export default function Dashboard() {
@@ -8,8 +9,11 @@ export default function Dashboard() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    fetch(`${API_BASE_URL}/documents/count-by-type`)
-      .then((res) => res.json())
+    authFetch(`${API_BASE_URL}/documents/count-by-type`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error('Erreur lors du chargement des statistiques.');
+        return res.json();
+      })
       .then((data) => {
         setCounts(data.counts || {});
         setLoading(false);

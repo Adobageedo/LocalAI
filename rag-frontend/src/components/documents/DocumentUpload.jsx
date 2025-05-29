@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import axios from "axios";
+import { authFetch } from '../../firebase/authFetch';
 import { API_BASE_URL } from "../config";
 import { Button, LinearProgress } from "@mui/material";
 
@@ -55,14 +55,16 @@ export default function DocumentUpload({ onUpload }) {
       formData.append("files", files[i]);
     }
     try {
-      const response = await axios.post(`${API_BASE_URL}/documents`, formData);
-      
+      await authFetch(`${API_BASE_URL}/documents`, {
+        method: 'POST',
+        body: formData,
+        headers: {}, // Do NOT set Content-Type for FormData
+      });
       setSuccessMsg(`Successfully uploaded ${files.length} file${files.length > 1 ? "s" : ""}.`);
       setSelectedFiles([]);
       fileRef.current.value = "";
       if (onUpload) onUpload();
     } catch (err) {
-      
       setErrorMsg("Upload failed. Please try again.");
     } finally {
       setLoading(false);

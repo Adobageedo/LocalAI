@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import axios from "axios";
+import { authFetch } from '../../firebase/authFetch';
 import { API_BASE_URL } from "../../config";
 import { CircularProgress, Chip, TextField, Checkbox, FormControlLabel } from "@mui/material";
 
@@ -20,9 +20,10 @@ export function GmailConnect() {
     if (isLoading) {
       interval = setInterval(async () => {
         try {
-          const res = await axios.get(`${API_BASE_URL}/sources/gmail/ingest_status`);
-          if (res.data && res.data.subject) {
-            setCurrentSubject(res.data.subject);
+          const res = await authFetch(`${API_BASE_URL}/sources/gmail/ingest_status`);
+          const data = await res.json();
+          if (data && data.subject) {
+            setCurrentSubject(data.subject);
           } else {
             setCurrentSubject(null);
           }
@@ -41,13 +42,14 @@ export function GmailConnect() {
       setIsLoading(true);
       setStatus(null);
       // Step 1: Check if authentication is needed
-      const authCheck = await axios.get(`${API_BASE_URL}/sources/gmail/auth_url`);
-      if (authCheck.data.authenticated) {
+      const authCheckRes = await authFetch(`${API_BASE_URL}/sources/gmail/auth_url`);
+      const authCheck = await authCheckRes.json();
+      if (authCheck.authenticated) {
         // Already authenticated, start ingestion
         await startIngestion();
-      } else if (authCheck.data.auth_url) {
+      } else if (authCheck.auth_url) {
         // Not authenticated, open popup
-        const popup = window.open(authCheck.data.auth_url, "GmailAuth", "width=500,height=650");
+        const popup = window.open(authCheck.auth_url, "GmailAuth", "width=500,height=650");
         // Listen for message from popup
         const onMessage = async (event) => {
           if (event.data === "gmail_auth_success") {
@@ -69,12 +71,10 @@ export function GmailConnect() {
 
   const startIngestion = async () => {
     try {
-      const response = await axios.post(`${API_BASE_URL}/sources/ingest/gmail`, {
-        labels,
-        limit,
-        query: query || undefined,
-        force_reingest: forceReingest,
-        no_attachments: noAttachments
+      const response = await authFetch(`${API_BASE_URL}/sources/ingest/gmail`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ labels, limit, query: query || undefined, force_reingest: forceReingest, no_attachments: noAttachments }),
       });
       
       setStatus({

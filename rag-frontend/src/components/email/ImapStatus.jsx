@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { API_BASE_URL } from "../../config";
+import { authFetch } from '../../firebase/authFetch';
 
 export default function ImapStatus({ user, polling, onComplete }) {
   const [status, setStatus] = useState(null);
@@ -8,7 +9,7 @@ export default function ImapStatus({ user, polling, onComplete }) {
     if (!polling || !user) return;
     let interval = setInterval(async () => {
       try {
-        const res = await fetch(`${API_BASE_URL}/ingest/imap/status?user=${encodeURIComponent(user)}`);
+        const res = await authFetch(`${API_BASE_URL}/ingest/imap/status?user=${encodeURIComponent(user)}`);
         const data = await res.json();
         setStatus(data.status);
         if (data.status === "completed" || data.status.startsWith("error")) {

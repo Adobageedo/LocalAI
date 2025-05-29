@@ -15,9 +15,6 @@ services:
       - VITE_NEXTCLOUD_URL=http://nextcloud
       - VITE_NEXTCLOUD_USERNAME=admin
       - VITE_NEXTCLOUD_PASSWORD=admin_password
-      - VITE_KEYCLOAK_URL=http://keycloak:8081
-      - VITE_KEYCLOAK_REALM=newsflix
-      - VITE_KEYCLOAK_CLIENT_ID=rag-frontend
       - VITE_SUPABASE_URL=http://localhost:9000
       - VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTl9.Quy04IFG2K7mCjIW2EU4ixoivlpsVR2yFB2v6n5GPLs
       # Désactiver les dépendances natives de Rollup
@@ -33,7 +30,6 @@ services:
       - rag-network
     depends_on:
       - nextcloud
-      - keycloak
 
   # Nextcloud
   nextcloud:
@@ -70,41 +66,6 @@ services:
       - MYSQL_PASSWORD=nextcloud
       - MYSQL_DATABASE=nextcloud
       - MYSQL_USER=nextcloud
-    networks:
-      - rag-network
-
-  # Keycloak
-  keycloak:
-    image: quay.io/keycloak/keycloak:latest
-    container_name: keycloak
-    environment:
-      - KEYCLOAK_ADMIN=admin
-      - KEYCLOAK_ADMIN_PASSWORD=admin
-      - KC_DB=postgres
-      - KC_DB_URL=jdbc:postgresql://keycloak-db:5432/keycloak
-      - KC_DB_USERNAME=keycloak
-      - KC_DB_PASSWORD=keycloak
-      - KC_HOSTNAME=localhost
-    command: 
-      - start-dev
-      - --http-port=8081
-    ports:
-      - "8081:8081"
-    depends_on:
-      - keycloak-db
-    networks:
-      - rag-network
-
-  # Base de données Keycloak
-  keycloak-db:
-    image: postgres:14
-    container_name: keycloak-db
-    environment:
-      - POSTGRES_DB=keycloak
-      - POSTGRES_USER=keycloak
-      - POSTGRES_PASSWORD=keycloak
-    volumes:
-      - keycloak_db:/var/lib/postgresql/data
     networks:
       - rag-network
 
@@ -175,6 +136,5 @@ networks:
 volumes:
   nextcloud_data:
   nextcloud_db:
-  keycloak_db:
   frontend_node_modules:
   qdrant_data:  # Stockage persistant pour Qdrant
