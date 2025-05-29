@@ -52,7 +52,7 @@ logging.getLogger("unstructured.trace").setLevel(logging.WARNING)
 logging.getLogger("chardet.universaldetector").setLevel(logging.WARNING)
 
 # Définir la portée de l'accès à Outlook/Microsoft Graph
-SCOPES = ['Mail.Read']
+SCOPES = ['Mail.Read', 'User.Read']
 GRAPH_API_ENDPOINT = 'https://graph.microsoft.com/v1.0'
 
 def get_outlook_token(client_id: str, client_secret: str, tenant_id: str, token_path: str) -> Optional[Dict]:
@@ -80,7 +80,7 @@ def get_outlook_token(client_id: str, client_secret: str, tenant_id: str, token_
         # C'est plus adapté pour une application bureau où l'utilisateur est présent
         app = msal.PublicClientApplication(
             client_id=client_id,
-            authority=f"https://login.microsoftonline.com/{tenant_id}",
+            authority=f"https://login.microsoftonline.com/common",
             token_cache=token_cache
         )
         
@@ -100,9 +100,8 @@ def get_outlook_token(client_id: str, client_secret: str, tenant_id: str, token_
             # comme pour Gmail, qui est plus convivial pour l'utilisateur
             result = app.acquire_token_interactive(
                 scopes=SCOPES,
-                prompt="select_account",  # Permet à l'utilisateur de choisir un compte
-                redirect_uri="http://localhost",  # URI de redirection explicite 
-                port=0  # Port aléatoire pour le serveur local
+                prompt="select_account"  # Permet à l'utilisateur de choisir un compte
+                # Ne pas spécifier port ici car cela crée un conflit avec redirect_uri
             )
             
             # Vérifier si l'authentification a réussi
@@ -237,7 +236,7 @@ def parse_outlook_message(message: Dict, access_token: str, user: str) -> Option
                     'Content-Type': 'application/json'
                 }
                 
-                attachment_url = f"{GRAPH_API_ENDPOINT}/users/{user}/messages/{message['id']}/attachments"
+                attachment_url = f"{GRAPH_API_ENDPOINT}/me/messages/{message['id']}/attachments"
                 response = requests.get(attachment_url, headers=headers)
                 
                 if response.status_code == 200:
@@ -298,7 +297,7 @@ def fetch_outlook_emails(
         
         for folder in folders:
             # Construire la requête
-            endpoint = f"{GRAPH_API_ENDPOINT}/users/{user}/mailFolders/{folder}/messages"
+            endpoint = f"{GRAPH_API_ENDPOINT}/me/mailFolders/{folder}/messages"
             params = {
                 '$top': min(limit, 50),  # Max 50 par requête API
                 '$expand': 'attachments'

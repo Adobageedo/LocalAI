@@ -52,7 +52,7 @@ from .source_router import router as source_router
 # Configuration des préfixes API centralisée
 app.include_router(openai_router, prefix="/api")
 app.include_router(nextcloud_router, prefix="/api/nextcloud")
-app.include_router(source_router, prefix="/api")
+app.include_router(source_router, prefix="/api/sources")
 
 # Chemins à exclure de la vérification d'authentification
 AUTH_EXCLUDE_PATHS = [
