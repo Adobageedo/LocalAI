@@ -11,8 +11,8 @@ import Prompt from './pages/Prompt';
 // Pages de profil utilisateur
 import UserProfilePage from './pages/UserProfilePage';
 import UserPreferences from './pages/UserPreferences';
-import NextcloudExplorer from './pages/NextcloudExplorer';
-import MailImport from './pages/OpenWebUI';
+import DocumentExplorer from './pages/DocumentExplorer';
+import MailImport from './pages/MailImport';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Home from './pages/Home';
@@ -37,7 +37,7 @@ function App() {
           <Route path="/profile" element={<PrivateRoute><UserProfilePage /></PrivateRoute>} />
           <Route path="/preferences" element={<PrivateRoute><UserPreferences /></PrivateRoute>} />
           <Route path="/mail-import" element={<PrivateRoute><MailImport /></PrivateRoute>} />
-          <Route path="/nextcloud-explorer" element={<PrivateRoute><NextcloudExplorer /></PrivateRoute>} />
+          <Route path="/document-explorer" element={<PrivateRoute><DocumentExplorer /></PrivateRoute>} />
 
           {/* Default route: Home for guests, Dashboard for users */}
           <Route path="*" element={<DefaultRoute />} />

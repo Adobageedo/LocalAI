@@ -26,24 +26,18 @@ def ingest_document(filepath, user, collection=None, doc_id=None, metadata=None,
     Args:
         filepath: Path to the document file to process
         user: User identifier for metadata
-        collection: Name of the Qdrant collection
+        collection: Name of the Qdrant collection (defaults to user if not provided)
         doc_id: Optional document ID for deduplication
         metadata: Optional dictionary of additional metadata to include
         original_filepath: Optional original file path to store in metadata (useful for temporary files)
-        original_filename: Optional original filename to store in metadata (useful for temporary files)
-    
-    For emails, adds rich metadata including:
-    - sender, receiver, cc, bcc
-    - subject, date
-    - message_id
-    - document_type (email, email_body, attachment)
-    - source (imap, gmail, outlook)
-    - content_type
-    - parent_email_id (for attachments and email bodies)
+        original_filename: Optional original file name to store in metadata
+    Note:
+        For email ingestion, set collection to user+"eml" in the calling function.
     """
     config = load_config()
+    # Default collection to user if not provided
     if collection is None:
-        collection = config.get('retrieval', {}).get('vectorstore', {}).get('collection', 'rag_documents1536')
+        collection = user
     manager = VectorStoreManager(collection)
     print(f"Ingesting document: {collection}")
     ext = os.path.splitext(filepath)[1].lower()

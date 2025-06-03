@@ -353,7 +353,7 @@ def should_process_file(file_path: str, supported_extensions: List[str]) -> bool
 
 def process_document(file_path: str, auth: Tuple[str, str], collection: str, 
                   force_reingest: bool = False, vector_store: Optional[VectorStoreManager] = None,
-                  file_registry: Optional[FileRegistry] = None) -> bool:
+                  file_registry: Optional[FileRegistry] = None, user_id: Optional[str] = None) -> bool:
     """
     Télécharge et ingère un seul document depuis Nextcloud.
     
@@ -364,6 +364,7 @@ def process_document(file_path: str, auth: Tuple[str, str], collection: str,
         force_reingest: Force la réingestion même si le document existe déjà
         vector_store: Instance de VectorStoreManager pour vérifier l'existence
         file_registry: Registre de fichiers pour suivre les documents ingérés
+        user_id: ID de l'utilisateur associé au document
         
     Returns:
         bool: True si le document a été ingéré avec succès, False sinon
@@ -414,6 +415,11 @@ def process_document(file_path: str, auth: Tuple[str, str], collection: str,
                 "last_modified": last_modified or datetime.now().isoformat()
             }
             
+            # Ajouter l'ID utilisateur aux métadonnées si disponible
+            if user_id:
+                metadata["user_id"] = user_id
+                logger.info(f"Document associé à l'utilisateur: {user_id}")
+            
             # Générer un doc_id cohérent pour le document
             doc_id = compute_document_id(file_path, file_hash)
             
@@ -422,7 +428,7 @@ def process_document(file_path: str, auth: Tuple[str, str], collection: str,
             try:
                 ingest_document(
                     filepath=temp_file_path,
-                    user="nextcloud",
+                    user = user_id or "nextcloud",
                     collection=collection,
                     metadata=metadata,
                     original_filepath=file_path,
@@ -465,27 +471,30 @@ def process_document(file_path: str, auth: Tuple[str, str], collection: str,
         return False
 
 
-def process_directory(path: str, auth: Tuple[str, str], supported_extensions: List[str], 
-                      processed_files: Set[str], collection: str, max_files: Optional[int] = None, 
+def process_directory(path: str, auth: Tuple[str, str], collection: str, 
+                      supported_extensions: List[str] = DEFAULT_SUPPORTED_EXTENSIONS,
+                      url: str = NEXTCLOUD_URL, max_files: Optional[int] = None,
                       depth: int = 0, max_depth: int = 20, force_reingest: bool = False, 
                       vector_store: Optional[VectorStoreManager] = None,
-                      file_registry: Optional[FileRegistry] = None) -> int:
+                      file_registry: Optional[FileRegistry] = None,
+                      user_id: Optional[str] = None) -> int:
     """
     Traite récursivement un répertoire et ingère tous les fichiers compatibles.
     
     Args:
         path: Chemin du répertoire à traiter
         auth: Tuple (username, password) pour l'authentification
-        supported_extensions: Liste des extensions de fichiers supportées
-        processed_files: Ensemble des fichiers déjà traités (pour éviter les doublons)
         collection: Nom de la collection Qdrant
+        supported_extensions: Liste des extensions de fichiers supportées
+        url: URL de base de Nextcloud
         max_files: Nombre maximum de fichiers à traiter
         depth: Profondeur actuelle de récursion
         max_depth: Profondeur maximale de récursion pour éviter les boucles infinies
         force_reingest: Force la réingestion même si le document existe déjà dans Qdrant
         vector_store: Instance de VectorStoreManager pour la vérification d'existence
         file_registry: Registre des fichiers déjà ingérés
-    
+        user_id: ID de l'utilisateur associé aux documents
+        
     Returns:
         int: Nombre de fichiers ingérés
     """
@@ -533,8 +542,8 @@ def process_directory(path: str, auth: Tuple[str, str], supported_extensions: Li
             logger.debug(f"Extension non supportée pour {file_path}, fichier ignoré")
             continue
         
-        # Traiter le document en passant le registre de fichiers
-        if process_document(file_path, auth, collection, force_reingest, vector_store, file_registry):
+        # Traiter le document en passant le registre de fichiers et l'ID utilisateur
+        if process_document(file_path, auth, collection, force_reingest, vector_store, file_registry, user_id):
             ingested_count += 1
         # Ajouter le fichier à la liste des fichiers traités
         processed_files.add(file_path)
@@ -551,15 +560,16 @@ def process_directory(path: str, auth: Tuple[str, str], supported_extensions: Li
         sub_count = process_directory(
             dir_path, 
             auth, 
+            collection, 
             supported_extensions, 
-            processed_files,
-            collection,
+            url, 
             max_files=max_files,
             depth=depth+1,
             max_depth=max_depth,
             force_reingest=force_reingest,
             vector_store=vector_store,
-            file_registry=file_registry
+            file_registry=file_registry,
+            user_id=user_id
         )
         ingested_count += sub_count
         

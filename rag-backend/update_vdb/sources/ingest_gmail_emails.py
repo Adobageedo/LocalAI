@@ -326,7 +326,8 @@ def ingest_gmail_emails_to_qdrant(
     registry_path: Optional[str] = None,
     force_reingest: bool = False,
     save_attachments: bool = True,
-    verbose: bool = False
+    verbose: bool = False,
+    user_id: str = None
 ) -> Dict[str, Any]:
     """
     Ingère les emails depuis Gmail vers Qdrant et met à jour le registre.
@@ -476,8 +477,8 @@ def ingest_gmail_emails_to_qdrant(
             try:
                 ingest_document(
                     filepath=tmp_path,
-                    user=gmail_user,
-                    collection=collection,
+                    user=user_id,
+                    collection=(user_id + "eml") if user_id else collection,
                     doc_id=email_id,
                     metadata=metadata,
                     original_filepath=email_path

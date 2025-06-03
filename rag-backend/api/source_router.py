@@ -74,9 +74,11 @@ async def gmail_ingest_status(user=Depends(get_current_user)):
 
 @router.get("/gmail/auth_url")
 async def get_gmail_auth_url(user=Depends(get_current_user)):
-    logger.debug("[GMAIL OAUTH] Checking for existing token at %s", GMAIL_TOKEN_PATH)
     # Check if token exists (simple file check, adapt as needed)
-    if pathlib.Path(GMAIL_TOKEN_PATH).exists():
+    user_id = user.get("uid") if user else "gmail"
+    GMAIL_TOKEN_PATH_MODIFIED = GMAIL_TOKEN_PATH.replace("user_id", user_id)
+    logger.debug("[GMAIL OAUTH] Checking for existing token at %s", GMAIL_TOKEN_PATH_MODIFIED)
+    if pathlib.Path(GMAIL_TOKEN_PATH_MODIFIED).exists():
         logger.debug("[GMAIL OAUTH] Token found. Already authenticated.")
         return JSONResponse({"authenticated": True})
     # Otherwise, generate the OAuth URL
@@ -93,7 +95,7 @@ async def get_gmail_auth_url(user=Depends(get_current_user)):
         scopes=["https://www.googleapis.com/auth/gmail.readonly"],
         redirect_uri=GMAIL_REDIRECT_URI + "/api/sources/gmail/oauth2callback"
     )
-    auth_url, state = flow.authorization_url(access_type='offline', include_granted_scopes='true')
+    auth_url, state = flow.authorization_url(access_type='offline', include_granted_scopes='true', state=user_id)
     logger.debug(f"[GMAIL OAUTH] Generated OAuth URL: {auth_url} (state: {state})")
     # Optionally: save state for CSRF protection
     return JSONResponse({"authenticated": False, "auth_url": auth_url})
@@ -102,6 +104,10 @@ async def get_gmail_auth_url(user=Depends(get_current_user)):
 async def gmail_oauth2_callback(request: Request):
     logger.debug("[GMAIL OAUTH] OAuth2 callback hit.")
     code = request.query_params.get("code")
+    user_id = request.query_params.get("state", "gmail")
+    logger.debug(f"[GMAIL OAUTH] User ID: {user_id} and Token Path: {GMAIL_TOKEN_PATH}")
+    GMAIL_TOKEN_PATH_MODIFIED = GMAIL_TOKEN_PATH.replace("user_id", user_id)
+    logger.debug(f"[GMAIL OAUTH] Token Path modified: {GMAIL_TOKEN_PATH_MODIFIED}")
     if not code:
         logger.error("[GMAIL OAUTH] Authorization code not found in callback.")
         return HTMLResponse("<p>Authorization code not found.</p>")
@@ -120,10 +126,11 @@ async def gmail_oauth2_callback(request: Request):
         redirect_uri=GMAIL_REDIRECT_URI + "/api/sources/gmail/oauth2callback"
     )
     flow.fetch_token(code=code)
-    logger.debug("[GMAIL OAUTH] Token fetched and will be saved to %s", GMAIL_TOKEN_PATH)
+    logger.debug("[GMAIL OAUTH] Token fetched and will be saved to %s", GMAIL_TOKEN_PATH_MODIFIED)
     # Save the credentials (token) for future use
     import pickle
-    with open(GMAIL_TOKEN_PATH, "wb") as token:
+    os.makedirs(os.path.dirname(GMAIL_TOKEN_PATH_MODIFIED), exist_ok=True)
+    with open(GMAIL_TOKEN_PATH_MODIFIED, "wb") as token:
         pickle.dump(flow.credentials, token)
     logger.debug("[GMAIL OAUTH] Token successfully saved.")
     # Return HTML that closes the popup and notifies the main window
@@ -210,15 +217,15 @@ class GmailIngestRequest(BaseModel):
     no_attachments: bool = False
 
 
-def run_gmail_ingestion(labels: List[str], limit: int, query: Optional[str], force_reingest: bool, no_attachments: bool):
-    logger.debug(f"[GMAIL INGEST] Starting Gmail ingestion with labels={labels}, limit={limit}, query={query}, force_reingest={force_reingest}, no_attachments={no_attachments}")
+def run_gmail_ingestion(labels: List[str], limit: int, query: Optional[str], force_reingest: bool, no_attachments: bool, user_id: str = None):
+    logger.debug(f"[GMAIL INGEST] Starting Gmail ingestion with labels={labels}, limit={limit}, query={query}, force_reingest={force_reingest}, no_attachments={no_attachments}, user_id={user_id}")
     try:
         # Import direct de la fonction d'ingestion
         from update_vdb.sources.ingest_gmail_emails import ingest_gmail_emails_to_qdrant
         import os
         
         credentials_path = os.environ.get("GMAIL_CREDENTIALS_PATH", "credentials.json")
-        token_path = os.environ.get("GMAIL_TOKEN_PATH", "token.pickle")
+        token_path = os.environ.get("GMAIL_TOKEN_PATH", "token.pickle").replace("user_id", user_id)
         collection = os.environ.get("COLLECTION_NAME", "rag_documents1536")
         registry_path = os.environ.get("FILE_REGISTRY_PATH", "/app/data/file_registry.json")
         
@@ -232,7 +239,8 @@ def run_gmail_ingestion(labels: List[str], limit: int, query: Optional[str], for
             registry_path=registry_path,
             force_reingest=force_reingest,
             save_attachments=not no_attachments,
-            verbose=True
+            verbose=True,
+            user_id=user_id
         )
         return result
     except Exception as e:
@@ -241,7 +249,7 @@ def run_gmail_ingestion(labels: List[str], limit: int, query: Optional[str], for
 
 
 @router.post("/ingest/gmail")
-async def ingest_gmail_emails(request: GmailIngestRequest, background_tasks: BackgroundTasks,user=Depends(get_current_user)):
+async def ingest_gmail_emails(request: GmailIngestRequest, background_tasks: BackgroundTasks, user=Depends(get_current_user)):
     """Ingère des emails depuis Gmail en utilisant l'authentification OAuth2"""
     try:
         # Vérifier si les identifiants OAuth2 sont configurés
@@ -250,17 +258,18 @@ async def ingest_gmail_emails(request: GmailIngestRequest, background_tasks: Bac
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Les identifiants OAuth2 pour Gmail ne sont pas configurés"
             )
-        
-        # Exécuter l'ingestion en arrière-plan
+        # Extraire l'ID utilisateur Firebase
+        user_id = user.get("uid") if user else None
+        # Exécuter l'ingestion en arrière-plan avec user_id
         background_tasks.add_task(
             run_gmail_ingestion,
             request.labels,
             request.limit,
             request.query,
             request.force_reingest,
-            request.no_attachments
+            request.no_attachments,
+            user_id  # nouveau paramètre
         )
-        
         return JSONResponse(
             status_code=status.HTTP_202_ACCEPTED,
             content={
@@ -271,11 +280,11 @@ async def ingest_gmail_emails(request: GmailIngestRequest, background_tasks: Bac
                     "limit": request.limit,
                     "query": request.query,
                     "force_reingest": request.force_reingest,
-                    "no_attachments": request.no_attachments
+                    "no_attachments": request.no_attachments,
+                    "user_id": user_id
                 }
             }
         )
-        
     except Exception as e:
         logger.error(f"Erreur lors de l'ingestion des emails Gmail: {str(e)}")
         raise HTTPException(
@@ -292,12 +301,13 @@ class OutlookIngestRequest(BaseModel):
     no_attachments: bool = False
 
 
-def run_outlook_ingestion(folders: List[str], limit: int, query: Optional[str], force_reingest: bool, no_attachments: bool):
+def run_outlook_ingestion(folders: List[str], limit: int, query: Optional[str], force_reingest: bool, no_attachments: bool, user_id: str = None):
     """Exécute le script d'ingestion Outlook en arrière-plan"""
     try:
         script_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 
                                 "update_vdb/sources/ingest_outlook_emails.py")
         
+        user_id = user_id or "outlook"
         # Construire la commande
         cmd = [
             "python", script_path,
@@ -305,7 +315,8 @@ def run_outlook_ingestion(folders: List[str], limit: int, query: Optional[str], 
             "--client-secret", OUTLOOK_CLIENT_SECRET,
             "--tenant-id", OUTLOOK_TENANT_ID,
             "--token", OUTLOOK_TOKEN_PATH,
-            "--limit", str(limit)
+            "--limit", str(limit),
+            "--user-id", user_id
         ]
         
         # Ajouter les dossiers
@@ -335,7 +346,7 @@ def run_outlook_ingestion(folders: List[str], limit: int, query: Optional[str], 
 from update_vdb.sources.ingest_outlook_emails import ingest_outlook_emails_to_qdrant
 
 @router.post("/ingest/outlook")
-async def ingest_outlook_emails(request: OutlookIngestRequest,user=Depends(get_current_user)):
+async def ingest_outlook_emails(request: OutlookIngestRequest, user=Depends(get_current_user)):
     """Ingère des emails depuis Outlook en utilisant l'authentification OAuth2"""
     try:
         # Vérifier si les identifiants OAuth2 sont configurés
@@ -344,13 +355,16 @@ async def ingest_outlook_emails(request: OutlookIngestRequest,user=Depends(get_c
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Les identifiants OAuth2 pour Outlook ne sont pas configurés"
             )
-        print("test")
-        # Call the ingestion function directly
+        # Extraire l'ID utilisateur Firebase
+        user_id = user.get("uid") if user else "outlook"
+        outlook_user_id_token_path = OUTLOOK_TOKEN_PATH.replace("user_id", user_id)
+        print(outlook_user_id_token_path)
+        # Call the ingestion function directly, with user_id
         result = ingest_outlook_emails_to_qdrant(
             client_id=OUTLOOK_CLIENT_ID,
             client_secret=OUTLOOK_CLIENT_SECRET,
             tenant_id=OUTLOOK_TENANT_ID,
-            token_path=OUTLOOK_TOKEN_PATH,
+            token_path=outlook_user_id_token_path,
             folders=request.folders,
             limit=request.limit,
             query=request.query,
@@ -358,9 +372,9 @@ async def ingest_outlook_emails(request: OutlookIngestRequest,user=Depends(get_c
             registry_path=None,  # Or set as needed
             force_reingest=request.force_reingest,
             save_attachments=not request.no_attachments,
-            verbose=True
+            verbose=True,
+            user_id=user_id
         )
-
         return JSONResponse(
             status_code=status.HTTP_200_OK,
             content={
@@ -368,7 +382,6 @@ async def ingest_outlook_emails(request: OutlookIngestRequest,user=Depends(get_c
                 "details": result
             }
         )
-
     except Exception as e:
         logger.error(f"Erreur lors de l'ingestion des emails Outlook: {str(e)}")
         raise HTTPException(

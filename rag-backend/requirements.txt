@@ -56,7 +56,7 @@ pikepdf  # Advanced PDF manipulation
 pdf2image  # Convert PDF to images for processing
 msal
 firebase-admin
-
+minio
 # Already included but important for these formats
 # python-docx  # Word documents
 # openpyxl  # Excel files

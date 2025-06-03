@@ -50,7 +50,7 @@ const Sidebar = ({ width = 240, open = true, onClose }) => {
   ];
   
   const integrationNavItems = [
-    { name: 'Drive', icon: <CloudIcon />, path: '/nextcloud-explorer', description: 'Gestionnaire de fichiers', badge: { text: 'Files', color: 'info' } },
+    { name: 'Documents', icon: <CloudIcon />, path: '/document-explorer', description: 'Explorateur multi-stockage', badge: { text: 'New', color: 'success' } },
     { name: 'Import Email', icon: <EmailIcon />, path: '/mail-import', description: 'Gestion des emails', badge: { text: 'Email', color: 'warning' } },
   ];
 

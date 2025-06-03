@@ -3,15 +3,14 @@ import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from dotenv import load_dotenv
 from qdrant_client import QdrantClient
-from rag_engine.vectorstore import get_qdrant_client
 from collections import Counter, defaultdict
 import json
 
 load_dotenv()
-QDRANT_URL = os.getenv("QDRANT_URL")
-QDRANT_API_KEY = os.getenv("QDRANT_API_KEY")
+QDRANT_URL="http://localhost:6333"
+QDRANT_API_KEY = ""
 
-client = get_qdrant_client()
+client = QdrantClient(url=QDRANT_URL)
 
 collections = client.get_collections().collections
 print(f"Found {len(collections)} collections in Qdrant:")

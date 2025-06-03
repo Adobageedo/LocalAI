@@ -413,7 +413,8 @@ def ingest_outlook_emails_to_qdrant(
     registry_path: str = None,
     force_reingest: bool = False,
     save_attachments: bool = True,
-    verbose: bool = False
+    verbose: bool = False,
+    user_id: str = None
 ) -> Dict:
     """
     Ingère des emails Outlook dans Qdrant.
@@ -547,12 +548,12 @@ def ingest_outlook_emails_to_qdrant(
                 try:
                     ingest_document(
                         filepath=temp_email_file_path,
-                        user=outlook_user,
-                        collection=collection,
+                        user=user_id,
+                        collection=(user_id + "eml") if user_id else collection,
                         doc_id=email_id,
                         metadata=metadata,
                         original_filepath=email_path,
-                        original_filename=email.metadata.subject
+                        original_filename=email.metadata.subject,
                     )
                 finally:
                     # Nettoyer le fichier temporaire de l'email

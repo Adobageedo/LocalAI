@@ -42,6 +42,8 @@ logging.getLogger("chardet.charsetprober").setLevel(logging.WARNING)
 logging.getLogger("chardet").setLevel(logging.WARNING)
 logging.getLogger("cachecontrol.controller").setLevel(logging.WARNING)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
+logging.getLogger("python_multipart.multipart").setLevel(logging.WARNING)
+
 app = FastAPI()
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 
@@ -49,11 +51,13 @@ DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 from .openai_compat import router as openai_router
 from .nextcloud_router import router as nextcloud_router
 from .source_router import router as source_router
+from .file_management_router import router as file_management_router
 
 # Configuration des préfixes API centralisée
 app.include_router(openai_router, prefix="/api")
 app.include_router(nextcloud_router, prefix="/api/nextcloud")
 app.include_router(source_router, prefix="/api/sources")
+app.include_router(file_management_router, prefix="/api/db")
 
 # Chemins à exclure de la vérification d'authentification
 AUTH_EXCLUDE_PATHS = [
