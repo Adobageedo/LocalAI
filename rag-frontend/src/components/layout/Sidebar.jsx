@@ -42,6 +42,7 @@ const Sidebar = ({ width = 240, open = true, onClose }) => {
     { name: 'Dashboard', icon: <DashboardIcon />, path: '/', description: 'Vue d\'ensemble', badge: null },
     { name: 'Dossiers', icon: <FolderIcon />, path: '/folders', description: 'Gestion des documents', badge: null },
     { name: 'Prompt', icon: <ChatIcon />, path: '/prompt', description: 'Interface de chat IA', badge: { text: 'AI', color: 'success' } },
+    { name: 'Chatbot', icon: <ChatIcon />, path: '/chatbot', description: 'Interface de chat IA', badge: { text: 'AI', color: 'success' } },
   ];
   
   const userNavItems = [

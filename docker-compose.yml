@@ -28,65 +28,6 @@ services:
              npm run dev -- --host 0.0.0.0"
     networks:
       - rag-network
-    depends_on:
-      - nextcloud
-
-  # Nextcloud
-  nextcloud:
-    image: nextcloud:latest
-    container_name: nextcloud
-    restart: always
-    ports:
-      - "8080:80"
-    volumes:
-      - nextcloud_data:/var/www/html
-    environment:
-      - MYSQL_HOST=nextcloud-db
-      - MYSQL_DATABASE=nextcloud
-      - MYSQL_USER=nextcloud
-      - MYSQL_PASSWORD=nextcloud
-      - NEXTCLOUD_ADMIN_USER=admin
-      - NEXTCLOUD_ADMIN_PASSWORD=admin_password
-      - NEXTCLOUD_TRUSTED_DOMAINS=nextcloud localhost 127.0.0.1
-    networks:
-      - rag-network
-    depends_on:
-      - nextcloud-db
-
-  # Base de données Nextcloud
-  nextcloud-db:
-    image: mariadb:10.6
-    container_name: nextcloud-db
-    restart: always
-    command: --transaction-isolation=READ-COMMITTED --log-bin=binlog --binlog-format=ROW
-    volumes:
-      - nextcloud_db:/var/lib/mysql
-    environment:
-      - MYSQL_ROOT_PASSWORD=nextcloud
-      - MYSQL_PASSWORD=nextcloud
-      - MYSQL_DATABASE=nextcloud
-      - MYSQL_USER=nextcloud
-    networks:
-      - rag-network
-  minio:
-    image: minio/minio:latest
-    container_name: minio
-    ports:
-      - "9000:9000"  # API port
-      - "9001:9001"  # Console port
-    environment:
-      - MINIO_ROOT_USER=miniouser
-      - MINIO_ROOT_PASSWORD=miniopassword
-    volumes:
-      - minio_data:/data
-    command: server --console-address ":9001" /data
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
-      interval: 30s
-      timeout: 20s
-      retries: 3
-    networks:
-      - rag-network
 
   # Qdrant - Base de données vectorielle pour RAG
   qdrant:
@@ -117,7 +58,6 @@ services:
       - /tmp:/tmp  
     depends_on:
       - qdrant
-      - nextcloud
     restart: unless-stopped
     networks:
       - rag-network
@@ -137,7 +77,6 @@ services:
       - /var/www/chardouin.fr/html:/usr/share/nginx/html/chardouin.fr  # Site statique
     depends_on:
       - rag-backend
-      - nextcloud
     restart: unless-stopped
     networks:
       - rag-network
@@ -147,14 +86,29 @@ services:
   # 1. Installer Certbot directement sur l'hôte
   # 2. Utiliser un service géré comme Cloudflare
   # 3. Configurer Let's Encrypt via votre hébergeur
+  postgres:
+    image: postgres:15-alpine
+    container_name: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: localai
+      POSTGRES_PASSWORD: localai_password
+      POSTGRES_DB: localai_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Mount the initialization script
+      - ./postgres:/docker-entrypoint-initdb.d
+    networks:
+      - rag-network
 
 networks:
   rag-network:
     driver: bridge
 
 volumes:
-  nextcloud_data:
-  nextcloud_db:
   frontend_node_modules:
   qdrant_data:  # Stockage persistant pour Qdrant
-  minio_data:
+  postgres_data:
+    driver: local

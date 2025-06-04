@@ -52,41 +52,14 @@ from .openai_compat import router as openai_router
 from .nextcloud_router import router as nextcloud_router
 from .source_router import router as source_router
 from .file_management_router import router as file_management_router
+from .conversation_router import router as conversation_router
 
 # Configuration des préfixes API centralisée
 app.include_router(openai_router, prefix="/api")
 app.include_router(nextcloud_router, prefix="/api/nextcloud")
 app.include_router(source_router, prefix="/api/sources")
 app.include_router(file_management_router, prefix="/api/db")
-
-# Chemins à exclure de la vérification d'authentification
-AUTH_EXCLUDE_PATHS = [
-    "/api/auth",  # Toutes les routes d'authentification
-    "/api/health",  # Endpoint de vérification de santé
-    "/docs",     # Documentation Swagger
-    "/redoc",    # Documentation ReDoc
-    "/openapi.json",  # Schéma OpenAPI
-    "/api/profile",  # Route de profil utilisateur
-    "/api/auth/login",  # Route de login
-    "/api/auth/register",  # Route d'inscription
-    "/api/auth/userinfo",  # Route d'information utilisateur
-    "/api/auth/logout",  # Route de déconnexion
-    "/api/auth/validate",  # Route de validation du token
-    "/api/auth/token",  # Route de token
-    "/api/auth/refresh",  # Route de refresh
-    "/api/documents/count-by-type",  # Route de comptage par type
-    "/api/nextcloud/",  # Routes Nextcloud
-    "/api/ingest/imap",  # Ingestion IMAP
-    "/api/ingest/imap/status",  # Statut d'ingestion IMAP
-    "/api/documents",  # Liste des documents
-    "/api/prompt"  # Endpoint pour les prompts IA
-]
-
-# Authentification désactivée explicitement
-ENABLE_AUTH = False  # Authentification désactivée par défaut
-
-# Authentification désactivée
-logger.warning("Middleware d'authentification désactivé - TOUTES LES ROUTES SONT PUBLIQUES")
+app.include_router(conversation_router)  # conversation_router already has prefix='/api' in its definition
 
 # Ajouter le middleware de compression GZIP
 app.add_middleware(GZipMiddleware, minimum_size=1000)
@@ -741,14 +714,20 @@ def get_document_stats(user=Depends(get_current_user)):
 
 
 @app.post("/api/prompt", response_model=PromptResponse)
-def prompt_ia(data: dict,user=Depends(get_current_user)):
+def prompt_ia(data: dict, user=Depends(get_current_user)):
     question = data.get("question")
     if not question:
         raise HTTPException(status_code=400, detail="Champ 'question' requis.")
+
+    # New optional parameters
+    temperature = data.get("temperature")
+    model = data.get("model")
+    use_retrieval = data.get("use_retrieval")
+    include_profile_context = data.get("include_profile_context")
+    conversation_history = data.get("conversation_history")
+
     # Add instruction to the prompt for the LLM to cite sources as [filename.ext]
-    llm_instruction = (
-        ""
-    )
+    llm_instruction = ""
     user_question = data.get("question")
     question = f"{llm_instruction}\n\n{user_question}"
     rag_result = get_rag_response_modular(question)
@@ -772,7 +751,13 @@ def prompt_ia(data: dict,user=Depends(get_current_user)):
         if len(sources) == 5:
             break
 
+    # For now, just echo received parameters for debugging
     return {
         "answer": answer,
-        "sources": sources
+        "sources": sources,
+        "temperature": temperature,
+        "model": model,
+        "use_retrieval": use_retrieval,
+        "include_profile_context": include_profile_context,
+        "conversation_history": conversation_history
     }

@@ -15,6 +15,7 @@ import DocumentExplorer from './pages/DocumentExplorer';
 import MailImport from './pages/MailImport';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import Chatbot from './pages/Chatbot';
 import Home from './pages/Home';
 import { PrivateRoute } from './components/PrivateRoute';
 import { useAuth } from './auth/AuthProvider';
@@ -38,7 +39,7 @@ function App() {
           <Route path="/preferences" element={<PrivateRoute><UserPreferences /></PrivateRoute>} />
           <Route path="/mail-import" element={<PrivateRoute><MailImport /></PrivateRoute>} />
           <Route path="/document-explorer" element={<PrivateRoute><DocumentExplorer /></PrivateRoute>} />
-
+          <Route path="/chatbot" element={<PrivateRoute><Chatbot /></PrivateRoute>} />
           {/* Default route: Home for guests, Dashboard for users */}
           <Route path="*" element={<DefaultRoute />} />
         </Routes>
