@@ -33,8 +33,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.
 from update_vdb.sources.email_sources.base import Email, EmailAttachment, EmailContent, EmailMetadata
 from rag_engine.vectorstore.vectorstore_manager import VectorStoreManager
 from rag_engine.config import load_config
-from update_vdb.sources.file_registry import FileRegistry
 from update_vdb.core.ingest_core import ingest_document
+from auth.microsoft_auth import get_outlook_token
 
 # Configuration du logging
 logging.basicConfig(
@@ -52,90 +52,7 @@ logging.getLogger("unstructured.trace").setLevel(logging.WARNING)
 logging.getLogger("chardet.universaldetector").setLevel(logging.WARNING)
 
 # Définir la portée de l'accès à Outlook/Microsoft Graph
-SCOPES = ['Mail.Read', 'User.Read']
 GRAPH_API_ENDPOINT = 'https://graph.microsoft.com/v1.0'
-
-def get_outlook_token(client_id: str, client_secret: str, tenant_id: str, token_path: str) -> Optional[Dict]:
-    """
-    Authentifie l'utilisateur et renvoie un token d'accès à Microsoft Graph.
-    
-    Args:
-        client_id: ID client Azure
-        client_secret: Secret client Azure
-        tenant_id: ID du tenant Azure
-        token_path: Chemin vers le fichier de token cache
-        
-    Returns:
-        Token d'accès ou None en cas d'erreur
-    """
-    try:
-        # Vérifier si un token cache existe
-        token_cache = msal.SerializableTokenCache()
-        
-        if os.path.exists(token_path):
-            with open(token_path, 'r') as token_file:
-                token_cache.deserialize(token_file.read())
-        
-        # Créer l'application MSAL comme client public
-        # C'est plus adapté pour une application bureau où l'utilisateur est présent
-        app = msal.PublicClientApplication(
-            client_id=client_id,
-            authority=f"https://login.microsoftonline.com/common",
-            token_cache=token_cache
-        )
-        
-        # Essayer de récupérer le token depuis le cache
-        accounts = app.get_accounts()
-        result = None
-        
-        if accounts:
-            # Si un compte est déjà connecté, utiliser le refresh token
-            logger.info(f"Compte trouvé dans le cache : {accounts[0].get('username', 'compte inconnu')}")
-            result = app.acquire_token_silent(SCOPES, account=accounts[0])
-        
-        if not result:
-            logger.info("Aucun token valide trouvé, lancement de l'authentification interactive")
-            
-            # Pour une application bureau, utiliser le flux d'authentification avec serveur local
-            # comme pour Gmail, qui est plus convivial pour l'utilisateur
-            result = app.acquire_token_interactive(
-                scopes=SCOPES,
-                prompt="select_account"  # Permet à l'utilisateur de choisir un compte
-                # Ne pas spécifier port ici car cela crée un conflit avec redirect_uri
-            )
-            
-            # Vérifier si l'authentification a réussi
-            if "error" in result:
-                error_msg = result.get("error_description", "Erreur inconnue")
-                logger.error(f"Erreur lors de l'authentification interactive: {error_msg}")
-                raise Exception(f"Échec de l'authentification: {error_msg}")
-        
-        # Sauvegarder le token pour les prochaines fois
-        if token_cache.has_state_changed:
-            with open(token_path, 'w') as token_file:
-                token_file.write(token_cache.serialize())
-        
-        if "access_token" in result:
-            # Extraire des informations sur l'utilisateur si disponibles
-            username = "outlook_user"
-            if "id_token_claims" in result and result["id_token_claims"].get("preferred_username"):
-                username = result["id_token_claims"]["preferred_username"]
-            elif accounts and accounts[0].get("username"):
-                username = accounts[0].get("username")
-                
-            logger.info(f"Authentification à Outlook réussie pour {username}")
-            
-            # Ajouter des informations sur le compte pour utilisation ultérieure
-            result["account"] = {"username": username}
-            return result
-        else:
-            error_desc = result.get('error_description', 'Erreur inconnue')
-            logger.error(f"Erreur d'authentification: {error_desc}")
-            return None
-            
-    except Exception as e:
-        logger.error(f"Erreur lors de l'authentification à Outlook: {str(e)}")
-        return None
 
 def compute_email_hash(email: Email) -> str:
     """
@@ -453,10 +370,6 @@ def ingest_outlook_emails_to_qdrant(
         # Charger la configuration
         config = load_config()
         
-        # Initialiser le registre de fichiers
-        registry = FileRegistry(registry_path=registry_path)
-        logger.info(f"Registre de fichiers chargé: {len(registry.registry)} entrées")
-        
         # Initialiser le gestionnaire de vectorstore
         if not collection:
             collection = config.get("retrieval", {}).get("vectorstore", {}).get("collection", "rag_documents1536")
@@ -503,12 +416,7 @@ def ingest_outlook_emails_to_qdrant(
                 
                 # Vérifier si l'email existe déjà dans le registre
                 email_path = f"/Outlook/{outlook_user}/{email.metadata.date}/{email_id}"
-                
-                if not force_reingest and registry.file_exists(email_path):
-                    logger.info(f"Email déjà présent dans le registre, ignoré: {email.metadata.subject}")
-                    result["skipped_emails"] += 1
-                    continue
-                
+                                
                 # Sauvegarder les pièces jointes si nécessaire
                 attachment_paths = []
                 if save_attachments and email.content.attachments and temp_dir:

@@ -42,23 +42,7 @@ router = APIRouter(tags=["sources"])
 logger = logging.getLogger(__name__)
 
 from fastapi import Request, HTTPException, status, Depends
-from firebase_admin import auth
-from firebase_utils import verify_token  # adjust import as needed
-
-def get_current_user(request: Request):
-    auth_header = request.headers.get("Authorization")
-    uid_header = request.headers.get("X-User-Uid")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or invalid token")
-    token = auth_header.split(" ")[1]
-    try:
-        decoded_token = verify_token(token)
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    # Optional: check UID matches
-    if uid_header and uid_header != decoded_token.get("uid"):
-        raise HTTPException(status_code=401, detail="UID mismatch")
-    return decoded_token
+from middleware.auth import get_current_user
 
 @router.get("/gmail/ingest_status")
 async def gmail_ingest_status(user=Depends(get_current_user)):

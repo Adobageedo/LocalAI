@@ -14,7 +14,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.gzip import GZipMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
-from rag_engine.retrieve_rag_information_modular import get_rag_response_modular
+from Agent_AI.retrieve_rag_information_modular import get_rag_response_modular
 from rag_engine.config import load_config
 from rag_engine.vectorstore.vectorstore_manager import VectorStoreManager
 # Authentification supprimée
@@ -93,24 +93,7 @@ class PromptResponse(BaseModel):
 
 
 from fastapi import Request, HTTPException, status, Depends
-from firebase_admin import auth
-from firebase_utils import verify_token  # adjust import as needed
-
-def get_current_user(request: Request):
-    auth_header = request.headers.get("Authorization")
-    uid_header = request.headers.get("X-User-Uid")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or invalid token")
-    token = auth_header.split(" ")[1]
-    try:
-        decoded_token = verify_token(token)
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    # Optional: check UID matches
-    if uid_header and uid_header != decoded_token.get("uid"):
-        raise HTTPException(status_code=401, detail="UID mismatch")
-    return decoded_token
-
+from middleware.auth import get_current_user
 # --- ENDPOINTS ---
 
 from update_vdb.sources.document_ingest import fetch_and_sync_documents
@@ -594,9 +577,6 @@ def delete_document(doc_id: str,user=Depends(get_current_user)):
         print(f"DELETION ERROR: Failed to delete document {doc_id}: {str(e)}", flush=True)
         print(traceback.format_exc(), flush=True)
         raise HTTPException(status_code=500, detail=f"Failed to delete document: {str(e)}")
-
-
-from rag_engine.retrieve_rag_information_modular import get_rag_response_modular
 
 @app.get("/api/health")
 def health_check():

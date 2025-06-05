@@ -1,4 +1,5 @@
 import sys
+import logging
 import os
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import yaml
@@ -9,8 +10,16 @@ from core.chunking import load_and_split_document
 from langchain.schema import Document
 import hashlib
 from rag_engine.config import load_config
+from sources.file_registry import FileRegistry
 
 load_dotenv()
+# Configuration du logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger("ingest-core")
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 CONFIG_PATH = os.path.join(os.path.dirname(__file__), '..', 'config.yaml')
 
@@ -35,18 +44,40 @@ def ingest_document(filepath, user, collection=None, doc_id=None, metadata=None,
         For email ingestion, set collection to user+"eml" in the calling function.
     """
     config = load_config()
+
+    # Initialiser le registre de fichiers
+    file_registry = FileRegistry(user)
+    logger.info(f"Registre de fichiers chargé: {len(file_registry.registry)} entrées")
+
     # Default collection to user if not provided
+    collection=None
     if collection is None:
         collection = user
     manager = VectorStoreManager(collection)
-    print(f"Ingesting document: {collection}")
+
     ext = os.path.splitext(filepath)[1].lower()
     if doc_id is None:
         doc_id = compute_doc_id(filepath)
+
+    # Vérifier si le document existe déjà dans le registre
+    if file_registry:
+        if file_registry.file_exists(filepath):
+            if not file_registry.has_changed(filepath, doc_id):
+                logger.info(f"Document déjà présent dans le registre (inchangé): {filepath}")
+                return
+            else:
+                logger.info(f"Document modifié, réingestion: {filepath}")
+                # Supprimer l'ancien document de Qdrant
+                old_doc_id = file_registry.get_doc_id(filepath)
+                if old_doc_id:
+                    logger.info(f"Suppression de l'ancien document: {old_doc_id}")
+                    manager.delete_by_doc_id(old_doc_id)
+    
+    logger.info(f"Ingesting document: {collection}")
     try:
         split_docs = load_and_split_document(filepath)
     except Exception as e:
-        print(f"Failed to process after chunking {filepath}: {e}")
+        logger.error(f"Failed to process after chunking {filepath}: {e}")
         return
     docs_to_upload = []
     for i, doc in enumerate(split_docs):
@@ -111,11 +142,23 @@ def ingest_document(filepath, user, collection=None, doc_id=None, metadata=None,
                 doc.metadata["ingest_date"] = datetime.now().isoformat()
         docs_to_upload.append(doc)
     if docs_to_upload:
-        print(f"Uploading {len(docs_to_upload)} chunks for {original_filepath}")
-        manager.add_documents(docs_to_upload)
-        print("Upload complete.")
+        try:
+            logger.info(f"Uploading {len(docs_to_upload)} chunks for {original_filepath}")
+            manager.add_documents(docs_to_upload)
+            logger.info("Upload complete.")
+            from datetime import datetime
+            file_registry.add_file(
+                        file_path=original_filepath,
+                        doc_id=doc_id,
+                        file_hash=doc_id,
+                        source_path=original_filepath,
+                        last_modified=datetime.now().isoformat()
+                    )
+        except Exception as e:
+            logger.error(f"Failed to upload documents: {e}")
+        
     else:
-        print(f"No chunks to upload for {filepath}")
+        logger.info(f"No chunks to upload for {filepath}")
 
 def main():
     import argparse

@@ -135,20 +135,44 @@ export default function ConversationSidebar({
       open={open}
       position={position}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 2 }}>
-        <Typography variant="h6">Conversations</Typography>
-        <Box>
-          <IconButton onClick={() => onCreateConversation()}>
-            <AddIcon />
-          </IconButton>
+      <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 2 }}>
+          <Typography variant="h6">Conversations</Typography>
           <IconButton onClick={onToggleSidebar}>
             {position === 'left' ? <ChevronLeftIcon /> : <ChevronRightIcon />}
           </IconButton>
         </Box>
-      </Box>
-      <Divider />
+        
+        {/* New Chat Button - ChatGPT style with Apple aesthetics */}
+        <Box sx={{ px: 2, pb: 2 }}>
+          <Button
+            fullWidth
+            variant="outlined"
+            startIcon={<AddIcon />}
+            onClick={() => onCreateConversation()}
+            sx={{
+              borderRadius: '12px',
+              py: 1,
+              justifyContent: 'flex-start',
+              color: '#000',
+              borderColor: 'rgba(0, 0, 0, 0.12)',
+              backgroundColor: 'rgba(255, 255, 255, 0.8)',
+              backdropFilter: 'blur(8px)',
+              boxShadow: '0 2px 6px rgba(0, 0, 0, 0.05)',
+              '&:hover': {
+                backgroundColor: 'rgba(0, 122, 255, 0.08)',
+                borderColor: '#007AFF',
+              },
+              fontWeight: 500,
+              textTransform: 'none'
+            }}
+          >
+            New Chat
+          </Button>
+        </Box>
+        <Divider />
       
-      <List sx={{ overflow: 'auto', flexGrow: 1 }}>
+        <List sx={{ overflow: 'auto', flexGrow: 1 }}>
         {conversations.length === 0 && (
           <Box sx={{ p: 2, textAlign: 'center' }}>
             <Typography variant="body2" color="text.secondary">
@@ -246,6 +270,7 @@ export default function ConversationSidebar({
           <Button onClick={handleDeleteSubmit} color="error" variant="contained">Delete</Button>
         </DialogActions>
       </Dialog>
+      </Box>
     </StyledDrawer>
   );
 }

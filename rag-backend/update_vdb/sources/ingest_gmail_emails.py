@@ -32,7 +32,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.
 from update_vdb.sources.email_sources.base import Email, EmailAttachment, EmailContent, EmailMetadata
 from rag_engine.vectorstore.vectorstore_manager import VectorStoreManager
 from rag_engine.config import load_config
-from update_vdb.sources.file_registry import FileRegistry
 from update_vdb.core.ingest_core import ingest_document
 
 # Configuration du logging
@@ -50,66 +49,8 @@ logging.getLogger("openai._base_client").setLevel(logging.WARNING)
 logging.getLogger("unstructured.trace").setLevel(logging.WARNING)
 logging.getLogger("chardet.universaldetector").setLevel(logging.WARNING)
 
-# Définir la portée de l'accès à Gmail
-SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
-
-def get_gmail_service(credentials_path: str, token_path: str) -> Any:
-    """
-    Authentifie l'utilisateur et renvoie un service Gmail.
-    
-    Args:
-        credentials_path: Chemin vers le fichier de credentials OAuth2
-        token_path: Chemin vers le fichier de token
-        
-    Returns:
-        Service Gmail authentifié
-    """
-    creds = None
-    
-    # Charger les credentials depuis les variables d'environnement
-    client_id = os.getenv("GMAIL_CLIENT_ID")
-    client_secret = os.getenv("GMAIL_CLIENT_SECRET")
-    redirect_uri = os.getenv("GMAIL_REDIRECT_URI")
-    
-    # Vérifier que les variables essentielles sont présentes
-    if not all([client_id, client_secret]):
-        raise EnvironmentError("Variables GMAIL_CLIENT_ID et GMAIL_CLIENT_SECRET manquantes dans .env")
-    
-    # Informer l'utilisateur
-    logger.info(f"Utilisation des credentials depuis les variables d'environnement")
-
-    # Vérifier si un token existe déjà
-    if os.path.exists(token_path):
-        with open(token_path, 'rb') as token:
-            creds = pickle.load(token)
-    
-    # Si les credentials ne sont pas valides, demander une nouvelle authentification
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            # Créer le flux d'authentification à partir des variables d'environnement
-            flow = InstalledAppFlow.from_client_config(
-                {
-                    "installed": {
-                        "client_id": client_id,
-                        "client_secret": client_secret,
-                        "redirect_uris": [redirect_uri],
-                        "auth_uri": os.getenv("GMAIL_AUTH_URI", "https://accounts.google.com/o/oauth2/auth"),
-                        "token_uri": os.getenv("GMAIL_TOKEN_URI", "https://oauth2.googleapis.com/token"),
-                        "auth_provider_x509_cert_url": os.getenv("GMAIL_AUTH_PROVIDER_X509_CERT_URL", "https://www.googleapis.com/oauth2/v1/certs")
-                    }
-                },
-                SCOPES
-            )
-            creds = flow.run_local_server(port=0)
-        
-        # Sauvegarder les credentials pour la prochaine exécution
-        with open(token_path, 'wb') as token:
-            pickle.dump(creds, token)
-    
-    # Construire le service Gmail
-    return build('gmail', 'v1', credentials=creds)
+# --- IMPORTED FROM auth/google_gmail_auth.py ---
+from auth.google_auth import get_gmail_service
 
 def compute_email_hash(email: Email) -> str:
     """
@@ -361,13 +302,7 @@ def ingest_gmail_emails_to_qdrant(
     }
     
     start_time = datetime.datetime.now()
-    
-    # Initialiser le registre de fichiers
-    file_registry = None
-    if registry_path:
-        file_registry = FileRegistry(registry_path=registry_path)
-        logger.info(f"Registre de fichiers chargé: {len(file_registry.registry)} entrées")
-    
+        
     # Initialiser le gestionnaire de vectorstore
     try:
         vector_store = VectorStoreManager(collection)
@@ -380,7 +315,7 @@ def ingest_gmail_emails_to_qdrant(
     
     # Authentification et initialisation du service Gmail
     try:
-        gmail_service = get_gmail_service(credentials_path, token_path)
+        gmail_service = get_gmail_service(token_path)
         logger.info("Connexion à Gmail établie")
     except Exception as e:
         logger.error(f"Erreur lors de l'authentification à Gmail: {e}")
@@ -420,22 +355,7 @@ def ingest_gmail_emails_to_qdrant(
             email_path = f"/Gmail/{gmail_user}/{email.metadata.date}/{email_id}"
             
             logger.info(f"Traitement de l'email {email_idx}/{len(emails)}: {email.metadata.subject}")
-            
-            # Vérifier si l'email existe déjà dans le registre
-            if file_registry and not force_reingest:
-                if file_registry.file_exists(email_path):
-                    if not file_registry.has_changed(email_path, email_hash):
-                        logger.info(f"Email déjà présent dans le registre (inchangé): {email_path}")
-                        result["skipped_emails"] += 1
-                        continue
-                    else:
-                        logger.info(f"Email modifié, réingestion: {email_path}")
-                        # Supprimer l'ancien document de Qdrant
-                        old_doc_id = file_registry.get_doc_id(email_path)
-                        if old_doc_id:
-                            logger.info(f"Suppression de l'ancien document: {old_doc_id}")
-                            vector_store.delete_by_doc_id(old_doc_id)
-            
+                        
             # --- STATUS FILE: Write current subject for frontend polling ---
             try:
                 status_path = "/tmp/gmail_ingest_status.json"
@@ -483,21 +403,7 @@ def ingest_gmail_emails_to_qdrant(
                     metadata=metadata,
                     original_filepath=email_path
                 )
-                
-                # Mettre à jour le registre
-                if file_registry:
-                    file_registry.add_file(
-                        file_path=email_path,
-                        doc_id=email_id,
-                        file_hash=email_hash,
-                        source_path=email_path,
-                        last_modified=email.metadata.date,
-                        metadata={
-                            "file_name": f"Email: {email.metadata.subject}",
-                            "extension": ".eml"
-                        }
-                    )
-                
+                                
                 result["ingested_emails"] += 1
                 logger.info(f"Email ingéré avec succès: {email.metadata.subject}")
                 
@@ -514,13 +420,6 @@ def ingest_gmail_emails_to_qdrant(
                         att_hash = hashlib.sha256(attachment.content).hexdigest()
                         att_id = f"{email_id}_att{att_idx}"
                         att_path = f"{email_path}/attachments/{attachment.filename}"
-                        
-                        # Vérifier si la pièce jointe existe déjà
-                        if file_registry and not force_reingest:
-                            if file_registry.file_exists(att_path):
-                                if not file_registry.has_changed(att_path, att_hash):
-                                    logger.info(f"Pièce jointe déjà présente (inchangée): {attachment.filename}")
-                                    continue
                         
                         # Créer un fichier temporaire pour la pièce jointe
                         with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(attachment.filename)[1]) as att_file:
@@ -560,21 +459,6 @@ def ingest_gmail_emails_to_qdrant(
                                 original_filepath=att_path,
                                 original_filename=attachment.filename
                             )
-                            
-                            # Mettre à jour le registre pour la pièce jointe
-                            if file_registry:
-                                file_registry.add_file(
-                                    file_path=att_path,
-                                    doc_id=att_id,
-                                    file_hash=att_hash,
-                                    source_path=att_path,
-                                    last_modified=email.metadata.date,
-                                    metadata={
-                                        "file_name": attachment.filename,
-                                        "extension": os.path.splitext(attachment.filename)[1],
-                                        "parent_email_id": email_id
-                                    }
-                                )
                             
                             result["ingested_attachments"] += 1
                             logger.info(f"Pièce jointe ingérée: {attachment.filename}")

@@ -5,7 +5,7 @@ import os
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
-from firebase_utils import verify_token
+from middleware.firebase_utils import verify_token
 
 security = HTTPBearer()
 

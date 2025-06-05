@@ -9,23 +9,7 @@ from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel
 from fastapi import Request, HTTPException, status, Depends, BackgroundTasks
-from firebase_admin import auth
-from firebase_utils import verify_token  # adjust import as needed
-
-def get_current_user(request: Request):
-    auth_header = request.headers.get("Authorization")
-    uid_header = request.headers.get("X-User-Uid")
-    if not auth_header or not auth_header.startswith("Bearer "):
-        raise HTTPException(status_code=401, detail="Missing or invalid token")
-    token = auth_header.split(" ")[1]
-    try:
-        decoded_token = verify_token(token)
-    except Exception:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    # Optional: check UID matches
-    if uid_header and uid_header != decoded_token.get("uid"):
-        raise HTTPException(status_code=401, detail="UID mismatch")
-    return decoded_token
+from middleware.auth import get_current_user
 
 router = APIRouter()
 logger = logging.getLogger(__name__)

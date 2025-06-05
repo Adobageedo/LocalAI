@@ -16,22 +16,17 @@ class FileRegistry:
     Classe permettant de gérer un registre des fichiers ingérés dans Qdrant
     sous forme de fichier JSON.
     """
-    def __init__(self, registry_path: str = None):
+    def __init__(self,user_id):
         """
         Initialise le registre des fichiers.
         
         Args:
-            registry_path: Chemin vers le fichier JSON de registre.
-                           Par défaut, utilise le dossier de l'application.
+            user_id: Identifiant de l'utilisateur.
         """
-        if registry_path is None:
-            # Par défaut, utiliser un dossier de données dans le répertoire de l'application
-            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            data_dir = os.path.join(base_dir, 'data')
-            os.makedirs(data_dir, exist_ok=True)
-            self.registry_path = os.path.join(data_dir, 'file_registry.json')
-        else:
-            self.registry_path = registry_path
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        data_dir = os.path.join(base_dir, 'data')
+        os.makedirs(data_dir, exist_ok=True)
+        self.registry_path = os.path.join(data_dir, f'file_registry_{user_id}.json')
             
         self.registry: Dict[str, Dict[str, Any]] = {}
         self._load_registry()
@@ -50,6 +45,7 @@ class FileRegistry:
         else:
             logger.info("Aucun registre existant trouvé, création d'un nouveau registre")
             self.registry = {}
+            self._save_registry()
     
     def _save_registry(self) -> None:
         """Sauvegarde le registre dans le fichier JSON."""

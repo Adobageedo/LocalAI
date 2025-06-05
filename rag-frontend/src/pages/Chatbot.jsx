@@ -105,18 +105,18 @@ export default function Chatbot() {
     }
   };
 
-  // Create a new conversation
+  // Create a new conversation (draft - only created in UI until a message is sent)
   const createConversation = async () => {
-    setLoading(true);
-    try {
-      const data = await createNewConversation('New Conversation');
-      await fetchConversations();
-      setCurrentConversation(data);
-    } catch (error) {
-      console.error('Error creating conversation:', error);
-    } finally {
-      setLoading(false);
-    }
+    // Instead of creating in backend, just create a temporary conversation in UI state
+    setCurrentConversation({
+      id: null, // Temporary ID, will be replaced when first message is sent
+      title: 'New Conversation',
+      created_at: new Date().toISOString(),
+      isDraft: true // Flag to indicate this is a draft conversation
+    });
+    
+    // Clear any existing messages
+    setMessages([]);
   };
 
   // Handle sending a message (to both DB and LLM API)
@@ -130,23 +130,27 @@ export default function Chatbot() {
       timestamp: new Date().toISOString()
     };
     
+    // Update UI with new message
+    const updatedMessages = [...messages, userMessage];
+    setMessages(updatedMessages);
     setLoading(true);
     
     try {
       // Step 1: Save the message to the database
       let conversationId = currentConversation?.id;
       
-      // If no active conversation, create one
-      if (!conversationId) {
-        const newConv = await createNewConversation('New Conversation');
+      // If conversation is a draft or doesn't exist, create a real one in the backend
+      if (!conversationId || currentConversation?.isDraft) {
+        // Use the first 20 characters of the message as the conversation title
+        const firstMessageTitle = content.substring(0, 20);
+        const newConv = await createNewConversation(firstMessageTitle);
         conversationId = newConv.id;
-        setCurrentConversation(newConv);
+        setCurrentConversation({...newConv, isDraft: false});
         await fetchConversations();
       }
 
       // Save the user message to the database
-      await addMessage({
-        conversation_id: conversationId,
+      await addMessage(conversationId, {
         role: 'user',
         message: content,
       });
@@ -158,15 +162,14 @@ export default function Chatbot() {
         model: chatSettings.model,
         use_retrieval: chatSettings.useRetrieval,
         include_profile_context: chatSettings.useUserContext,
-        conversation_history: messages.map(m => ({
+        conversation_history: updatedMessages.map(m => ({
           role: m.role,
           message: m.content
         }))
       });
 
       // Step 3: Save the assistant response to the database
-      await addMessage({
-        conversation_id: conversationId,
+      await addMessage(conversationId, {
         role: 'assistant',
         message: response.answer,
         sources: response.sources || []
