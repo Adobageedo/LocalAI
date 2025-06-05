@@ -25,3 +25,5 @@ set_heroku_env.sh
 rag-backend/outlook_token.json
 rag-backend/token.pickle
 rag-backend/update_vdb/data/file_registry.json
+rag-backend/data/*
+!rag-backend/data/.gitkeep
