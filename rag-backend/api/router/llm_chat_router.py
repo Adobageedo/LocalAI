@@ -7,6 +7,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import os
 from middleware.auth import get_current_user
+from Agent_AI.retrieve_rag_information_modular import get_rag_response_modular
 
 # Database connection parameters
 DB_NAME = os.getenv("POSTGRES_DB", "localai_db")
@@ -16,6 +17,9 @@ DB_HOST = os.getenv("POSTGRES_HOST", "postgres")
 DB_PORT = os.getenv("POSTGRES_PORT", "5432")
 
 # Models
+class PromptResponse(BaseModel):
+    answer: str
+    sources: List[str]
 class ConversationCreate(BaseModel):
     name: str = "New Conversation"
 
@@ -47,7 +51,7 @@ class Message(BaseModel):
     class Config:
         orm_mode = True
 
-router = APIRouter(prefix="/api", tags=["conversations"])
+router = APIRouter(tags=["conversations"])
 
 def get_db_connection():
     """Create and return a database connection"""
@@ -461,3 +465,53 @@ async def add_message(conversation_id: Optional[UUID4] = None, message: MessageC
         )
     finally:
         conn.close()
+
+@router.post("/prompt", response_model=PromptResponse)
+def prompt_ia(data: dict, user=Depends(get_current_user)):
+    user_id = user.get("uid")
+    question = data.get("question")
+    if not question:
+        raise HTTPException(status_code=400, detail="Champ 'question' requis.")
+
+    # New optional parameters
+    temperature = data.get("temperature")
+    model = data.get("model")
+    use_retrieval = data.get("use_retrieval")
+    include_profile_context = data.get("include_profile_context")
+    conversation_history = data.get("conversation_history")
+
+    # Add instruction to the prompt for the LLM to cite sources as [filename.ext]
+    llm_instruction = ""
+    user_question = data.get("question")
+    question = f"{llm_instruction}\n\n{user_question}"
+    rag_result = get_rag_response_modular(question, user_id=user_id)
+
+    # Extract filenames cited in the answer (e.g., [contract.pdf])
+    import re, os
+    answer = rag_result.get("answer", "")
+    cited_filenames = set(re.findall(r'\[([^\[\]]+)\]', answer))
+
+    # Only include sources whose filename is actually cited in the answer
+    sources = []
+    seen = set()
+    for doc in rag_result.get("documents", []):
+        metadata = getattr(doc, "metadata", {}) or {}
+        path = metadata.get("source_path")
+        if path:
+            filename = os.path.basename(path)
+            if filename in cited_filenames and path not in seen:
+                sources.append(path)
+                seen.add(path)
+        if len(sources) == 5:
+            break
+
+    # For now, just echo received parameters for debugging
+    return {
+        "answer": answer,
+        "sources": sources,
+        "temperature": temperature,
+        "model": model,
+        "use_retrieval": use_retrieval,
+        "include_profile_context": include_profile_context,
+        "conversation_history": conversation_history
+    }

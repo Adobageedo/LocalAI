@@ -4,11 +4,12 @@ from rag_engine.retrieval.retrieval import retrieve_documents_advanced
 from rag_engine.retrieval.llm_router import LLMRouter
 
 
-def get_rag_response_modular(question: str, metadata_filter=None, top_k=None) -> dict:
+def get_rag_response_modular(question: str, metadata_filter=None, top_k=None, user_id=None) -> dict:
     """
     Fetch information from documents using the new modular retrieval architecture.
     - Uses config for split_prompt, rerank, use_hyde
-    - Optionally accepts a metadata_filter and top_k
+    - Accepts metadata_filter, top_k, and user_id
+    - If user_id is provided, use it as the Qdrant collection name
     Returns a dict with the answer, context, and retrieved docs.
     """
     config = load_config()
@@ -18,13 +19,17 @@ def get_rag_response_modular(question: str, metadata_filter=None, top_k=None) ->
     rerank = retrieval_cfg.get("rerank", False)
     use_hyde = retrieval_cfg.get("use_hyde", False)
 
+    # Use user_id as collection if provided
+    collection = user_id if user_id else "rag_documents1536"
+
     docs = retrieve_documents_advanced(
         prompt=question,
         top_k=top_k,
         metadata_filter=metadata_filter,
         split_prompt=split_prompt,
         rerank=rerank,
-        use_hyde=use_hyde
+        use_hyde=use_hyde,
+        collection=collection
     )
     print(f"Number of retrieved documents: {len(docs)}")
 

@@ -48,18 +48,16 @@ app = FastAPI()
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 
 # Import des routeurs
-from .openai_compat import router as openai_router
-from .nextcloud_router import router as nextcloud_router
-from .source_router import router as source_router
-from .file_management_router import router as file_management_router
-from .conversation_router import router as conversation_router
+from .router.openai_compat import router as openai_router
+from .router.ingest_router import router as source_router
+from .router.file_management_router import router as file_management_router
+from .router.llm_chat_router import router as conversation_router
 
 # Configuration des préfixes API centralisée
 app.include_router(openai_router, prefix="/api")
-app.include_router(nextcloud_router, prefix="/api/nextcloud")
 app.include_router(source_router, prefix="/api/sources")
 app.include_router(file_management_router, prefix="/api/db")
-app.include_router(conversation_router)  # conversation_router already has prefix='/api' in its definition
+app.include_router(conversation_router, prefix="/api")  # conversation_router already has prefix='/api' in its definition
 
 # Ajouter le middleware de compression GZIP
 app.add_middleware(GZipMiddleware, minimum_size=1000)
@@ -453,7 +451,7 @@ def list_documents(user=Depends(get_current_user),q: Optional[str] = Query(None)
         seen_docs[doc_id] = True
 
     # Sort by source_path
-    docs.sort(key=lambda x: x.get("source_path", ""))
+    docs.sort(key=lambda x: x.get("source_path") or "")
     
     # Apply pagination
     start = (page - 1) * page_size
@@ -691,53 +689,3 @@ def get_document_stats(user=Depends(get_current_user)):
         logger.error(f"EMAIL COUNT ERROR: {error_msg}")
         logger.error(traceback.format_exc())
         return {"success": False, "error": error_msg}
-
-
-@app.post("/api/prompt", response_model=PromptResponse)
-def prompt_ia(data: dict, user=Depends(get_current_user)):
-    question = data.get("question")
-    if not question:
-        raise HTTPException(status_code=400, detail="Champ 'question' requis.")
-
-    # New optional parameters
-    temperature = data.get("temperature")
-    model = data.get("model")
-    use_retrieval = data.get("use_retrieval")
-    include_profile_context = data.get("include_profile_context")
-    conversation_history = data.get("conversation_history")
-
-    # Add instruction to the prompt for the LLM to cite sources as [filename.ext]
-    llm_instruction = ""
-    user_question = data.get("question")
-    question = f"{llm_instruction}\n\n{user_question}"
-    rag_result = get_rag_response_modular(question)
-
-    # Extract filenames cited in the answer (e.g., [contract.pdf])
-    import re, os
-    answer = rag_result.get("answer", "")
-    cited_filenames = set(re.findall(r'\[([^\[\]]+)\]', answer))
-
-    # Only include sources whose filename is actually cited in the answer
-    sources = []
-    seen = set()
-    for doc in rag_result.get("documents", []):
-        metadata = getattr(doc, "metadata", {}) or {}
-        path = metadata.get("source_path")
-        if path:
-            filename = os.path.basename(path)
-            if filename in cited_filenames and path not in seen:
-                sources.append(path)
-                seen.add(path)
-        if len(sources) == 5:
-            break
-
-    # For now, just echo received parameters for debugging
-    return {
-        "answer": answer,
-        "sources": sources,
-        "temperature": temperature,
-        "model": model,
-        "use_retrieval": use_retrieval,
-        "include_profile_context": include_profile_context,
-        "conversation_history": conversation_history
-    }

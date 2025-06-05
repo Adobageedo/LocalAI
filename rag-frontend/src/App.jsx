@@ -7,7 +7,6 @@ import Dashboard from './pages/Dashboard';
 
 // Importation de tous les composants de pages disponibles pour l'accès direct
 import Folders from './pages/Folders';
-import Prompt from './pages/Prompt';
 // Pages de profil utilisateur
 import UserProfilePage from './pages/UserProfilePage';
 import UserPreferences from './pages/UserPreferences';
@@ -16,10 +15,7 @@ import MailImport from './pages/MailImport';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Chatbot from './pages/Chatbot';
-import Home from './pages/Home';
 import { PrivateRoute } from './components/PrivateRoute';
-import { useAuth } from './auth/AuthProvider';
-import { Navigate } from 'react-router-dom';
 import DefaultRoute from './DefaultRoute';
 
 function App() {
@@ -34,7 +30,6 @@ function App() {
 
           {/* Private (user-only) routes */}
           <Route path="/folders" element={<PrivateRoute><Folders /></PrivateRoute>} />
-          <Route path="/prompt" element={<PrivateRoute><Prompt /></PrivateRoute>} />
           <Route path="/profile" element={<PrivateRoute><UserProfilePage /></PrivateRoute>} />
           <Route path="/preferences" element={<PrivateRoute><UserPreferences /></PrivateRoute>} />
           <Route path="/mail-import" element={<PrivateRoute><MailImport /></PrivateRoute>} />

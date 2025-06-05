@@ -16,12 +16,14 @@ def retrieve_documents_advanced(
     split_prompt: bool = True,
     rerank: bool = False,
     use_hyde: bool = False,
+    collection: Optional[str] = None,
 ) -> List[Document]:
     """
     Retrieve relevant documents for a given prompt, with options for prompt splitting, HyDE, and reranking.
     Returns unique documents by unique_id.
+    collection: If provided, use this Qdrant collection (e.g., user ID)
     """
-    retriever = Retriever()
+    retriever = Retriever(collection=collection)
     queries = [prompt]
     if split_prompt:
         queries = Retriever.split_prompt_into_subquestions(prompt)
@@ -47,11 +49,12 @@ def retrieve_documents_advanced(
 
 
 class Retriever(BaseRetriever):
-    def __init__(self):
+    def __init__(self, collection: Optional[str] = None):
         self.config = load_config()
         retrieval_cfg = self.config.get("retrieval", {})
         vectorstore_cfg = retrieval_cfg.get("vectorstore", {})
-        self.COLLECTION_NAME = vectorstore_cfg.get("collection", os.getenv("COLLECTION_NAME", "rag_documents"))
+        # Allow per-user collection
+        self.COLLECTION_NAME = collection or vectorstore_cfg.get("collection", os.getenv("COLLECTION_NAME", "rag_documents"))
         self.MIN_SCORE = retrieval_cfg.get("min_score", 0.2)
         self.top_k = retrieval_cfg.get("top_k", 50)
         embedder_instance = EMBEDDER_REGISTRY[retrieval_cfg.get("embedder", "openai")]()

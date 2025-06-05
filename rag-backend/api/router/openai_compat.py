@@ -1,7 +1,7 @@
 import time
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
-from rag_engine.retrieve_rag_information_modular import get_rag_response_modular
+from Agent_AI.retrieve_rag_information_modular import get_rag_response_modular
 
 router = APIRouter()
 
