@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Container, Paper, Typography, Box, TextField, Button, Switch, FormControlLabel, Divider, Alert, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
 import { useAuth } from '../auth/AuthProvider';
 import { useNavigate } from 'react-router-dom';
-
+import Layout from '../components/layout/Layout';
 // Préférences simulées de l'utilisateur
 const initialPreferences = {
   language: 'fr',

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Container, Paper, Typography, Box, TextField, Button, Avatar, Alert } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthProvider';
+import Layout from '../components/layout/Layout';
 
 const UserProfilePage = () => {
   const navigate = useNavigate();
@@ -50,6 +51,7 @@ const UserProfilePage = () => {
   }
 
   return (
+    <Layout>
     <Container maxWidth="md">
       <Paper elevation={3} sx={{ p: 4, mt: 4 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
@@ -138,6 +140,7 @@ const UserProfilePage = () => {
         </Box>
       </Paper>
     </Container>
+    </Layout>
   );
 };
 
