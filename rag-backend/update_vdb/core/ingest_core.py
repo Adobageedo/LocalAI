@@ -147,12 +147,17 @@ def ingest_document(filepath, user, collection=None, doc_id=None, metadata=None,
             manager.add_documents(docs_to_upload)
             logger.info("Upload complete.")
             from datetime import datetime
+            # Récupérer les métadonnées du premier document pour les stocker dans le registre
+            # Cela permettra à l'API de récupérer les métadonnées sans interroger Qdrant
+            doc_metadata = docs_to_upload[0].metadata if docs_to_upload else {}
+            
             file_registry.add_file(
                         file_path=original_filepath,
                         doc_id=doc_id,
                         file_hash=doc_id,
                         source_path=original_filepath,
-                        last_modified=datetime.now().isoformat()
+                        last_modified=datetime.now().isoformat(),
+                        metadata=doc_metadata
                     )
         except Exception as e:
             logger.error(f"Failed to upload documents: {e}")

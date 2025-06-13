@@ -5,12 +5,15 @@ import MenuIcon from '@mui/icons-material/Menu';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useLocation, Link as RouterLink } from 'react-router-dom';
 
-export default function Layout({ children }) {
+export default function Layout({ children, sidebarOpen = true }) {
+  // Track collapsed state for the sidebar
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   // Authentication removed
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [mobileOpen, setMobileOpen] = useState(false);
   const DRAWER_WIDTH = 260;
+  const COLLAPSED_DRAWER_WIDTH = 70; // Width when showing only icons
   const location = useLocation();
   
   // Fonction pour générer des fils d'Ariane à partir du chemin actuel
@@ -61,22 +64,32 @@ export default function Layout({ children }) {
           )}
           
           {/* Version desktop */}
-          <Drawer
-            variant="permanent"
-            sx={{
-              display: { xs: 'none', md: 'block' },
-              width: DRAWER_WIDTH,
-              flexShrink: 0,
-              '& .MuiDrawer-paper': {
-                width: DRAWER_WIDTH,
-                boxSizing: 'border-box',
-                borderRight: `1px solid ${theme.palette.divider}`,
-                boxShadow: theme.palette.mode === 'light' ? '0px 2px 10px rgba(0, 0, 0, 0.05)' : 'none'
-              },
-            }}
-          >
-            <Sidebar width={DRAWER_WIDTH} />
-          </Drawer>
+          {sidebarOpen && (
+            <Drawer
+              variant="permanent"
+              sx={{
+                display: { xs: 'none', md: 'block' },
+                width: sidebarCollapsed ? COLLAPSED_DRAWER_WIDTH : DRAWER_WIDTH,
+                flexShrink: 0,
+                '& .MuiDrawer-paper': {
+                  width: sidebarCollapsed ? COLLAPSED_DRAWER_WIDTH : DRAWER_WIDTH,
+                  boxSizing: 'border-box',
+                  borderRight: `1px solid ${theme.palette.divider}`,
+                  boxShadow: theme.palette.mode === 'light' ? '0px 2px 10px rgba(0, 0, 0, 0.05)' : 'none',
+                  transition: theme.transitions.create('width', {
+                    easing: theme.transitions.easing.sharp,
+                    duration: theme.transitions.duration.enteringScreen,
+                  }),
+                },
+              }}
+            >
+              <Sidebar 
+                width={sidebarCollapsed ? COLLAPSED_DRAWER_WIDTH : DRAWER_WIDTH} 
+                collapsed={sidebarCollapsed}
+                onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
+              />
+            </Drawer>
+          )}
         </>
       
       <Box 
@@ -85,7 +98,14 @@ export default function Layout({ children }) {
           flexGrow: 1,
           display: 'flex',
           flexDirection: 'column',
-          width: { xs: '100%', md: `calc(100% - ${DRAWER_WIDTH}px)` },
+          width: { 
+            xs: '100%', 
+            md: sidebarOpen 
+              ? sidebarCollapsed 
+                ? `calc(100% - ${COLLAPSED_DRAWER_WIDTH}px)` 
+                : `calc(100% - ${DRAWER_WIDTH}px)` 
+              : '100%' 
+          },
           transition: theme.transitions.create(['width', 'margin'], {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.leavingScreen,
@@ -134,7 +154,7 @@ export default function Layout({ children }) {
           </Toolbar>
         </AppBar>
         
-        <Container maxWidth="xl" sx={{ flexGrow: 1, py: 3, px: { xs: 2, sm: 3 } }}>
+        <Box sx={{ flexGrow: 1 }}>
           {/* Fil d'Ariane */}
           <Breadcrumbs 
             aria-label="breadcrumb" 
@@ -177,19 +197,17 @@ export default function Layout({ children }) {
           <Grow in={true} timeout={300}>
             <Box 
               component="main" 
-              sx={{ 
+              sx={{
                 flexGrow: 1,
-                borderRadius: 2,
                 overflow: 'hidden',
                 bgcolor: 'background.paper',
-                boxShadow: theme.palette.mode === 'light' ? '0px 2px 10px rgba(0, 0, 0, 0.05)' : 'none',
-                p: { xs: 2, sm: 3 }
+                boxShadow: theme.palette.mode === 'light' ? '0px 2px 10px rgba(0, 0, 0, 0.05)' : 'none'
               }}
             >
               {children}
             </Box>
           </Grow>
-        </Container>
+        </Box>
         
         <Fade in={true} timeout={500}>
           <Box 

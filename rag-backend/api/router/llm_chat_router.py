@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Response
-from typing import List, Optional
+from typing import List, Optional, Any, Dict, Union
 from pydantic import BaseModel, UUID4
 from uuid import UUID
 from datetime import datetime
@@ -20,6 +20,9 @@ DB_PORT = os.getenv("POSTGRES_PORT", "5432")
 class PromptResponse(BaseModel):
     answer: str
     sources: List[str]
+
+class TitleResponse(BaseModel):
+    title: str
 class ConversationCreate(BaseModel):
     name: str = "New Conversation"
 
@@ -36,6 +39,7 @@ class Conversation(BaseModel):
 class MessageCreate(BaseModel):
     role: str = "user"
     message: str
+    sources: Optional[List[Any]] = None  # Allow any type of sources (string or dict)
     
     class Config:
         extra = "forbid"
@@ -46,12 +50,21 @@ class Message(BaseModel):
     user_id: Optional[str] = None
     role: str = "user"
     message: str
+    sources: Optional[List[dict]] = None
     timestamp: Optional[datetime] = None
     
     class Config:
         orm_mode = True
 
 router = APIRouter(tags=["conversations"])
+
+# System messages to guide the LLM
+TITLE_SYSTEM_MESSAGE = """You are an assistant that creates short, descriptive titles for conversations.
+- Create a concise title (3-5 words) based on the user's message
+- Focus on the main topic or question
+- Use title case
+- Do NOT use quotes around the title
+- Respond ONLY with the title text, nothing else"""
 
 def get_db_connection():
     """Create and return a database connection"""
@@ -408,12 +421,27 @@ async def add_message(conversation_id: Optional[UUID4] = None, message: MessageC
                 )
                 
         print(f"Adding message to conversation {conversation_id} for user {user_id}")
+        # Process sources data - convert string sources to objects for consistency
+        sources_data = None
+        if message.sources:
+            if isinstance(message.sources, list):
+                # Convert string sources to objects with 'source' field for consistency
+                processed_sources = []
+                for src in message.sources:
+                    if isinstance(src, str):
+                        processed_sources.append({"source": src})
+                    else:
+                        # Keep dict sources as they are
+                        processed_sources.append(src)
+                sources_data = processed_sources
+        
         # Insert the message (let PostgreSQL generate the id)
         cursor.execute(
-            """INSERT INTO chat_messages (conversation_id, user_id, role, message, timestamp)
-            VALUES (%s, %s, %s, %s, %s)
+            """INSERT INTO chat_messages (conversation_id, user_id, role, message, sources, timestamp)
+            VALUES (%s, %s, %s, %s, %s, %s)
             RETURNING *""",
-            (str(conversation_id), user_id, message.role, message.message, now)
+            (str(conversation_id), user_id, message.role, message.message, 
+             psycopg2.extras.Json(sources_data) if sources_data else None, now)
         )
         new_message = cursor.fetchone()
         if not new_message:
@@ -505,7 +533,7 @@ def prompt_ia(data: dict, user=Depends(get_current_user)):
         if len(sources) == 5:
             break
 
-    # For now, just echo received parameters for debugging
+    # Return the response
     return {
         "answer": answer,
         "sources": sources,
@@ -515,3 +543,46 @@ def prompt_ia(data: dict, user=Depends(get_current_user)):
         "include_profile_context": include_profile_context,
         "conversation_history": conversation_history
     }
+
+@router.post("/generate-title", response_model=TitleResponse)
+async def generate_conversation_title(data: dict, user=Depends(get_current_user)):
+    """Generate a title for a conversation based on the first user message"""
+    # Extract the message from the request
+    message = data.get("message")
+    if not message:
+        raise HTTPException(status_code=400, detail="Message is required")
+    
+    try:
+        # Use the LLM router directly to generate a title
+        llm_prompt = f"{TITLE_SYSTEM_MESSAGE}\n\nUser message: {message}\n\nTitle:"
+        
+        # Direct LLM invocation without RAG retrieval
+        from rag_engine.retrieval.llm_router import LLMRouter
+        
+        router = LLMRouter()
+        llm = router.route(llm_prompt)
+        
+        try:
+            # Call the LLM directly
+            result = llm.invoke(llm_prompt)
+            title = result.content.strip() if hasattr(result, "content") else str(result).strip()
+        except Exception as e:
+            logger.error(f"LLM invocation error: {e}")
+            # Fallback to default title
+            words = message.split()[:5]
+            title = " ".join(words) + ("..." if len(words) >= 5 else "")
+        
+        # Fallback if the title is empty or too long
+        if not title or len(title) > 50:
+            # Use first few words of the message as fallback
+            words = message.split()[:5]
+            title = " ".join(words) + ("..." if len(words) >= 5 else "")
+        
+        return {"title": title}
+        
+    except Exception as e:
+        logger.error(f"Error generating conversation title: {e}")
+        # Fallback - use first few words of message
+        words = message.split()[:5]
+        title = " ".join(words) + ("..." if len(words) >= 5 else "")
+        return {"title": title}

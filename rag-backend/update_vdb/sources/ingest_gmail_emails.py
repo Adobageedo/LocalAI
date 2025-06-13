@@ -258,29 +258,22 @@ def fetch_gmail_emails(
         return [], 0
 
 def ingest_gmail_emails_to_qdrant(
-    credentials_path: str,
-    token_path: str,
     labels: List[str],
-    collection: str,
     limit: int = 10,
     query: str = None,
-    registry_path: Optional[str] = None,
     force_reingest: bool = False,
     save_attachments: bool = True,
     verbose: bool = False,
-    user_id: str = None
+    user_id: str = ""
 ) -> Dict[str, Any]:
     """
     Ingère les emails depuis Gmail vers Qdrant et met à jour le registre.
     
     Args:
-        credentials_path: Chemin vers le fichier de credentials OAuth2
         token_path: Chemin vers le fichier de token
         labels: Labels Gmail à traiter
-        collection: Collection Qdrant cible
         limit: Nombre maximum d'emails à ingérer
         query: Requête de recherche Gmail (syntaxe Gmail)
-        registry_path: Chemin vers le fichier de registre JSON
         force_reingest: Forcer la réingestion même si l'email existe déjà
         save_attachments: Sauvegarder les pièces jointes
         verbose: Mode verbeux
@@ -301,21 +294,11 @@ def ingest_gmail_emails_to_qdrant(
         "total_emails_found": 0
     }
     
-    start_time = datetime.datetime.now()
-        
-    # Initialiser le gestionnaire de vectorstore
-    try:
-        vector_store = VectorStoreManager(collection)
-        logger.info(f"Connexion à Qdrant établie, collection: {collection}")
-    except Exception as e:
-        logger.error(f"Erreur lors de l'initialisation de la connexion à Qdrant: {e}")
-        result["success"] = False
-        result["errors"].append(f"Erreur Qdrant: {str(e)}")
-        return result
+    start_time = time.time()
     
     # Authentification et initialisation du service Gmail
     try:
-        gmail_service = get_gmail_service(token_path)
+        gmail_service = get_gmail_service(user_id)
         logger.info("Connexion à Gmail établie")
     except Exception as e:
         logger.error(f"Erreur lors de l'authentification à Gmail: {e}")
@@ -398,7 +381,7 @@ def ingest_gmail_emails_to_qdrant(
                 ingest_document(
                     filepath=tmp_path,
                     user=user_id,
-                    collection=(user_id + "eml") if user_id else collection,
+                    collection=(user_id + "eml"),
                     doc_id=email_id,
                     metadata=metadata,
                     original_filepath=email_path
@@ -452,8 +435,8 @@ def ingest_gmail_emails_to_qdrant(
                             # Ingérer la pièce jointe
                             ingest_document(
                                 filepath=att_tmp_path,
-                                user=gmail_user,
-                                collection=collection,
+                                user=user_id,
+                                collection=(user_id + "eml"),
                                 doc_id=att_id,
                                 metadata=att_metadata,
                                 original_filepath=att_path,
@@ -508,31 +491,25 @@ def ingest_gmail_emails_to_qdrant(
 def main():
     """Point d'entrée principal du script."""
     parser = argparse.ArgumentParser(description="Ingestion d'emails Gmail dans Qdrant avec authentification OAuth2.")
-    parser.add_argument('--credentials', default="credentials.json", help='Chemin vers le fichier de credentials OAuth2 (optionnel, utilise .env par défaut)')
-    parser.add_argument('--token', default="token.pickle", help='Chemin pour stocker le token d\'authentification')
     parser.add_argument('--labels', nargs='+', default=['INBOX', 'SENT'], help='Labels Gmail à traiter (liste séparée par des espaces)')
     parser.add_argument('--query', default=None, help='Requête de recherche Gmail (ex: "after:2023/01/01 before:2023/12/31")')
-    parser.add_argument('--collection', default="rag_documents1536", help='Collection Qdrant cible')
     parser.add_argument('--limit', type=int, default=50, help='Nombre maximum d\'emails à ingérer')
-    parser.add_argument('--registry-path', default='/Users/edoardo/Documents/LocalAI/rag-backend/update_vdb/data/file_registry.json', help='Chemin vers le fichier de registre JSON')
     parser.add_argument('--force-reingest', action='store_true', help='Forcer la réingestion même si l\'email existe déjà')
     parser.add_argument('--no-attachments', action='store_true', help='Ne pas ingérer les pièces jointes')
     parser.add_argument('--verbose', action='store_true', help='Mode verbeux')
+    parser.add_argument('--user-id', default="Testbis", help='Identifiant de l\'utilisateur')
     
     args = parser.parse_args()
     
     # Exécuter l'ingestion
     result = ingest_gmail_emails_to_qdrant(
-        credentials_path=args.credentials,
-        token_path=args.token,
         labels=args.labels,
         query=args.query,
-        collection=args.collection,
         limit=args.limit,
-        registry_path=args.registry_path,
         force_reingest=args.force_reingest,
         save_attachments=not args.no_attachments,
-        verbose=args.verbose
+        verbose=args.verbose,
+        user_id=args.user_id
     )
     
     # Afficher les résultats finaux

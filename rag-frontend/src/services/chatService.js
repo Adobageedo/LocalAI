@@ -58,7 +58,8 @@ export async function addMessage(conversation_id, message) {
       // Ensure message has the right format for the backend
       const messageToSend = {
         role: message.role,
-        message: message.message || message.content // Support both formats
+        message: message.message || message.content, // Support both formats
+        sources: message.sources || [] // Include sources if available
       };
       
       const response = await authFetch(apiUrl, {
@@ -103,14 +104,67 @@ export async function updateConversation(conversationId, name) {
 // Delete a conversation
 export async function deleteConversation(conversationId) {
     try {
-      await authFetch(`${API_BASE_URL}/conversations/${conversationId}`, {
-        method: 'DELETE',
+      const response = await authFetch(`${API_BASE_URL}/conversations/${conversationId}`, {
+        method: 'DELETE'
       });
-      return true;
+      return response.ok;
     } catch (error) {
       console.error('Error deleting conversation:', error);
       throw error;
     }
+}
+
+// Generate a title for a conversation based on the first user message
+export async function generateConversationTitle(message) {
+  try {
+    console.log('[DEBUG] generateConversationTitle - Starting with message:', message);
+    console.log('[DEBUG] API_BASE_URL:', API_BASE_URL);
+    
+    // Call the backend API to generate a title
+    // Try both with and without additional /api prefix to handle potential double prefix issue
+    const baseUrl = API_BASE_URL.endsWith('/api') ? API_BASE_URL.substring(0, API_BASE_URL.length - 4) : API_BASE_URL;
+    const apiUrl = `${baseUrl}/api/generate-title`;
+    console.log('[DEBUG] Fixed API endpoint to avoid double prefix:', apiUrl);
+    
+    const response = await authFetch(apiUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message })
+    });
+    
+    console.log('[DEBUG] API response status:', response.status, response.statusText);
+    
+    if (!response.ok) {
+      console.error(`[DEBUG] API Error: ${response.status} ${response.statusText}`);
+      try {
+        // Try to get the error response body
+        const errorText = await response.text();
+        console.error('[DEBUG] Error response body:', errorText);
+      } catch (e) {
+        console.error('[DEBUG] Could not read error response body');
+      }
+      
+      // Fallback: use the first few words
+      const words = message.split(' ').slice(0, 5).join(' ');
+      const fallbackTitle = words + (words.length >= 5 ? '...' : '');
+      console.log('[DEBUG] Using fallback title:', fallbackTitle);
+      return fallbackTitle;
+    }
+    
+    const data = await response.json();
+    console.log('[DEBUG] Generated title data:', data);
+    console.log('[DEBUG] Final title:', data.title);
+    return data.title;
+  } catch (error) {
+    console.error('[DEBUG] Error generating conversation title:', error);
+    console.error('[DEBUG] Error details:', error.message, error.stack);
+    
+    // Fallback: use the first few words
+    const words = message.split(' ').slice(0, 5).join(' ');
+    const fallbackTitle = words + (words.length >= 5 ? '...' : '');
+    console.log('[DEBUG] Using fallback title due to error:', fallbackTitle);
+    return fallbackTitle;
+  }
 }
 
 // Send prompt to LLM API

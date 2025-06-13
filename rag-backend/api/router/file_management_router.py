@@ -10,6 +10,7 @@ from typing import List, Optional
 from pydantic import BaseModel
 from fastapi import Request, HTTPException, status, Depends, BackgroundTasks
 from middleware.auth import get_current_user
+from rag_engine.vectorstore.vectorstore_manager import VectorStoreManager
 
 router = APIRouter()
 logger = logging.getLogger(__name__)

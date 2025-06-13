@@ -19,30 +19,15 @@ import {
   Button,
   Menu,
   MenuItem,
-  styled
+  Stack
 } from '@mui/material';
 import { 
   Add as AddIcon, 
   ChevronLeft as ChevronLeftIcon,
-  ChevronRight as ChevronRightIcon,
   MoreVert as MoreVertIcon 
 } from '@mui/icons-material';
 
-const drawerWidth = 320;
-
-const StyledDrawer = styled(Drawer)(({ theme, position = 'left' }) => ({
-  width: drawerWidth,
-  flexShrink: 0,
-  '& .MuiDrawer-paper': {
-    width: drawerWidth,
-    boxSizing: 'border-box',
-    borderRight: position === 'left' ? `1px solid ${theme.palette.divider}` : 'none',
-    borderLeft: position === 'right' ? `1px solid ${theme.palette.divider}` : 'none',
-    backgroundColor: 'rgba(250, 250, 250, 0.95)', // Light glass-like background (Apple style)
-    backdropFilter: 'blur(10px)',
-    boxShadow: '0 4px 30px rgba(0, 0, 0, 0.1)',
-  },
-}));
+const drawerWidth = 280; // Slightly narrower
 
 export default function ConversationSidebar({
   open,
@@ -129,50 +114,62 @@ export default function ConversationSidebar({
   };
   
   return (
-    <StyledDrawer
+    <Drawer
       variant="persistent"
       anchor={position}
       open={open}
-      position={position}
-    >
-      <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 2 }}>
-          <Typography variant="h6">Conversations</Typography>
-          <IconButton onClick={onToggleSidebar}>
-            {position === 'left' ? <ChevronLeftIcon /> : <ChevronRightIcon />}
-          </IconButton>
-        </Box>
-        
-        {/* New Chat Button - ChatGPT style with Apple aesthetics */}
-        <Box sx={{ px: 2, pb: 2 }}>
-          <Button
-            fullWidth
-            variant="outlined"
-            startIcon={<AddIcon />}
-            onClick={() => onCreateConversation()}
-            sx={{
-              borderRadius: '12px',
-              py: 1,
-              justifyContent: 'flex-start',
-              color: '#000',
-              borderColor: 'rgba(0, 0, 0, 0.12)',
-              backgroundColor: 'rgba(255, 255, 255, 0.8)',
-              backdropFilter: 'blur(8px)',
-              boxShadow: '0 2px 6px rgba(0, 0, 0, 0.05)',
-              '&:hover': {
-                backgroundColor: 'rgba(0, 122, 255, 0.08)',
-                borderColor: '#007AFF',
-              },
-              fontWeight: 500,
-              textTransform: 'none'
-            }}
-          >
-            New Chat
-          </Button>
-        </Box>
-        <Divider />
+      sx={{ 
+        width: drawerWidth,
+        flexShrink: 0,
+        '& .MuiDrawer-paper': {
+          width: drawerWidth,
+          boxSizing: 'border-box',
+          backgroundColor: '#f5f5f7',
+          display: 'flex',
+          flexDirection: 'column',
+          height: '100%'
+        }
+      }}>
+      <Box sx={{ 
+        display: 'flex', 
+        p: 1, 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+      }}>
+        <Typography variant="h6">
+          Conversations
+        </Typography>
+        {/* Close sidebar button */}
+        <IconButton 
+          onClick={onToggleSidebar}
+          size="small"
+        >
+          <ChevronLeftIcon />
+        </IconButton>
+      </Box>
       
-        <List sx={{ overflow: 'auto', flexGrow: 1 }}>
+      {/* Prominent Create New Chat button */}
+      <Box sx={{ px: 2, py: 1 }}>
+        <Button
+          fullWidth
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => onCreateConversation()}
+          sx={{ 
+            textTransform: 'none',
+            fontWeight: 500,
+            py: 1,
+            boxShadow: 1
+          }}
+        >
+          Create New Chat
+        </Button>
+      </Box>
+      
+      <Divider sx={{ mt: 1, mb: 1 }} />
+      
+      <Box sx={{ flexGrow: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+        <List sx={{ overflow: 'auto', flexGrow: 1, maxHeight: 'calc(100vh - 140px)' }}>
         {conversations.length === 0 && (
           <Box sx={{ p: 2, textAlign: 'center' }}>
             <Typography variant="body2" color="text.secondary">
@@ -191,20 +188,18 @@ export default function ConversationSidebar({
               '&:hover': {
                 backgroundColor: 'rgba(0, 0, 0, 0.04)',
               },
-              borderRadius: 2,
+              borderRadius: 1,
               mb: 0.5,
-              p: 1.5,
-              transition: 'all 0.2s ease',
+              p: 1,
               '&.Mui-selected': {
-                backgroundColor: 'rgba(0, 122, 255, 0.1)',
-                color: '#007AFF', // Apple blue
+                backgroundColor: '#e0e0e0',
               }
             }}
           >
             <ListItemText 
               primary={
                 <Typography noWrap>
-                  {conversation.title || 'Untitled'}
+                  {conversation ? (conversation.name || conversation.title || 'Untitled') : 'New Conversation'}
                 </Typography>
               } 
               secondary={
@@ -225,7 +220,8 @@ export default function ConversationSidebar({
             </IconButton>
           </ListItem>
         ))}
-      </List>
+        </List>
+      </Box>
       
       {/* Conversation Options Menu */}
       <Menu
@@ -262,7 +258,7 @@ export default function ConversationSidebar({
         <DialogTitle>Delete Conversation</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Are you sure you want to delete this conversation? This action cannot be undone.
+            Are you sure you want to delete this conversation?
           </DialogContentText>
         </DialogContent>
         <DialogActions>
@@ -270,7 +266,6 @@ export default function ConversationSidebar({
           <Button onClick={handleDeleteSubmit} color="error" variant="contained">Delete</Button>
         </DialogActions>
       </Dialog>
-      </Box>
-    </StyledDrawer>
+    </Drawer>
   );
 }

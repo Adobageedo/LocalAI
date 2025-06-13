@@ -19,6 +19,8 @@ import {
 } from '@mui/material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import CloseIcon from '@mui/icons-material/Close';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import LogoutIcon from '@mui/icons-material/Logout';
 import { useAuth } from '../../auth/AuthProvider';
 
@@ -31,7 +33,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import CloudIcon from '@mui/icons-material/Cloud';
 import EmailIcon from '@mui/icons-material/Email';
 
-const Sidebar = ({ width = 240, open = true, onClose }) => {
+const Sidebar = ({ width = 240, open = true, onClose, collapsed = false, onToggleCollapse }) => {
   const theme = useTheme();
   // Authentication removed
   const navigate = useNavigate();
@@ -98,9 +100,23 @@ const Sidebar = ({ width = 240, open = true, onClose }) => {
 
   return (
     <>
-      {/* En-tête du Sidebar avec bouton de fermeture pour mobile */}
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', p: 1 }}>
-        {onClose && (
+      {/* En-tête du Sidebar avec bouton de collapse et fermeture pour mobile */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 1 }}>
+        {onToggleCollapse && (
+          <IconButton 
+            size="small" 
+            onClick={onToggleCollapse} 
+            sx={{ color: 'text.secondary' }}
+            title={collapsed ? 'Étendre' : 'Réduire'}
+          >
+            {collapsed ? (
+              <ChevronRightIcon />
+            ) : (
+              <ChevronLeftIcon />
+            )}
+          </IconButton>
+        )}
+        {!collapsed && onClose && (
           <IconButton size="small" onClick={onClose} sx={{ color: 'text.secondary' }}>
             <CloseIcon />
           </IconButton>
@@ -110,7 +126,7 @@ const Sidebar = ({ width = 240, open = true, onClose }) => {
       {/* User profile section - simplified for no-auth mode */}
       <Box 
         sx={{ 
-          p: 2, 
+          p: collapsed ? 1 : 2, 
           display: 'flex', 
           flexDirection: 'column',
           alignItems: 'center',
@@ -124,18 +140,21 @@ const Sidebar = ({ width = 240, open = true, onClose }) => {
           <Avatar
             sx={{
               bgcolor: 'primary.main',
-              width: 60,
-              height: 60,
-              fontSize: '1.5rem',
+              width: collapsed ? 40 : 60,
+              height: collapsed ? 40 : 60,
+              fontSize: collapsed ? '1rem' : '1.5rem',
               fontWeight: 'bold',
-              mb: 1
+              mb: collapsed ? 0 : 1
             }}
           >
             {getUserInitials()}
           </Avatar>
-          <Typography variant="subtitle1" fontWeight="bold" textAlign="center">
-            Utilisateur Local
-          </Typography>
+          
+          {!collapsed && (
+            <Typography variant="subtitle1" fontWeight="bold" sx={{ textAlign: 'center' }}>
+              {formatDisplayName()}
+            </Typography>
+          )}
           <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ mb: 1 }}>
             Mode sans authentification
           </Typography>
@@ -146,7 +165,7 @@ const Sidebar = ({ width = 240, open = true, onClose }) => {
 
       {/* Main navigation items */}
       <List 
-        sx={{ px: 1, mt: 2 }}
+        sx={{ px: collapsed ? 0.5 : 1 }}
         subheader={
           <ListSubheader component="div" sx={{ bgcolor: 'transparent', color: 'text.secondary', fontWeight: 'bold', lineHeight: '2rem' }}>
             Navigation principale
@@ -159,107 +178,34 @@ const Sidebar = ({ width = 240, open = true, onClose }) => {
             disablePadding
             sx={{ mb: 0.5 }}
           >
-            <ListItemButton
-              onClick={() => navigateTo(item.path)}
-              selected={isActive(item.path)}
-              sx={{
-                borderRadius: 2,
-                '&.Mui-selected': {
-                  bgcolor: theme.palette.mode === 'light' ? 'primary.lighter' : 'primary.dark',
-                  color: theme.palette.mode === 'light' ? 'primary.main' : 'white',
-                  '& .MuiListItemIcon-root': {
-                    color: theme.palette.mode === 'light' ? 'primary.main' : 'white',
-                  },
-                },
-              }}
-            >
-              <ListItemIcon sx={{ minWidth: 40 }}>
-                {item.icon}
-              </ListItemIcon>
-              <ListItemText 
-                primary={item.name} 
-                secondary={item.description}
-                primaryTypographyProps={{ fontWeight: isActive(item.path) ? 'bold' : 'normal' }}
-              />
-              {item.badge && (
-                <Chip 
-                  label={item.badge.text} 
-                  color={item.badge.color} 
-                  size="small" 
-                  sx={{ ml: 1, height: 20, fontSize: '0.65rem' }} 
-                />)}
-            </ListItemButton>
-          </ListItem>
-        ))}
-      </List>
-
-      <Divider sx={{ mx: 1, my: 1 }} />
-
-      {/* Integrations section - visible for all users */}
-      <List
-        subheader={
-          <ListSubheader component="div" sx={{ bgcolor: 'transparent', color: 'text.secondary', fontWeight: 'bold', lineHeight: '2rem' }}>
-            Intégrations
-          </ListSubheader>
-        }
-      >
-        {integrationNavItems.map((item) => (
-          <ListItem 
-            key={item.name}
-            disablePadding
-            sx={{ mb: 0.5 }}
-          >
-            <ListItemButton
-              onClick={() => navigateTo(item.path)}
-              selected={isActive(item.path)}
-              sx={{
-                borderRadius: 2,
-                '&.Mui-selected': {
-                  bgcolor: theme.palette.mode === 'light' ? 'primary.lighter' : 'primary.dark',
-                  color: theme.palette.mode === 'light' ? 'primary.main' : 'white',
-                  '& .MuiListItemIcon-root': {
-                    color: theme.palette.mode === 'light' ? 'primary.main' : 'white',
-                  },
-                },
-              }}
-            >
-              <ListItemIcon sx={{ minWidth: 40 }}>
-                {item.icon}
-              </ListItemIcon>
-              <ListItemText 
-                primary={item.name} 
-                secondary={item.description}
-                primaryTypographyProps={{ fontWeight: isActive(item.path) ? 'bold' : 'normal' }}
-              />
-              {item.badge && (
-                <Chip 
-                  label={item.badge.text} 
-                  color={item.badge.color} 
-                  size="small" 
-                  sx={{ ml: 1, height: 20, fontSize: '0.65rem' }} 
-                />)}
-            </ListItemButton>
-          </ListItem>
-        ))}
-      </List>
-
-      <Divider sx={{ mx: 1, my: 1 }} />
-
-      {/* User section - always visible in no-auth mode */}
-      <>
-        <List
-          subheader={
-            <ListSubheader component="div" sx={{ bgcolor: 'transparent', color: 'text.secondary', fontWeight: 'bold', lineHeight: '2rem' }}>
-              Paramètres utilisateur
-            </ListSubheader>
-          }
-        >
-          {userNavItems.map((item) => (
-            <ListItem 
-              key={item.name}
-              disablePadding
-              sx={{ mb: 0.5 }}
-            >
+            {collapsed ? (
+              <Tooltip title={item.name} placement="right">
+                <ListItemButton
+                  onClick={() => navigateTo(item.path)}
+                  selected={isActive(item.path)}
+                  sx={{
+                    borderRadius: 2,
+                    justifyContent: 'center',
+                    py: 1.5,
+                    '&.Mui-selected': {
+                      bgcolor: theme.palette.mode === 'light' ? 'primary.lighter' : 'primary.dark',
+                      '& .MuiListItemIcon-root': {
+                        color: theme.palette.mode === 'light' ? 'primary.main' : 'white',
+                      },
+                    },
+                  }}
+                >
+                  {item.icon}
+                  {item.badge && (
+                    <Badge
+                      color={item.badge.color}
+                      variant="dot"
+                      sx={{ position: 'absolute', top: 6, right: 6 }}
+                    />
+                  )}
+                </ListItemButton>
+              </Tooltip>
+            ) : (
               <ListItemButton
                 onClick={() => navigateTo(item.path)}
                 selected={isActive(item.path)}
@@ -275,8 +221,168 @@ const Sidebar = ({ width = 240, open = true, onClose }) => {
                 }}
               >
                 <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
-                <ListItemText primary={item.name} />
+                <ListItemText 
+                  primary={item.name} 
+                  secondary={item.description}
+                  primaryTypographyProps={{ fontWeight: isActive(item.path) ? 'bold' : 'normal' }}
+                />
+                {item.badge && (
+                  <Chip 
+                    label={item.badge.text} 
+                    color={item.badge.color} 
+                    size="small" 
+                    sx={{ ml: 1, height: 20, fontSize: '0.65rem' }} 
+                  />)}
               </ListItemButton>
+            )}
+          </ListItem>
+        ))}
+      </List>
+
+      <Divider sx={{ mx: 1, my: 1 }} />
+
+      {/* Integrations section - visible for all users */}
+      <List
+        subheader={
+          collapsed ? null : (
+            <ListSubheader component="div" sx={{ bgcolor: 'transparent', color: 'text.secondary', fontWeight: 'bold', lineHeight: '2rem' }}>
+              Intégrations
+            </ListSubheader>
+          )
+        }
+      >
+        {integrationNavItems.map((item) => (
+          <ListItem 
+            key={item.name}
+            disablePadding
+            sx={{ mb: 0.5 }}
+          >
+            {collapsed ? (
+              <Tooltip title={item.name} placement="right">
+                <ListItemButton
+                  onClick={() => navigateTo(item.path)}
+                  selected={isActive(item.path)}
+                  sx={{
+                    borderRadius: 2,
+                    justifyContent: 'center',
+                    py: 1.5,
+                    '&.Mui-selected': {
+                      bgcolor: theme.palette.mode === 'light' ? 'primary.lighter' : 'primary.dark',
+                      '& .MuiListItemIcon-root': {
+                        color: theme.palette.mode === 'light' ? 'primary.main' : 'white',
+                      },
+                    },
+                  }}
+                >
+                  {item.icon}
+                  {item.badge && (
+                    <Badge
+                      color={item.badge.color}
+                      variant="dot"
+                      sx={{ position: 'absolute', top: 6, right: 6 }}
+                    />
+                  )}
+                </ListItemButton>
+              </Tooltip>
+            ) : (
+              <ListItemButton
+                onClick={() => navigateTo(item.path)}
+                selected={isActive(item.path)}
+                sx={{
+                  borderRadius: 2,
+                  '&.Mui-selected': {
+                    bgcolor: theme.palette.mode === 'light' ? 'primary.lighter' : 'primary.dark',
+                    color: theme.palette.mode === 'light' ? 'primary.main' : 'white',
+                    '& .MuiListItemIcon-root': {
+                      color: theme.palette.mode === 'light' ? 'primary.main' : 'white',
+                    },
+                  },
+                }}
+              >
+                <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
+                <ListItemText 
+                  primary={item.name} 
+                  secondary={item.description}
+                  primaryTypographyProps={{ fontWeight: isActive(item.path) ? 'bold' : 'normal' }}
+                />
+                {item.badge && (
+                  <Chip 
+                    label={item.badge.text} 
+                    color={item.badge.color} 
+                    size="small" 
+                    sx={{ ml: 1, height: 20, fontSize: '0.65rem' }} 
+                  />)}
+              </ListItemButton>
+            )}
+          </ListItem>
+        ))}
+      </List>
+
+      <Divider sx={{ mx: 1, my: 1 }} />
+
+      {/* User section - always visible in no-auth mode */}
+      <>
+        <List
+          subheader={
+            collapsed ? null : (
+              <ListSubheader component="div" sx={{ bgcolor: 'transparent', color: 'text.secondary', fontWeight: 'bold', lineHeight: '2rem' }}>
+                Paramètres utilisateur
+              </ListSubheader>
+            )
+          }
+        >
+          {userNavItems.map((item) => (
+            <ListItem 
+              key={item.name}
+              disablePadding
+              sx={{ mb: 0.5 }}
+            >
+              {collapsed ? (
+                <Tooltip title={item.name} placement="right">
+                  <ListItemButton
+                    onClick={() => navigateTo(item.path)}
+                    selected={isActive(item.path)}
+                    sx={{
+                      borderRadius: 2,
+                      justifyContent: 'center',
+                      py: 1.5,
+                      '&.Mui-selected': {
+                        bgcolor: theme.palette.mode === 'light' ? 'primary.lighter' : 'primary.dark',
+                        '& .MuiListItemIcon-root': {
+                          color: theme.palette.mode === 'light' ? 'primary.main' : 'white',
+                        },
+                      },
+                    }}
+                  >
+                    {item.icon}
+                    {item.badge && (
+                      <Badge
+                        color={item.badge.color}
+                        variant="dot"
+                        sx={{ position: 'absolute', top: 6, right: 6 }}
+                      />
+                    )}
+                  </ListItemButton>
+                </Tooltip>
+              ) : (
+                <ListItemButton
+                  onClick={() => navigateTo(item.path)}
+                  selected={isActive(item.path)}
+                  sx={{
+                    borderRadius: 2,
+                    '&.Mui-selected': {
+                      bgcolor: theme.palette.mode === 'light' ? 'primary.lighter' : 'primary.dark',
+                      color: theme.palette.mode === 'light' ? 'primary.main' : 'white',
+                      '& .MuiListItemIcon-root': {
+                        color: theme.palette.mode === 'light' ? 'primary.main' : 'white',
+                      },
+                    },
+                  }}
+                >
+                  <ListItemIcon sx={{ minWidth: 40 }}>{item.icon}</ListItemIcon>
+                  <ListItemText primary={item.name} />
+                </ListItemButton>
+              )}
             </ListItem>
           ))}
         </List>

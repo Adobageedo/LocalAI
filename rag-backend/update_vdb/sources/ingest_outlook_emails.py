@@ -319,33 +319,21 @@ def save_attachments(email: Email, output_dir: str) -> List[str]:
     return attachment_paths
 
 def ingest_outlook_emails_to_qdrant(
-    client_id: str,
-    client_secret: str,
-    tenant_id: str,
-    token_path: str,
     folders: List[str] = ["inbox", "sentitems"],
     limit: int = 50,
     query: str = None,
-    collection: str = None,
-    registry_path: str = None,
     force_reingest: bool = False,
     save_attachments: bool = True,
     verbose: bool = False,
-    user_id: str = None
+    user_id: str = "default"
 ) -> Dict:
     """
     Ingère des emails Outlook dans Qdrant.
     
     Args:
-        client_id: ID client Azure
-        client_secret: Secret client Azure
-        tenant_id: ID du tenant Azure
-        token_path: Chemin vers le fichier de token
         folders: Liste des dossiers Outlook à parcourir
         limit: Nombre maximum d'emails à ingérer
         query: Requête de recherche Outlook (OData)
-        collection: Nom de la collection Qdrant
-        registry_path: Chemin vers le fichier de registre
         force_reingest: Forcer la réingestion même si l'email existe déjà
         save_attachments: Sauvegarder les pièces jointes
         verbose: Mode verbeux
@@ -367,18 +355,8 @@ def ingest_outlook_emails_to_qdrant(
     }
     
     try:
-        # Charger la configuration
-        config = load_config()
-        
-        # Initialiser le gestionnaire de vectorstore
-        if not collection:
-            collection = config.get("retrieval", {}).get("vectorstore", {}).get("collection", "rag_documents1536")
-        
-        vectorstore_manager = VectorStoreManager(collection_name=collection)
-        logger.info(f"Connexion à Qdrant établie, collection: {collection}")
-        
         # Récupérer le token Outlook
-        token_result = get_outlook_token(client_id, client_secret, tenant_id, token_path)
+        token_result = get_outlook_token(user_id)
         if not token_result or "access_token" not in token_result:
             raise Exception("Échec de l'authentification à Outlook")
         
@@ -457,7 +435,7 @@ def ingest_outlook_emails_to_qdrant(
                     ingest_document(
                         filepath=temp_email_file_path,
                         user=user_id,
-                        collection=(user_id + "eml") if user_id else collection,
+                        collection=(user_id + "eml"),
                         doc_id=email_id,
                         metadata=metadata,
                         original_filepath=email_path,
@@ -488,8 +466,8 @@ def ingest_outlook_emails_to_qdrant(
                         # Ingérer la pièce jointe
                         ingest_document(
                             filepath=attachment_path,
-                            user=outlook_user,
-                            collection=collection,
+                            user=user_id,
+                            collection=(user_id + "eml"),
                             doc_id=attachment_id,
                             metadata=attachment_metadata,
                             original_filepath=attachment_metadata["source_path"],
@@ -534,53 +512,25 @@ def main():
     # Parser les arguments en ligne de commande
     parser = argparse.ArgumentParser(description="Script d'ingestion d'emails Outlook dans Qdrant")
     
-    parser.add_argument("--client-id", help="ID client Azure")
-    parser.add_argument("--client-secret", help="Secret client Azure")
-    parser.add_argument("--tenant-id", help="ID du tenant Azure")
-    parser.add_argument("--token", default="outlook_token.json", help="Chemin vers le fichier de token")
     parser.add_argument("--folders", nargs="+", default=["inbox", "sentitems"], help="Dossiers Outlook à parcourir")
     parser.add_argument("--limit", type=int, default=50, help="Nombre maximum d'emails à ingérer")
     parser.add_argument("--query", help="Requête de recherche Outlook (OData)")
-    parser.add_argument("--collection", help="Nom de la collection Qdrant")
-    parser.add_argument("--registry-path", help="Chemin vers le fichier de registre")
     parser.add_argument("--force-reingest", action="store_true", help="Forcer la réingestion même si l'email existe déjà")
     parser.add_argument("--no-attachments", action="store_true", help="Ne pas sauvegarder les pièces jointes")
     parser.add_argument("--verbose", action="store_true", help="Mode verbeux")
+    parser.add_argument("--user-id", default="newdefault", help="Identifiant de l'utilisateur")
     
     args = parser.parse_args()
     
-    # Utiliser les variables d'environnement si non spécifiées
-    client_id = args.client_id or os.environ.get("OUTLOOK_CLIENT_ID")
-    client_secret = args.client_secret or os.environ.get("OUTLOOK_CLIENT_SECRET")
-    tenant_id = args.tenant_id or os.environ.get("OUTLOOK_TENANT_ID")
-    
-    if not client_id:
-        logger.error(f"OUTLOOK_CLIENT_ID manquant ou non défini dans .env")
-        return 1
-    if not client_secret:
-        logger.error(f"OUTLOOK_CLIENT_SECRET manquant ou non défini dans .env")
-        return 1
-    if not tenant_id:
-        logger.error(f"OUTLOOK_TENANT_ID manquant ou non défini dans .env")
-        return 1
-        
-    logger.info(f"Utilisation des identifiants Outlook: Client ID={client_id}, Tenant ID={tenant_id}")
-    
-    
     # Exécuter l'ingestion
     result = ingest_outlook_emails_to_qdrant(
-        client_id=client_id,
-        client_secret=client_secret,
-        tenant_id=tenant_id,
-        token_path=args.token,
         folders=args.folders,
         limit=args.limit,
         query=args.query,
-        collection=args.collection,
-        registry_path=args.registry_path,
         force_reingest=args.force_reingest,
         save_attachments=not args.no_attachments,
-        verbose=args.verbose
+        verbose=args.verbose,
+        user_id=args.user_id
     )
     
     # Afficher les résultats finaux

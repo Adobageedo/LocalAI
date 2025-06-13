@@ -9,10 +9,11 @@ import SettingsPanel from '../components/chatbot/SettingsPanel';
 import { 
   getConversations, 
   getConversationMessages, 
-  createConversation as createNewConversation, 
   addMessage, 
+  createConversation as createNewConversation, 
   updateConversation, 
   deleteConversation,
+  generateConversationTitle,
   sendPrompt 
 } from '../services/chatService';
 
@@ -26,7 +27,7 @@ export default function Chatbot() {
   
   // UI state
   const [loading, setLoading] = useState(true);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false); // Hide sidebar by default
   const [settingsPanelOpen, setSettingsPanelOpen] = useState(false);
   
   // Chat settings
@@ -43,9 +44,21 @@ export default function Chatbot() {
     setSettingsPanelOpen(false);
   };
 
-  // Fetch conversations on component mount
+  // Fetch conversations on component mount and start with a new conversation
   useEffect(() => {
+    // First fetch existing conversations
     fetchConversations();
+    
+    // Create a new draft conversation by default
+    const newDraftConversation = {
+      id: null,
+      name: "New Conversation",
+      created_at: new Date().toISOString(),
+      isDraft: true
+    };
+    
+    // Set the new draft conversation as current
+    setCurrentConversation(newDraftConversation);
   }, []);
 
   // Load messages when currentConversation changes
@@ -65,10 +78,8 @@ export default function Chatbot() {
       if (Array.isArray(data)) {
         setConversations(data);
         
-        // If there are conversations and none is selected, select the most recent one
-        if (data.length > 0 && !currentConversation) {
-          setCurrentConversation(data[0]);
-        }
+        // We now always start with a new conversation, so no need to select the most recent one
+        // Just keep the conversations in state for the sidebar
       }
     } catch (error) {
       console.error('Error fetching conversations:', error);
@@ -141,12 +152,31 @@ export default function Chatbot() {
       
       // If conversation is a draft or doesn't exist, create a real one in the backend
       if (!conversationId || currentConversation?.isDraft) {
-        // Use the first 20 characters of the message as the conversation title
-        const firstMessageTitle = content.substring(0, 20);
-        const newConv = await createNewConversation(firstMessageTitle);
+        console.log('[DEBUG] Creating new conversation from draft or new chat');
+        console.log('[DEBUG] Current conversation state:', currentConversation);
+        
+        // Generate an intelligent title using the first user message
+        let title;
+        try {
+          console.log('[DEBUG] Attempting to generate title from message:', content);
+          // Try to get an AI-generated title
+          title = await generateConversationTitle(content);
+          console.log('[DEBUG] Successfully generated title:', title);
+        } catch (error) {
+          console.error('[DEBUG] Error generating title, using fallback:', error);
+          // Fallback to using the first 20 characters
+          title = content.substring(0, 20);
+          console.log('[DEBUG] Using fallback title:', title);
+        }
+        
+        console.log('[DEBUG] Creating conversation with title:', title);
+        const newConv = await createNewConversation(title);
+        console.log('[DEBUG] New conversation created:', newConv);
+        
         conversationId = newConv.id;
         setCurrentConversation({...newConv, isDraft: false});
         await fetchConversations();
+        console.log('[DEBUG] Updated conversation state:', {...newConv, isDraft: false});
       }
 
       // Save the user message to the database
@@ -233,25 +263,21 @@ export default function Chatbot() {
     }
   };
 
+  // State for Layout sidebar visibility
+  const [layoutSidebarOpen, setLayoutSidebarOpen] = useState(true);
+
   return (
-    <Layout>
+    <Layout sidebarOpen={layoutSidebarOpen}>
       <Box sx={{ 
         display: 'flex',
         height: 'calc(100vh - 64px)',
         position: 'relative',
         overflow: 'hidden',
         bgcolor: '#FBFBFD', // Apple-style light background color
-        backgroundImage: 'radial-gradient(circle at 25px 25px, rgba(200, 200, 200, 0.1) 2%, transparent 0%), radial-gradient(circle at 75px 75px, rgba(200, 200, 200, 0.1) 2%, transparent 0%)',
         backgroundSize: '100px 100px',
       }}>
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', width: '100%' }}>
-            <CircularProgress sx={{ color: '#007AFF' }} />
-          </Box>
-        ) : (
-          <>
-            {/* Main Chat Area */}
-            <Box sx={{
+        {/* Main Chat Area */}
+        <Box sx={{
               flexGrow: 1,
               height: '100%',
               display: 'flex',
@@ -275,11 +301,11 @@ export default function Chatbot() {
 
             {/* Conversation Sidebar positioned on the right */}
             <Box sx={{ 
-              position: 'absolute',
+              position: 'fixed',
               right: 0,
-              top: 0,
-              height: '100%',
-              zIndex: 10
+              top: '64px', /* Match the layout header height */
+              height: 'calc(100vh - 64px)',
+              zIndex: 1200
             }}>
               <ConversationSidebar 
                 open={sidebarOpen}
@@ -301,8 +327,6 @@ export default function Chatbot() {
               onClose={() => setSettingsPanelOpen(false)}
               onSave={handleSettingsChange}
             />
-          </>
-        )}
       </Box>
     </Layout>
   );

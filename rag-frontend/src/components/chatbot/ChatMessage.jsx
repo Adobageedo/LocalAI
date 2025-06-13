@@ -13,68 +13,46 @@ import {
   ListItemIcon,
   ListItemText,
   IconButton,
-  Tooltip
+  Tooltip,
+  Snackbar,
+  Alert
 } from '@mui/material';
 import { 
   Person as PersonIcon,
   SmartToy as AssistantIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
-  Description as DocumentIcon
+  Description as DocumentIcon,
+  Download as DownloadIcon,
+  FilePresent as FileIcon
 } from '@mui/icons-material';
+import { API_BASE_URL } from '../../config';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { materialLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import remarkGfm from 'remark-gfm';
 
-// Styled components for message bubbles
+// Simple message bubbles without animations
 const UserMessageBubble = styled(Box)(({ theme }) => ({
-  backgroundColor: '#007AFF', // Apple blue
+  backgroundColor: '#007AFF',
   color: '#FFFFFF',
-  borderRadius: '18px 18px 4px 18px',
-  padding: '12px 16px',
-  maxWidth: '85%',
-  boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
-  position: 'relative',
-  '&::after': {
-    content: '""',
-    position: 'absolute',
-    bottom: 0,
-    right: '-8px',
-    width: '15px',
-    height: '15px',
-    borderRadius: '0 0 0 15px',
-    backgroundColor: '#007AFF',
-    boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
-    display: 'none' // Hide the tail by default
-  }
+  borderRadius: '10px',
+  padding: '10px 14px',
+  maxWidth: '85%'
 }));
 
 const AssistantMessageBubble = styled(Box)(({ theme }) => ({
-  backgroundColor: '#F0F0F0', // Light gray bubble
+  backgroundColor: '#f0f0f0',
   color: '#000000',
-  borderRadius: '18px 18px 18px 4px',
-  padding: '12px 16px',
-  maxWidth: '85%',
-  boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
-  position: 'relative',
-  '&::after': {
-    content: '""',
-    position: 'absolute',
-    bottom: 0,
-    left: '-8px',
-    width: '15px',
-    height: '15px',
-    borderRadius: '0 0 15px 0',
-    backgroundColor: '#F0F0F0',
-    boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
-    display: 'none' // Hide the tail by default
-  }
+  borderRadius: '10px',
+  padding: '10px 14px',
+  maxWidth: '85%'
 }));
 
 // Message component with support for markdown and source display
 export default function ChatMessage({ message, isLatest }) {
   const [sourcesExpanded, setSourcesExpanded] = useState(false);
+  const [notification, setNotification] = useState({ open: false, message: '', severity: 'info' });
   const hasSources = message.sources && message.sources.length > 0;
   
   // Determine message style based on role
@@ -82,12 +60,50 @@ export default function ChatMessage({ message, isLatest }) {
   
   // Select the appropriate message bubble based on role
   const MessageBubble = isUser ? UserMessageBubble : AssistantMessageBubble;
+  
+  // Handle source click for download
+  const handleSourceClick = (source) => {
+    try {
+      // Get the file path from the source (handle both string and object formats)
+      const filePath = getSourcePath(source);
+      if (!filePath) {
+        setNotification({
+          open: true,
+          message: 'No valid file path found for this source',
+          severity: 'error'
+        });
+        return;
+      }
+      
+      // Download the file
+      downloadSource(filePath);
+      
+      // Show success notification
+      setNotification({
+        open: true,
+        message: `Downloading ${getFileName(filePath)}...`,
+        severity: 'success'
+      });
+    } catch (error) {
+      console.error('Error downloading source:', error);
+      setNotification({
+        open: true,
+        message: `Error downloading file: ${error.message}`,
+        severity: 'error'
+      });
+    }
+  };
+  
+  // Handle notification close
+  const handleNotificationClose = () => {
+    setNotification({ ...notification, open: false });
+  };
 
-  // Format the timestamp
+  // Format the timestamp - simplified
   const formatTime = (timestamp) => {
     if (!timestamp) return '';
     const date = new Date(timestamp);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   };
   
   // Get file name from path
@@ -96,7 +112,29 @@ export default function ChatMessage({ message, isLatest }) {
     const parts = path.split('/');
     return parts[parts.length - 1];
   };
-  
+
+  // Get source path from source (could be string or object)
+  const getSourcePath = (source) => {
+    if (!source) return null;
+    if (typeof source === 'string') return source;
+    return source.source || source.path || null;
+  };
+
+  // Download a source document
+  const downloadSource = (path) => {
+    if (!path) return;
+    
+    // Clean the path - remove any leading slash if present
+    const cleanPath = path.startsWith('/') ? path.substring(1) : path;
+    
+    // Create the download URL using the file_management_router endpoint
+    const downloadUrl = `${API_BASE_URL}/download?path=${encodeURIComponent(cleanPath)}`;
+    
+    // Open in a new window/tab or use a hidden iframe technique
+    // This triggers the browser's download functionality
+    window.open(downloadUrl, '_blank');
+  };
+
   // Component for rendering code blocks in markdown
   const CodeBlock = ({node, inline, className, children, ...props}) => {
     const match = /language-(\w+)/.exec(className || '');
@@ -193,8 +231,7 @@ export default function ChatMessage({ message, isLatest }) {
               sx={{ 
                 display: 'flex', 
                 alignItems: 'center', 
-                cursor: 'pointer',
-                '&:hover': { opacity: 0.8 }
+                cursor: 'pointer'
               }}
               onClick={() => setSourcesExpanded(!sourcesExpanded)}
             >
@@ -217,28 +254,38 @@ export default function ChatMessage({ message, isLatest }) {
                     key={index} 
                     sx={{ 
                       py: 0.5, 
-                      backgroundColor: 'rgba(0, 0, 0, 0.03)',
+                      backgroundColor: '#f5f5f7',
                       borderRadius: 1,
-                      mb: 0.5
+                      mb: 0.5,
+                      cursor: 'pointer'
                     }}
+                    onClick={() => handleSourceClick(source)}
                   >
                     <ListItemIcon sx={{ minWidth: 36 }}>
-                      <DocumentIcon fontSize="small" />
+                      {(() => {
+                        const path = getSourcePath(source);
+                        return path && path.toLowerCase().endsWith('.pdf') ?
+                          <DocumentIcon fontSize="small" color="error" /> : 
+                          <FileIcon fontSize="small" color="primary" />;
+                      })()}
                     </ListItemIcon>
                     <ListItemText 
                       primary={
-                        <Tooltip title={source.source || source.path || 'Unknown Source'}>
-                          <Typography variant="body2" noWrap>
-                            {getFileName(source.source || source.path)}
+                        <Tooltip title={getSourcePath(source) || 'Unknown Source'}>
+                          <Typography variant="body2" noWrap sx={{ color: '#007AFF' }}>
+                            {getFileName(getSourcePath(source))}
                           </Typography>
                         </Tooltip>
                       }
                       secondary={
-                        source.page && (
-                          <Typography variant="caption">
-                            Page {source.page}
-                          </Typography>
-                        )
+                        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                          {source.page && (
+                            <Typography variant="caption" sx={{ mr: 1 }}>
+                              Page {source.page}
+                            </Typography>
+                          )}
+                          <DownloadIcon fontSize="inherit" sx={{ fontSize: '0.875rem', opacity: 0.6 }} />
+                        </Box>
                       }
                     />
                   </ListItem>
@@ -249,5 +296,29 @@ export default function ChatMessage({ message, isLatest }) {
         )}
       </MessageBubble>
     </Box>
+  );
+
+  return (
+    <>
+      {/* Main message component */}
+      {messageContent}
+      
+      {/* Notification snackbar for download status */}
+      <Snackbar 
+        open={notification.open} 
+        autoHideDuration={5000} 
+        onClose={handleNotificationClose}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={handleNotificationClose} 
+          severity={notification.severity} 
+          variant="filled" 
+          sx={{ width: '100%' }}
+        >
+          {notification.message}
+        </Alert>
+      </Snackbar>
+    </>
   );
 }

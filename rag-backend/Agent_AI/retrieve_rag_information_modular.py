@@ -4,7 +4,7 @@ from rag_engine.retrieval.retrieval import retrieve_documents_advanced
 from rag_engine.retrieval.llm_router import LLMRouter
 
 
-def get_rag_response_modular(question: str, metadata_filter=None, top_k=None, user_id=None) -> dict:
+def get_rag_response_modular(question: str, metadata_filter=None, top_k=None, user_id=None, temperature=0.7, use_retrieval=True) -> dict:
     """
     Fetch information from documents using the new modular retrieval architecture.
     - Uses config for split_prompt, rerank, use_hyde

@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS chat_messages (
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     role VARCHAR(50) NOT NULL CHECK (role IN ('user', 'assistant', 'system')),
     message TEXT NOT NULL,
+    sources JSONB,
     timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
