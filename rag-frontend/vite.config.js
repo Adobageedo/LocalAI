@@ -13,5 +13,13 @@ export default defineConfig({
       overlay: true,
       timeout: 5000,
     },
+    proxy: {
+      // Configuration du proxy pour rediriger les requêtes /api vers le backend
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
   },
 });
