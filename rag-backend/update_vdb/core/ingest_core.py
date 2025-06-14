@@ -1,12 +1,14 @@
 import sys
 import logging
 import os
+# Ajouter le chemin de la racine du projet aux chemins d'import
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import yaml
 import uuid
 from dotenv import load_dotenv
 from rag_engine.vectorstore.vectorstore_manager import VectorStoreManager
-from core.chunking import load_and_split_document
+from update_vdb.core.chunking import load_and_split_document
 from langchain.schema import Document
 import hashlib
 from rag_engine.config import load_config

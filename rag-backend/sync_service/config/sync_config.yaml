@@ -1,0 +1,51 @@
+# Configuration du service de synchronisation d'emails
+# =============================================
+
+sync:
+  # Configuration de la synchronisation Gmail
+  gmail:
+    enabled: true
+    # Requête de filtrage (utiliser la syntaxe de recherche Gmail)
+    query: "is:unread"
+    # Dossiers à synchroniser
+    folders: 
+      - "INBOX"
+      - "SENT"
+    # Nombre maximum d'emails à récupérer par dossier
+    limit_per_folder: 50
+    # Ne pas récupérer les pièces jointes
+    no_attachments: false
+    # Forcer la réingestion des emails déjà traités
+    force_reingest: false
+
+  # Configuration de la synchronisation Outlook
+  outlook:
+    enabled: true
+    # Requête de filtrage (utiliser la syntaxe de recherche Microsoft Graph)
+    query: "isRead eq false"
+    # Dossiers à synchroniser (noms standardisés Outlook)
+    folders:
+      - "inbox"
+      - "sentitems"
+    # Nombre maximum d'emails à récupérer par dossier
+    limit_per_folder: 50
+    # Ne pas récupérer les pièces jointes
+    no_attachments: false
+    # Forcer la réingestion des emails déjà traités
+    force_reingest: false
+
+# Configuration des journaux
+logging:
+  # Niveau de journalisation (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+  level: "INFO"
+  # Fichier de journalisation
+  file: "logs/sync_service.log"
+  # Taille maximale du fichier de journalisation en Mo
+  max_size_mb: 10
+  # Nombre de fichiers de sauvegarde à conserver
+  backup_count: 5
+
+# Configuration des chemins
+paths:
+  # Répertoire des jetons (relatif à la racine du projet)
+  tokens: "auth/tokens"

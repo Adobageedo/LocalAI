@@ -35,6 +35,7 @@ function App() {
           <Route path="/mail-import" element={<PrivateRoute><MailImport /></PrivateRoute>} />
           <Route path="/document-explorer" element={<PrivateRoute><DocumentExplorer /></PrivateRoute>} />
           <Route path="/chatbot" element={<PrivateRoute><Chatbot /></PrivateRoute>} />
+          <Route path="/chatbot/:conversationId" element={<PrivateRoute><Chatbot /></PrivateRoute>} />
           {/* Default route: Home for guests, Dashboard for users */}
           <Route path="*" element={<DefaultRoute />} />
         </Routes>

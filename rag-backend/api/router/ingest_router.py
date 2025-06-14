@@ -13,6 +13,7 @@ from fastapi.responses import StreamingResponse, JSONResponse, HTMLResponse
 from google_auth_oauthlib.flow import Flow
 import pathlib
 from pydantic import BaseModel
+import msal
 from rag_engine.vectorstore.vectorstore_manager import VectorStoreManager
 from auth.credentials_manager import (load_google_token, save_microsoft_token, save_google_token, load_microsoft_token,
                                check_google_credentials, check_microsoft_credentials)
@@ -34,8 +35,6 @@ GMAIL_TOKEN_PATH = os.getenv("GMAIL_TOKEN_PATH", "token.pickle")
 
 # Configuration Outlook
 OUTLOOK_CLIENT_ID = os.getenv("OUTLOOK_CLIENT_ID", "")
-OUTLOOK_CLIENT_SECRET = os.getenv("OUTLOOK_CLIENT_SECRET", "")
-OUTLOOK_TENANT_ID = os.getenv("OUTLOOK_TENANT_ID", "")
 OUTLOOK_TOKEN_PATH = os.getenv("OUTLOOK_TOKEN_PATH", "outlook_token.json")
 
 # Initialisation du router et du logger
@@ -106,37 +105,48 @@ async def get_outlook_auth_status(user=Depends(get_current_user)):
         return JSONResponse({"authenticated": False, "valid": False, "error": str(e)})
 
 @router.get("/outlook/auth")
-async def get_outlook_auth_url(user=Depends(get_current_user), callback_url: str = None):
-    """Génère une URL d'authentification Outlook à laquelle le frontend peut rediriger l'utilisateur"""
+async def get_outlook_auth_url(callback_url: str = None, user=Depends(get_current_user)):
+    """Generate Outlook OAuth URL for frontend redirect with token cache support"""
     try:
         user_id = user.get("uid") if user else "outlook"
         logger.info(f"[OUTLOOK AUTH] Generating auth URL for user {user_id}")
         
-        # Récupérer les identifiants d'application
+        # Retrieve application credentials
         client_id = os.getenv("OUTLOOK_CLIENT_ID", "")
-        tenant_id = os.getenv("OUTLOOK_TENANT_ID", "common")
         
         if not client_id:
-            return JSONResponse({"error": "Configuration Microsoft incomplète"}, status_code=500)
+            return JSONResponse({"error": "Microsoft client configuration incomplete"}, status_code=500)
+        
+        # Define redirect URI (either use the provided one or default)
+        redirect_uri = callback_url or "http://localhost:5173/api/sources/outlook/callback"
+        
+        # Définir les scopes demandés
+        SCOPES = ['Mail.Read', 'User.Read']
+        
+        # Charger le cache de token si existant
+        from auth.credentials_manager import load_microsoft_token
+        cache_data = load_microsoft_token(user_id)
+        token_cache = msal.SerializableTokenCache()
+        
+        if cache_data:
+            token_cache.deserialize(cache_data)
             
-        # Créer une instance de l'application cliente publique
+        # Créer l'application avec le cache de token
         app = msal.PublicClientApplication(
             client_id=client_id,
-            authority=f"https://login.microsoftonline.com/{tenant_id}"
+            authority="https://login.microsoftonline.com/common",
+            token_cache=token_cache
         )
         
-        # Définir l'URL de redirection
-        # Si callback_url est fourni, l'utiliser, sinon utiliser une URL par défaut
-        redirect_uri = callback_url or "http://localhost:3000/auth/outlook/callback"
-        
-        # Générer l'URL d'authentification sans lancer le navigateur
+        # Generate auth URL
         auth_url = app.get_authorization_request_url(
-            scopes=['Mail.Read', 'User.Read', 'offline_access', 'openid', 'profile'],
+            scopes=SCOPES,
             redirect_uri=redirect_uri,
+            state=user_id,
             prompt="select_account"
         )
         
-        logger.info(f"[OUTLOOK AUTH] Generated auth URL: {auth_url}")
+        logger.info(f"[OUTLOOK AUTH] Generated auth URL: {auth_url[:50]}...")
         
         return JSONResponse({
             "auth_url": auth_url,
@@ -144,6 +154,156 @@ async def get_outlook_auth_url(user=Depends(get_current_user), callback_url: str
         })
     except Exception as e:
         logger.error(f"[OUTLOOK AUTH] Error generating auth URL: {str(e)}", exc_info=True)
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@router.get("/outlook/auth/test")
+async def get_outlook_auth_url_test(callback_url: str = None, user_id: str = "outlook"):
+    """Generate Outlook OAuth URL for frontend redirect (test endpoint without authentication)"""
+    try:
+        logger.info(f"[OUTLOOK AUTH TEST] Generating auth URL for user {user_id}")
+        
+        # Retrieve application credentials
+        client_id = os.getenv("OUTLOOK_CLIENT_ID", "")
+        
+        if not client_id:
+            return JSONResponse({"error": "Microsoft client configuration incomplete"}, status_code=500)
+        
+        # Define redirect URI (either use the provided one or default)
+        redirect_uri = callback_url or "http://localhost:5173/api/sources/outlook/callback"
+        
+        # Définir les scopes demandés
+        SCOPES = ['Mail.Read', 'User.Read']
+        
+        # Charger le cache de token si existant
+        from auth.credentials_manager import load_microsoft_token
+        cache_data = load_microsoft_token(user_id)
+        token_cache = msal.SerializableTokenCache()
+        
+        if cache_data:
+            token_cache.deserialize(cache_data)
+            
+        # Créer l'application avec le cache de token
+        app = msal.PublicClientApplication(
+            client_id=client_id,
+            authority="https://login.microsoftonline.com/common",
+            token_cache=token_cache
+        )
+        
+        # Generate auth URL
+        auth_url = app.get_authorization_request_url(
+            scopes=SCOPES,
+            redirect_uri=redirect_uri,
+            state=user_id,
+            prompt="select_account"
+        )
+        
+        logger.info(f"[OUTLOOK AUTH TEST] Generated auth URL: {auth_url[:50]}...")
+        
+        return JSONResponse({
+            "auth_url": auth_url,
+            "user_id": user_id
+        })
+    except Exception as e:
+        logger.error(f"[OUTLOOK AUTH] Error generating auth URL: {str(e)}", exc_info=True)
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@router.get("/outlook/callback")
+async def outlook_auth_callback(code: str = None, error: str = None, state: str = None, session_state: str = None):
+    """Callback pour l'authentification Outlook, traite le code d'autorisation renvoyé par Microsoft"""
+    try:
+        # Vérification des erreurs retournées par Microsoft
+        if error:
+            logger.error(f"[OUTLOOK CALLBACK] Microsoft returned error: {error}")
+            return JSONResponse({
+                "success": False,
+                "error": error,
+                "redirect": "/mail-import?outlook_auth=error&error_type=microsoft_error"
+            }, status_code=400)
+        
+        if state:
+            # Le state contient directement l'user_id
+            user_id = state
+        else:
+            user_id = "outlook"
+        logger.info(f"[OUTLOOK CALLBACK] Received auth code for user {user_id}")
+
+        # Vérification de la présence du code
+        if not code:
+            logger.error("[OUTLOOK CALLBACK] No authorization code received")
+            return JSONResponse({
+                "success": False,
+                "error": "No authorization code received",
+                "redirect": "/mail-import?outlook_auth=error&error_type=no_code"
+            }, status_code=400)
+        
+        # Récupérer l'ID utilisateur depuis l'objet d'authentification
+        logger.info(f"[OUTLOOK CALLBACK] Received auth code for user {user_id}")
+        
+        # Récupérer les identifiants d'application
+        client_id = os.getenv("OUTLOOK_CLIENT_ID", "")
+        
+        if not client_id:
+            logger.error("[OUTLOOK CALLBACK] Microsoft credentials incomplete")
+            return JSONResponse({"error": "Configuration Microsoft incomplète"}, status_code=500)
+        
+        # Charger le cache de token existant
+        from auth.credentials_manager import load_microsoft_token, save_microsoft_token
+        cache_data = load_microsoft_token(user_id)
+        token_cache = msal.SerializableTokenCache()
+        
+        if cache_data:
+            token_cache.deserialize(cache_data)
+        
+        # Créer une instance de l'application cliente publique pour l'échange de tokens
+        # Puisque notre app est configurée comme client public dans Azure AD
+        app = msal.PublicClientApplication(
+            client_id=client_id,
+            authority="https://login.microsoftonline.com/common",
+            token_cache=token_cache
+        )
+        
+        # URL de redirection utilisée lors de la demande d'autorisation
+        # Utiliser l'URL frontend car c'est probablement ce qui est enregistré dans Azure
+        redirect_uri = "http://localhost:5173/api/sources/outlook/callback"
+        
+        # Échanger le code d'autorisation contre un token d'accès
+        result = app.acquire_token_by_authorization_code(
+            code=code,
+            scopes=['Mail.Read', 'User.Read'],
+            redirect_uri=redirect_uri
+        )
+        
+        if "error" in result:
+            error_desc = result.get("error_description", "Unknown error during token acquisition")
+            logger.error(f"[OUTLOOK CALLBACK] Error acquiring token: {error_desc}")
+            return JSONResponse({
+                "success": False,
+                "error": error_desc,
+                "redirect": f"/mail-import?outlook_auth=error&error_type=token_acquisition&message={error_desc}"
+            }, status_code=500)
+        
+        # Sauvegarder les tokens dans le gestionnaire de credentials si le cache a été modifié
+        if token_cache.has_state_changed:
+            logger.info(f"[OUTLOOK CALLBACK] Token cache updated for user {user_id}")
+            save_microsoft_token(user_id, token_cache.serialize())
+        
+        # Extraire le nom d'utilisateur si disponible
+        username = "outlook_user"
+        if "id_token_claims" in result and result["id_token_claims"].get("preferred_username"):
+            username = result["id_token_claims"]["preferred_username"]
+        
+        logger.info(f"[OUTLOOK CALLBACK] Authentication successful for {username}")
+        
+        # Rediriger vers la page d'importation d'emails avec auto-ingestion
+        frontend_redirect = "http://localhost:5173/mail-import?auth=success&provider=outlook&auto_ingest=true"
+        return JSONResponse({
+            "status": "success",
+            "redirect_url": frontend_redirect,
+            "user": username
+        })
+        
+    except Exception as e:
+        logger.error(f"[OUTLOOK CALLBACK] Error processing callback: {str(e)}", exc_info=True)
         return JSONResponse({"error": str(e)}, status_code=500)
 
 @router.get("/gmail/auth_url")
@@ -172,7 +332,8 @@ async def get_gmail_auth_url(user=Depends(get_current_user)):
             "https://www.googleapis.com/auth/gmail.modify",
             "https://www.googleapis.com/auth/gmail.labels",
             "https://www.googleapis.com/auth/gmail.compose",
-            "https://www.googleapis.com/auth/gmail.send"
+            "https://www.googleapis.com/auth/gmail.send",
+            "https://www.googleapis.com/auth/drive"
         ],
         redirect_uri=GMAIL_REDIRECT_URI + "/api/sources/gmail/oauth2callback"
     )
@@ -211,7 +372,8 @@ async def gmail_oauth2_callback(request: Request):
             "https://www.googleapis.com/auth/gmail.modify",
             "https://www.googleapis.com/auth/gmail.labels",
             "https://www.googleapis.com/auth/gmail.compose",
-            "https://www.googleapis.com/auth/gmail.send"
+            "https://www.googleapis.com/auth/gmail.send",
+            "https://www.googleapis.com/auth/drive"
         ],
         redirect_uri=GMAIL_REDIRECT_URI + "/api/sources/gmail/oauth2callback"
     )
@@ -431,24 +593,19 @@ async def get_recent_gmail_emails(limit: int = 10, user=Depends(get_current_user
     """Récupère les emails Gmail récemment ajoutés à Qdrant en utilisant le registre de fichiers"""
     try:
         user_id = user.get("uid") if user else "gmail"
-        logger.debug(f"[GMAIL] Requested recent emails for user_id={user_id}, limit={limit}")
         creds_status = check_google_credentials(user_id)
-        logger.debug(f"[GMAIL] Credentials status: {creds_status}")
         
         if not creds_status["authenticated"] or not creds_status["valid"]:
             error_msg = creds_status.get("error", "User not authenticated to Gmail or credentials invalid")
-            logger.debug(f"[GMAIL] Not authenticated: {error_msg}")
             return JSONResponse({"emails": [], "error": error_msg})
         
         registry = FileRegistry(user_id)
         gmail_files = registry.get_files_by_prefix("/Gmail/")
-        logger.debug(f"[GMAIL] Found {len(gmail_files)} gmail files in registry for user {user_id}")
         
         emails = []
         for idx, file_path in enumerate(gmail_files[:limit]):
             file_info = registry.get_file_info(file_path)
             if not file_info or not file_info.get("metadata"):
-                logger.debug(f"[GMAIL] No metadata for file {file_path}, returning default entry.")
                 email_data = {
                     "subject": "(Sans objet)",
                     "sender": "Inconnu",
@@ -470,7 +627,6 @@ async def get_recent_gmail_emails(limit: int = 10, user=Depends(get_current_user
                 "email_id": metadata.get("email_id"),
                 "doc_id": file_info.get("doc_id")
             }
-            logger.debug(f"[GMAIL] Email {idx}: {email_data}")
             emails.append(email_data)
         
         emails.sort(key=lambda x: x.get("date", ""), reverse=True)
@@ -486,18 +642,13 @@ async def get_recent_outlook_emails(limit: int = 10, user=Depends(get_current_us
     """Récupère les emails Outlook récemment ajoutés à Qdrant en utilisant le registre de fichiers"""
     try:
         user_id = user.get("uid") if user else "outlook"
-        logger.debug(f"[OUTLOOK] Requested recent emails for user_id={user_id}, limit={limit}")
-        creds_status = check_microsoft_credentials(user_id)
-        logger.debug(f"[OUTLOOK] Credentials status: {creds_status}")
-        
+        creds_status = check_microsoft_credentials(user_id)        
         if not creds_status["authenticated"] or not creds_status["valid"]:
             error_msg = creds_status.get("error", "User not authenticated to Outlook or credentials invalid")
-            logger.debug(f"[OUTLOOK] Not authenticated: {error_msg}")
             return JSONResponse({"emails": [], "error": error_msg})
         
         registry = FileRegistry(user_id)
         outlook_files = registry.get_files_by_prefix("/Outlook/")
-        logger.debug(f"[OUTLOOK] Found {len(outlook_files)} outlook files in registry for user {user_id}")
         
         emails = []
         for idx, file_path in enumerate(outlook_files[:limit]):
@@ -525,7 +676,6 @@ async def get_recent_outlook_emails(limit: int = 10, user=Depends(get_current_us
                 "email_id": metadata.get("email_id"),
                 "doc_id": file_info.get("doc_id")
             }
-            logger.debug(f"[OUTLOOK] Email {idx}: {email_data}")
             emails.append(email_data)
         emails.sort(key=lambda x: x.get("date", ""), reverse=True)
         emails = emails[:limit]

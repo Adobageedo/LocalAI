@@ -8,7 +8,8 @@ import os
 import json
 import pickle
 import logging
-from typing import Any, Dict, Optional, Union, Tuple
+import glob
+from typing import Any, Dict, Optional, Union, Tuple, List
 from pathlib import Path
 from google.auth.transport.requests import Request
 import msal
@@ -158,85 +159,87 @@ def check_google_credentials(user_id: str) -> Dict[str, Any]:
         logger.error(f"Erreur lors de la vérification des credentials Google: {str(e)}")
         return result
 
-def check_microsoft_credentials(user_id: str) -> Dict[str, Any]:
+def get_authenticated_users_by_provider(provider: str) -> List[str]:
     """
-    Vérifie si des credentials Microsoft valides existent pour un utilisateur donné.
+    Récupère la liste des utilisateurs authentifiés pour un provider spécifique.
     
     Args:
-        user_id: Identifiant de l'utilisateur
+        provider: Nom du provider ('gmail' ou 'outlook')
         
+    Returns:
+        Liste des identifiants utilisateurs ayant des tokens enregistrés
+    """
+    users = []
+    
+    try:
+        # Déterminer le chemin de base et le pattern selon le provider
+        if provider.lower() == 'gmail':
+            # On considère TOKEN_DIRECTORY/gmail/*.json comme structure
+            token_dir = os.environ.get('GMAIL_TOKEN_PATH', 'token.pickle')
+            base_path = token_dir.replace("user_id.pickle", "")
+            pattern = '*.pickle'
+        elif provider.lower() == 'outlook':
+            # On considère TOKEN_DIRECTORY/outlook/*.json comme structure
+            token_dir = os.environ.get('OUTLOOK_TOKEN_PATH', 'outlook_token.json')
+            base_path = token_dir.replace("user_id.json", "")
+            pattern = '*.json'
+        else:
+            logger.error(f"Provider non supporté: {provider}")
+            return []
+            
+        # Vérifier si le répertoire existe
+        if not os.path.exists(base_path):
+            logger.warning(f"Répertoire des tokens non trouvé: {base_path}")
+            return []
+            
+        # Rechercher les fichiers de token
+        search_pattern = os.path.join(base_path, pattern)
+        token_files = glob.glob(search_pattern)
+        
+        # Extraire les identifiants utilisateurs (nom du fichier sans extension)
+        for token_file in token_files:
+            user_id = os.path.splitext(os.path.basename(token_file))[0]
+            users.append(user_id)
+            
+        logger.info(f"Trouvé {len(users)} utilisateurs authentifiés pour {provider}: {', '.join(users)}")
+        return users
+        
+    except Exception as e:
+        logger.error(f"Erreur lors de la recherche des utilisateurs {provider}: {str(e)}")
+        return []
+
+def check_microsoft_credentials(user_id: str) -> Dict[str, Any]:
+    """
+    Vérifie si des credentials Outlook (Microsoft Graph) valides existent pour un utilisateur donné,
+    sans tenter de les rafraîchir.
+
+    Args:
+        user_id: Identifiant de l'utilisateur
+
     Returns:
         Dictionnaire avec les informations sur les credentials
     """
-    token_path = os.environ.get("OUTLOOK_TOKEN_PATH", "outlook_token.json").replace("user_id", user_id)
-    
     result = {
         "authenticated": False,
         "valid": False,
-        "token_path": token_path,
+        "expired": False,
+        "refreshable": False,
         "user_id": user_id,
-        "error": None,
-        "account_info": None
+        "error": None
     }
-    
+
     try:
-        # Vérifier si le token existe
-        if not os.path.exists(token_path):
-            result["error"] = f"Fichier token non trouvé: {token_path}"
-            return result
-            
-        # Lire le cache de tokens
-        with open(token_path, 'r') as token_file:
-            cache_data = token_file.read()
-            
-            if not cache_data:
-                result["error"] = "Cache de token vide"
-                return result
-                
-            # Créer un cache de token
-            token_cache = msal.SerializableTokenCache()
-            token_cache.deserialize(cache_data)
-            
-            # Récupérer les identifiants d'application
-            client_id = os.getenv("OUTLOOK_CLIENT_ID", "")
-            client_secret = os.getenv("OUTLOOK_CLIENT_SECRET", "")
-            tenant_id = os.getenv("OUTLOOK_TENANT_ID", "common")
-            
-            if not all([client_id, client_secret]):
-                result["error"] = "Variables d'environnement manquantes pour Outlook"
-                return result
-                
-            # Créer l'application
-            app = msal.ConfidentialClientApplication(
-                client_id=client_id,
-                client_credential=client_secret,
-                authority=f"https://login.microsoftonline.com/{tenant_id}",
-                token_cache=token_cache
-            )
-            
-            # Trouver les comptes existants dans le cache
-            accounts = app.get_accounts()
-            
-            if not accounts:
-                result["error"] = "Aucun compte trouvé dans le cache de tokens"
-                return result
-                
-            # Au moins un compte trouvé
+        token_data = load_microsoft_token(user_id)  # Doit retourner un dict avec 'access_token', 'expires_at', etc.
+        if token_data:
             result["authenticated"] = True
-            result["account_info"] = {"username": accounts[0].get("username", "Unknown")}
-            
-            # Essayer d'acquérir un token silencieusement
-            token_result = app.acquire_token_silent(["https://graph.microsoft.com/.default"], account=accounts[0])
-            
-            if token_result and "access_token" in token_result:
-                result["valid"] = True
-                
-                # Sauvegarder le cache si modifié
-                if token_cache.has_state_changed:
-                    save_microsoft_token(user_id, token_cache.serialize())
-                    
-        return result
+            result["valid"] = True
+            result["refreshable"] = "refresh_token" in token_data
+    
+        else:
+            result["error"] = "Aucun token Outlook trouvé"
+
     except Exception as e:
         result["error"] = str(e)
-        logger.error(f"Erreur lors de la vérification des credentials Microsoft: {str(e)}")
-        return result
+        logger.error(f"Erreur lors de la vérification des credentials Outlook : {str(e)}")
+
+    return result

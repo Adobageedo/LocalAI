@@ -14,13 +14,8 @@ from rag_engine.vectorstore.vectorstore_manager import VectorStoreManager
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
-
-# Local storage configuration
-STORAGE_ROOT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "data", "storage")
-os.makedirs(STORAGE_ROOT, exist_ok=True)
-logger.info(f"Local storage configured at: {STORAGE_ROOT}")
-
-# Models
+STORAGE_PATH = os.path.abspath(os.environ.get("STORAGE_PATH", "data/storage/user_id"))
+#  Models
 class FileItem(BaseModel):
     path: str
     name: str
@@ -68,15 +63,18 @@ def normalize_path(path: str) -> str:
 
 def get_user_dir(user_id: str) -> str:
     """Get the user's root directory path"""
-    user_dir = os.path.join(STORAGE_ROOT, f"user_{user_id}")
+    user_dir = STORAGE_PATH.replace("user_id", user_id)
     os.makedirs(user_dir, exist_ok=True)
     return user_dir
 
 def full_path(user_id: str, path: str) -> str:
     """Get the full filesystem path for a user's file"""
-    user_dir = get_user_dir(user_id)
-    norm_path = normalize_path(path)
-    return os.path.join(user_dir, norm_path)
+    # Construire le chemin comme dans list_files
+    user_base = STORAGE_PATH.replace("user_id", user_id)
+    # Si le chemin commence par un slash, l'ignorer pour os.path.join
+    relative_path = path[1:] if path.startswith('/') else path
+    result = os.path.join(user_base, relative_path)
+    return result
 
 def is_directory(path: str) -> bool:
     """Check if path is a directory"""
@@ -177,9 +175,9 @@ async def list_files(
     """List files and directories in the specified path"""
     try:
         user_id = user.get("uid") if user else "anonymous"
-        
         # Get full filesystem path for the user directory
-        dir_path = full_path(user_id, path)
+        print(path)
+        dir_path = os.path.join(STORAGE_PATH.replace("user_id", user_id), path[1:])
         logger.info(f"Listing files for user {user_id} at path {path} (dir_path: {dir_path})")
         
         # Create directory if it doesn't exist
@@ -234,7 +232,7 @@ async def download_file(
     """Download a file from local storage"""
     try:
         user_id = user.get("uid") if user else "anonymous"
-        
+        print(path)
         # Get full file path
         file_path = full_path(user_id, path)
         logger.info(f"Downloading file for user {user_id}: {file_path}")

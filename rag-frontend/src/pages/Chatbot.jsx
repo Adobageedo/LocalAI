@@ -6,6 +6,7 @@ import { Layout } from '../components/layout';
 import ConversationSidebar from '../components/chatbot/ConversationSidebar';
 import ChatInterface from '../components/chatbot/ChatInterface';
 import SettingsPanel from '../components/chatbot/SettingsPanel';
+import { useParams, useNavigate } from 'react-router-dom';
 import { 
   getConversations, 
   getConversationMessages, 
@@ -19,6 +20,9 @@ import {
 
 export default function Chatbot() {
   const theme = useTheme();
+  const params = useParams();
+  const navigate = useNavigate();
+  const conversationId = params?.conversationId;
   
   // State for conversations
   const [conversations, setConversations] = useState([]);
@@ -44,22 +48,62 @@ export default function Chatbot() {
     setSettingsPanelOpen(false);
   };
 
-  // Fetch conversations on component mount and start with a new conversation
+  // Initialiser le chargement des conversations au montage du composant
   useEffect(() => {
-    // First fetch existing conversations
+    // Charger toutes les conversations
     fetchConversations();
-    
-    // Create a new draft conversation by default
-    const newDraftConversation = {
-      id: null,
-      name: "New Conversation",
-      created_at: new Date().toISOString(),
-      isDraft: true
-    };
-    
-    // Set the new draft conversation as current
-    setCurrentConversation(newDraftConversation);
   }, []);
+  
+  // Gérer le chargement de la conversation à partir de l'ID dans l'URL
+  // Ce useEffect se déclenchera à la fois lorsque les conversations sont chargées et lorsque l'ID change
+  useEffect(() => {
+    if (conversations.length === 0) {
+      console.log('Conversations not loaded yet, waiting...');
+      return; // Attendre que les conversations soient chargées
+    }
+    
+    console.log('All conversations:', JSON.stringify(conversations.map(c => ({ id: c.id, title: c.title }))));
+    
+    if (conversationId) {
+      console.log('Conversation ID from URL:', conversationId);
+      // Rechercher la conversation dans la liste des conversations chargées
+      // Utiliser String() pour garantir que la comparaison se fait entre chaînes
+      const existingConversation = conversations.find(c => String(c.id) === String(conversationId));
+      
+      if (existingConversation) {
+        console.log('Found existing conversation:', existingConversation);
+        setCurrentConversation(existingConversation);
+        // Pas besoin de charger les messages ici car useEffect suivant s'en chargera
+      } else {
+        console.log('Conversation not found in loaded conversations. IDs in DB:', 
+          conversations.map(c => String(c.id)));
+        
+        // Optional: Recharger les conversations avant de conclure que l'ID n'existe pas
+        fetchConversations().then(freshConversations => {
+          if (Array.isArray(freshConversations)) {
+            const freshMatch = freshConversations.find(c => String(c.id) === String(conversationId));
+            if (freshMatch) {
+              console.log('Found conversation after refresh:', freshMatch);
+              setCurrentConversation(freshMatch);
+              return;
+            }
+          }
+          console.log('Conversation truly not found, redirecting to main chatbot');
+          navigate('/chatbot');
+        });
+      }
+    } else {
+      // Si aucun ID n'est présent dans l'URL, créer une nouvelle conversation par défaut
+      console.log('No conversation ID in URL, creating a new one');
+      const newDraftConversation = {
+        id: null,
+        title: "New Conversation",
+        created_at: new Date().toISOString(),
+        isDraft: true
+      };
+      setCurrentConversation(newDraftConversation);
+    }
+  }, [conversations, conversationId, navigate]);
 
   // Load messages when currentConversation changes
   useEffect(() => {
@@ -77,12 +121,12 @@ export default function Chatbot() {
       const data = await getConversations();
       if (Array.isArray(data)) {
         setConversations(data);
-        
-        // We now always start with a new conversation, so no need to select the most recent one
-        // Just keep the conversations in state for the sidebar
+        return data; // Retourner les données pour permettre leur utilisation dans le callback
       }
+      return [];
     } catch (error) {
       console.error('Error fetching conversations:', error);
+      return [];
     } finally {
       setLoading(false);
     }
@@ -119,12 +163,16 @@ export default function Chatbot() {
   // Create a new conversation (draft - only created in UI until a message is sent)
   const createConversation = async () => {
     // Instead of creating in backend, just create a temporary conversation in UI state
-    setCurrentConversation({
+    const newConversation = {
       id: null, // Temporary ID, will be replaced when first message is sent
       title: 'New Conversation',
       created_at: new Date().toISOString(),
       isDraft: true // Flag to indicate this is a draft conversation
-    });
+    };
+    
+    setCurrentConversation(newConversation);
+    // Également naviguer vers la route de base du chatbot pour montrer qu'il s'agit d'une nouvelle conversation
+    navigate('/chatbot');
     
     // Clear any existing messages
     setMessages([]);

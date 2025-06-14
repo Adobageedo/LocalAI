@@ -43,23 +43,27 @@ logging.getLogger("chardet").setLevel(logging.WARNING)
 logging.getLogger("cachecontrol.controller").setLevel(logging.WARNING)
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 logging.getLogger("python_multipart.multipart").setLevel(logging.WARNING)
+logging.getLogger("msal").setLevel(logging.WARNING)
+logging.getLogger("google.auth").setLevel(logging.WARNING)
+logging.getLogger("googleapiclient").setLevel(logging.WARNING)
 
 app = FastAPI()
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 
 # Import des routeurs
 from .router.openai_compat import router as openai_router
-from .router.ingest_router import router as source_router
+from .router.ingest_router import router as ingest_router
 from .router.file_management_router import router as file_management_router
 from .router.llm_chat_router import router as conversation_router
 from .router.test_router import router as test_router
-
+from .router.file_management_google import router as file_management_google_router
 # Configuration des préfixes API centralisée
 app.include_router(openai_router, prefix="/api")
-app.include_router(source_router, prefix="/api/sources")
+app.include_router(ingest_router, prefix="/api/sources")
 app.include_router(file_management_router, prefix="/api/db")
 app.include_router(conversation_router, prefix="/api")  # conversation_router already has prefix='/api' in its definition
 app.include_router(test_router, prefix="/api")
+app.include_router(file_management_google_router, prefix="/api/db")
 # Ajouter le middleware de compression GZIP
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 

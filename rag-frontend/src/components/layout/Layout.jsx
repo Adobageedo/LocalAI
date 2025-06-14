@@ -155,44 +155,7 @@ export default function Layout({ children, sidebarOpen = true }) {
         </AppBar>
         
         <Box sx={{ flexGrow: 1 }}>
-          {/* Fil d'Ariane */}
-          <Breadcrumbs 
-            aria-label="breadcrumb" 
-            sx={{ 
-              mb: 2, 
-              '& .MuiBreadcrumbs-ol': { 
-                flexWrap: 'nowrap', 
-                overflow: 'auto',
-                msOverflowStyle: 'none', /* for IE and Edge */
-                scrollbarWidth: 'none', /* for Firefox */
-                '&::-webkit-scrollbar': {
-                  display: 'none' /* for Chrome, Safari, and Opera */
-                },
-              } 
-            }}
-          >
-            {breadcrumbs.map((crumb, index) => {
-              const isLast = index === breadcrumbs.length - 1;
-              return isLast ? (
-                <Typography key={crumb.path} color="text.primary" sx={{ fontWeight: 'bold' }}>
-                  {crumb.name}
-                </Typography>
-              ) : (
-                <Link 
-                  key={crumb.path} 
-                  component={RouterLink} 
-                  to={crumb.path} 
-                  color="inherit"
-                  sx={{
-                    textDecoration: 'none',
-                    '&:hover': { textDecoration: 'underline' }
-                  }}
-                >
-                  {crumb.name}
-                </Link>
-              );
-            })}
-          </Breadcrumbs>
+
           
           <Grow in={true} timeout={300}>
             <Box 

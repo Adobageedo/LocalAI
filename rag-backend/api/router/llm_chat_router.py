@@ -8,12 +8,14 @@ from psycopg2.extras import RealDictCursor
 import os
 from middleware.auth import get_current_user
 from Agent_AI.retrieve_rag_information_modular import get_rag_response_modular
+import logging
 
+logger = logging.getLogger(__name__)
 # Database connection parameters
 DB_NAME = os.getenv("POSTGRES_DB", "localai_db")
 DB_USER = os.getenv("POSTGRES_USER", "localai")
 DB_PASSWORD = os.getenv("POSTGRES_PASSWORD", "localai_password")
-DB_HOST = os.getenv("POSTGRES_HOST", "postgres")
+DB_HOST = os.getenv("POSTGRES_HOST", "localhost")
 DB_PORT = os.getenv("POSTGRES_PORT", "5432")
 
 # Models
@@ -77,9 +79,10 @@ def get_db_connection():
             port=DB_PORT,
             cursor_factory=RealDictCursor
         )
+        logger.info("Database connection successful")
         return conn
     except Exception as e:
-        print(f"Database connection error: {e}")
+        logger.error(f"Database connection error: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Could not connect to the database"

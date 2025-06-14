@@ -38,6 +38,13 @@ export function GmailConnect() {
   }, [isLoading]);
 
   const handleImport = async () => {
+    // Step 1: Immediately open a popup (blank) — this avoids Safari blocking
+    const popup = window.open("", "GmailAuth", "width=500,height=650");
+
+    if (!popup) {
+      alert("Popup blocked! Please allow popups to continue Gmail authentication.");
+      return;
+    }
     try {
       setIsLoading(true);
       setStatus(null);
@@ -46,10 +53,11 @@ export function GmailConnect() {
       const authCheck = await authCheckRes.json();
       if (authCheck.authenticated) {
         // Already authenticated, start ingestion
+        popup.close();
         await startIngestion();
       } else if (authCheck.auth_url) {
         // Not authenticated, open popup
-        const popup = window.open(authCheck.auth_url, "GmailAuth", "width=500,height=650");
+        popup.location.href = authCheck.auth_url;
         // Listen for message from popup
         const onMessage = async (event) => {
           if (event.data === "gmail_auth_success") {
