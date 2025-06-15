@@ -27,3 +27,5 @@ rag-backend/token.pickle
 rag-backend/update_vdb/data/file_registry.json
 rag-backend/data/*
 !rag-backend/data/.gitkeep
+**/__pycache__/
+*.pyc
