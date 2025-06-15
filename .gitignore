@@ -29,3 +29,4 @@ rag-backend/data/*
 !rag-backend/data/.gitkeep
 **/__pycache__/
 *.pyc
+*config.js
