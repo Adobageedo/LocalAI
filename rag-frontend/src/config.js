@@ -6,4 +6,4 @@ const config = {
 };
 
 export default config;
-export const API_BASE_URL = "http://192.168.0.3:8000/api"; // à adapter selon ton backend
+export const API_BASE_URL = "http://chardouin.fr/api"; // à adapter selon ton backend

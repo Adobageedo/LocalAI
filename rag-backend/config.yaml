@@ -17,7 +17,7 @@ retrieval:
   vectorstore:
     path: ./data/vectorstore      # Path to vector store
     type: qdrant                  # qdrant, faiss, chroma, etc.
-    host: localhost
+    host: qdrant
     port: 6333
     collection: rag_documents1536
   filter_fallback: false           # Fallback to no-filter if filtered results are empty
@@ -27,7 +27,7 @@ retrieval:
 llm:
   provider: openai                # openai, azure, local, etc.
   model: gpt-4.1-nano
-  temperature: 0.2
+  temperature: 0.7
   max_tokens: 512
   api_base: https://api.openai.com/v1
   timeout: 30                     # seconds
