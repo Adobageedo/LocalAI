@@ -443,8 +443,6 @@ const DocumentExplorer = () => {
       setUploadProgress(100);
       showNotification(`${file.name} uploaded successfully`);
       
-      // Reload the directory contents
-      loadDirectoryContents();
     } catch (error) {
       console.error('Error uploading file to MinIO:', error);
       showNotification(`Upload failed: ${error.message}`);
@@ -504,7 +502,8 @@ const DocumentExplorer = () => {
       const filePath = basePath + '/' + relativePath;
       uploadFileToMinio(file, filePath);
     });
-    
+    // Reload the directory contents
+    loadDirectoryContents();
     // Reset the folder input
     e.target.value = null;
   };
@@ -558,7 +557,10 @@ const DocumentExplorer = () => {
   const confirmDelete = async () => {
     try {
       for (const item of selectedItems) {
-        await minioService.deleteItem(item.path, item.is_directory);
+        // Use buildFullPath to get the correct path including the filename
+        const fullPath = buildFullPath(item);
+        console.log(`Deleting item: ${fullPath}, is_directory: ${item.is_directory}`);
+        await minioService.deleteItem(fullPath, item.is_directory);
       }
       showNotification(`${selectedItems.length} item(s) deleted successfully`);
       setSelectedItems([]);
@@ -841,11 +843,21 @@ const DocumentExplorer = () => {
     }
   };
 
+  // Use counter to track drag enter/leave for nested elements
+  const dragCounter = React.useRef(0);
+  
   // Handle drag enter event
   const handleDragEnter = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDragging(true);
+    
+    // Increment counter when entering an element
+    dragCounter.current += 1;
+    
+    // Only show dragging UI on the first enter
+    if (dragCounter.current === 1) {
+      setIsDragging(true);
+    }
   };
 
   // Handle drag over event
@@ -858,33 +870,122 @@ const DocumentExplorer = () => {
   const handleDragLeave = (e) => {
     e.preventDefault();
     e.stopPropagation();
-    if (e.currentTarget.contains(e.relatedTarget)) return;
-    setIsDragging(false);
+    
+    // Decrement counter when leaving an element
+    dragCounter.current -= 1;
+    
+    // Only hide dragging UI when completely left the drop zone
+    if (dragCounter.current === 0) {
+      setIsDragging(false);
+    }
   };
 
   // Handle drop event
-  const handleDrop = (e) => {
+  const handleDrop = async (e) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragging(false);
     
-    if (e.dataTransfer.items) {
-      // Use DataTransferItemList interface to access files
+    // Clear any debounce to ensure drag state is reset
+    if (window.dragLeaveDebounce) {
+      clearTimeout(window.dragLeaveDebounce);
+    }
+    
+    // Determine which provider to upload to
+    const currentProvider = providers[activeProvider].id;
+    
+    // Detect if we're dropping a folder (using webkitGetAsEntry API)
+    if (e.dataTransfer.items && e.dataTransfer.items[0].webkitGetAsEntry) {
+      const entries = [];
       for (let i = 0; i < e.dataTransfer.items.length; i++) {
-        const item = e.dataTransfer.items[i];
-        
-        if (item.kind === 'file') {
-          const file = item.getAsFile();
-          if (file) {
-            uploadFileToMinio(file);
+        const entry = e.dataTransfer.items[i].webkitGetAsEntry();
+        if (entry) {
+          entries.push(entry);
+        }
+      }
+      
+      // Process entries (files and directories)
+      for (const entry of entries) {
+        if (entry.isDirectory) {
+          // Handle directory (differs by provider)
+          if (currentProvider === 'minio') {
+            await processDirectoryEntry(entry, currentPath);
+          } else if (currentProvider === 'gdrive' && providers[activeProvider].connected) {
+            // If Google Drive is authenticated, handle there
+            showNotification('Folder upload to Google Drive is coming soon!');
+            // Placeholder for Google Drive folder upload logic
+            // await processGDriveDirectoryEntry(entry, currentGoogleDrivePath);
           }
+        } else {
+          // Handle file upload based on provider
+          entry.file(file => {
+            if (currentProvider === 'minio') {
+              uploadFileToMinio(file);
+            } else if (currentProvider === 'gdrive' && providers[activeProvider].connected) {
+              uploadFileToGoogleDrive(file);
+            }
+          });
         }
       }
     } else {
-      // Use DataTransfer interface to access files
+      // Fallback for browsers that don't support webkitGetAsEntry
       for (let i = 0; i < e.dataTransfer.files.length; i++) {
-        uploadFileToMinio(e.dataTransfer.files[i]);
+        const file = e.dataTransfer.files[i];
+        
+        if (currentProvider === 'minio') {
+          uploadFileToMinio(file);
+        } else if (currentProvider === 'gdrive' && providers[activeProvider].connected) {
+          uploadFileToGoogleDrive(file);
+        }
       }
+    }
+  };
+  
+  // Process directory entry recursively
+  const processDirectoryEntry = async (directoryEntry, currentPath) => {
+    // Create directory in MinIO
+    const dirPath = currentPath === '/' 
+      ? directoryEntry.name 
+      : `${currentPath}/${directoryEntry.name}`;
+    
+    try {
+      await minioService.createFolder(dirPath);
+      
+      // Read directory contents
+      const reader = directoryEntry.createReader();
+      
+      // Function to read all entries
+      const readEntries = () => {
+        return new Promise((resolve, reject) => {
+          reader.readEntries(async (entries) => {
+            if (entries.length === 0) {
+              resolve();
+            } else {
+              // Process all entries
+              for (const entry of entries) {
+                if (entry.isDirectory) {
+                  await processDirectoryEntry(entry, dirPath);
+                } else {
+                  entry.file(file => {
+                    // Get full path for the file
+                    const filePath = `${dirPath}/${file.name}`;
+                    uploadFileToMinio(file, filePath);
+                  });
+                }
+              }
+              
+              // Continue reading (directories might return entries in batches)
+              await readEntries().then(resolve).catch(reject);
+            }
+          }, reject);
+        });
+      };
+      
+      await readEntries();
+      loadDirectoryContents(); // Refresh the current directory after processing
+    } catch (error) {
+      console.error('Error processing directory:', error);
+      showNotification(`Error processing directory ${directoryEntry.name}: ${error.message}`);
     }
   };
 

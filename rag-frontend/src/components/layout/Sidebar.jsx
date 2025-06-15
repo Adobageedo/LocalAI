@@ -38,13 +38,13 @@ import DeleteIcon from '@mui/icons-material/Delete';
 
 const Sidebar = ({ width = 240, open = true, onClose, collapsed = false, onToggleCollapse }) => {
   const theme = useTheme();
-  const { isAuthenticated, user, logout } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   
   // État pour les statuts d'authentification
   const [googleConnected, setGoogleConnected] = useState(false);
-  const [microsoftConnected, setMicrosoftConnected] = useState(false);
+  const [microsoftConnected, setMicrosoftConnected] = useState(true);
   
   // État pour stocker les conversations récupérées
   const [conversations, setConversations] = useState([]);
@@ -78,8 +78,8 @@ const Sidebar = ({ width = 240, open = true, onClose, collapsed = false, onToggl
       try {
         // Vérifier le statut d'authentification Google
         const googleStatus = await gdriveService.checkAuthStatus();
-        setGoogleConnected(googleStatus.isAuthenticated || false);
-        
+        const isConnected = googleStatus.authenticated || false;
+        setGoogleConnected(isConnected);
         // Vérifier le statut d'authentification Microsoft (à implémenter)
         // Pour l'instant, on laisse à false par défaut
         // Exemple de code à décommenter une fois le service Microsoft implémenté :

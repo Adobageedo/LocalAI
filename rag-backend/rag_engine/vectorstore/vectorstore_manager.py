@@ -5,6 +5,9 @@ from dotenv import load_dotenv
 from qdrant_client import QdrantClient
 from qdrant_client.http import models as rest
 from typing import List, Dict, Any, Optional
+from langchain_qdrant import QdrantVectorStore
+from rag_engine.embedding import EMBEDDER_REGISTRY
+from rag_engine.config import load_config
 
 load_dotenv()
 QDRANT_URL = os.getenv("QDRANT_URL")
@@ -38,15 +41,74 @@ class VectorStoreManager:
     def add_documents(self, docs: List[Any]):
         """Add a list of langchain Document objects to the collection."""
         self.ensure_collection_exists()
-        from langchain_qdrant import QdrantVectorStore
-        from rag_engine.embedding import EMBEDDER_REGISTRY
-        from rag_engine.config import load_config
+        config = load_config()
+        retrieval_cfg = config.get("retrieval", {})
+        embedder_name = retrieval_cfg.get("embedder", "huggingface")
+        embedder_instance = EMBEDDER_REGISTRY[embedder_name]()
+        
+        vectorstore = QdrantVectorStore(client=self.client, collection_name=self.collection_name, embedding=embedder_instance._embedder)
+        vectorstore.add_documents(docs)
+
+    def add_documents_in_batches(self, docs: List[Any], batch_size: int = 20) -> Dict[str, Any]:
+        """Add a list of langchain Document objects to the collection in batches.
+        
+        This method breaks down large document lists into smaller batches for more
+        efficient processing, better memory management, and improved error handling.
+        
+        Args:
+            docs: List of langchain Document objects to add to the collection
+            batch_size: Number of documents to process in each batch (default: 20)
+            
+        Returns:
+            Dict containing stats about the process:
+                - total: Total number of documents received
+                - processed: Number of documents successfully processed
+                - errors: Number of batches with errors
+                - batches: Total number of batches processed
+        """
+        self.ensure_collection_exists()
         config = load_config()
         retrieval_cfg = config.get("retrieval", {})
         embedder_name = retrieval_cfg.get("embedder", "huggingface")
         embedder_instance = EMBEDDER_REGISTRY[embedder_name]()
         vectorstore = QdrantVectorStore(client=self.client, collection_name=self.collection_name, embedding=embedder_instance._embedder)
-        vectorstore.add_documents(docs)
+        
+        total_docs = len(docs)
+        if total_docs == 0:
+            return {"total": 0, "processed": 0, "errors": 0, "batches": 0}
+            
+        stats = {
+            "total": total_docs,
+            "processed": 0,
+            "errors": 0,
+            "batches": 0
+        }
+        
+        # Calculate number of batches
+        num_batches = (total_docs + batch_size - 1) // batch_size  # Ceiling division
+        
+        logger.info(f"Processing {total_docs} documents in {num_batches} batches of size {batch_size}")
+        
+        # Process documents in batches
+        for i in range(0, total_docs, batch_size):
+            batch = docs[i:i+batch_size]
+            batch_num = (i // batch_size) + 1
+            stats["batches"] += 1
+            
+            try:
+                logger.debug(f"Processing batch {batch_num}/{num_batches} with {len(batch)} documents")
+                vectorstore.add_documents(batch)
+                stats["processed"] += len(batch)
+                logger.debug(f"Completed batch {batch_num}/{num_batches}")
+            except Exception as e:
+                stats["errors"] += 1
+                logger.error(f"Error processing batch {batch_num}/{num_batches}: {str(e)}")
+                # Continue processing other batches despite errors
+        
+        success_rate = (stats["processed"] / stats["total"]) * 100 if stats["total"] > 0 else 0
+        logger.info(f"Document batch processing complete: {stats['processed']}/{stats['total']} documents processed successfully ({success_rate:.1f}%)")
+        
+        return stats
 
     def delete_by_path(self, path: str):
         self.ensure_collection_exists()

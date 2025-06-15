@@ -515,7 +515,7 @@ def prompt_ia(data: dict, user=Depends(get_current_user)):
     llm_instruction = ""
     user_question = data.get("question")
     question = f"{llm_instruction}\n\n{user_question}"
-    rag_result = get_rag_response_modular(question, user_id=user_id)
+    rag_result = get_rag_response_modular(question, user_id=user_id,conversation_history=conversation_history)
 
     # Extract filenames cited in the answer (e.g., [contract.pdf])
     import re, os

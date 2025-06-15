@@ -11,8 +11,7 @@ import {
   useTheme
 } from '@mui/material';
 import { 
-  Send as SendIcon, 
-  Menu as MenuIcon
+  Send as SendIcon
 } from '@mui/icons-material';
 import ChatMessage from './ChatMessage';
 export default function ChatInterface({ 
@@ -20,8 +19,7 @@ export default function ChatInterface({
   onSendMessage, 
   loading = false,
   conversation,
-  settings,
-  onToggleSidebar
+  settings
 }) {
   const theme = useTheme();
   const [inputValue, setInputValue] = useState('');
@@ -61,28 +59,6 @@ export default function ChatInterface({
       overflow: 'hidden',
       backgroundColor: '#FBFBFD', // Apple-style light background
     }}>
-      {/* Simplified App Bar */}
-      <Box 
-        component="header" 
-        sx={{ 
-          p: 1,
-          display: 'flex', 
-          alignItems: 'center', 
-          backgroundColor: 'white', 
-          borderBottom: `1px solid ${theme.palette.divider}`,
-          boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
-        }}
-      >
-        <IconButton 
-          onClick={onToggleSidebar}
-          sx={{ ml: 1 }}
-        >
-          <MenuIcon />
-        </IconButton>
-        <Typography variant="h6" sx={{ flexGrow: 1, overflow: 'hidden', textOverflow: 'ellipsis', ml: 1 }}>
-          {conversation ? (conversation.name || conversation.title || 'Untitled') : 'New Conversation'}
-        </Typography>
-      </Box>
       
       {/* Message container - simplified */}
       <Box 

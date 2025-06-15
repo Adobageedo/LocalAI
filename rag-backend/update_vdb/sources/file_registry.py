@@ -37,7 +37,6 @@ class FileRegistry:
             try:
                 with open(self.registry_path, 'r', encoding='utf-8') as f:
                     self.registry = json.load(f)
-                logger.info(f"Registre chargé: {len(self.registry)} fichiers trouvés")
             except (json.JSONDecodeError, IOError) as e:
                 logger.error(f"Erreur lors du chargement du registre: {e}")
                 # Si le fichier est corrompu, créer un nouveau registre vide
@@ -194,3 +193,80 @@ class FileRegistry:
             Liste des chemins de fichiers correspondants.
         """
         return [path for path in self.registry.keys() if path.startswith(prefix)]
+        
+    def get_user_documents(self, document_type: Optional[str] = None, include_metadata: bool = True) -> List[Dict[str, Any]]:
+        """
+        Récupère les documents/emails uniques d'un utilisateur avec leurs métadonnées.
+        
+        Args:
+            document_type: Type de document à filtrer ("email", "email_attachment", etc.)
+                         Si None, retourne tous les types de documents.
+            include_metadata: Si True, inclut les métadonnées complètes pour chaque document.
+            
+        Returns:
+            Liste de dictionnaires contenant les informations sur chaque document.
+        """
+        results = []
+        
+        # Parcourir tous les fichiers dans le registre
+        for file_path, file_info in self.registry.items():
+            # Si un type de document est spécifié, vérifier dans les métadonnées
+            if document_type and "metadata" in file_info:
+                if file_info["metadata"].get("document_type") != document_type:
+                    continue
+            
+            # Construire les informations de base du document
+            doc_info = {
+                "path": file_path,
+                "doc_id": file_info["doc_id"],
+                "last_modified": file_info["last_modified"],
+                "last_synced": file_info.get("last_synced")
+            }
+            
+            # Ajouter la source si disponible
+            if "source_path" in file_info:
+                doc_info["source_path"] = file_info["source_path"]
+            
+            # Ajouter les métadonnées si demandé
+            if include_metadata and "metadata" in file_info:
+                doc_info["metadata"] = file_info["metadata"]
+            
+            results.append(doc_info)
+        
+        # Trier par date de modification (du plus récent au plus ancien)
+        results.sort(key=lambda x: x.get("last_modified", ""), reverse=True)
+        
+        return results
+        
+    def count_user_documents(self, document_type: Optional[str] = None, prefix: Optional[str] = None) -> int:
+        """
+        Compte le nombre de documents/emails d'un utilisateur, avec filtrage optionnel.
+        
+        Args:
+            document_type: Type de document à filtrer ("email", "email_attachment", etc.)
+                         Si None, compte tous les types de documents.
+            prefix: Préfixe de chemin pour filtrer les documents (ex: "gmail/", "outlook/")
+                  Si None, compte tous les documents sans filtrage par préfixe.
+            
+        Returns:
+            Nombre de documents correspondants aux critères.
+        """
+        count = 0
+        
+        # Si un préfixe est spécifié, filtrer d'abord par préfixe
+        if prefix:
+            file_paths = self.get_files_by_prefix(prefix)
+        else:
+            file_paths = list(self.registry.keys())
+            
+        # Si aucun type de document n'est spécifié, retourner simplement le nombre de fichiers
+        if not document_type:
+            return len(file_paths)
+            
+        # Compter les fichiers correspondant au type spécifié
+        for path in file_paths:
+            file_info = self.registry.get(path, {})
+            if "metadata" in file_info and file_info["metadata"].get("document_type") == document_type:
+                count += 1
+                
+        return count

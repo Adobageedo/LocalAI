@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, CircularProgress, useTheme } from '@mui/material';
 import { Layout } from '../components/layout';
-import ConversationSidebar from '../components/chatbot/ConversationSidebar';
+
 import ChatInterface from '../components/chatbot/ChatInterface';
 import SettingsPanel from '../components/chatbot/SettingsPanel';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -31,7 +31,6 @@ export default function Chatbot() {
   
   // UI state
   const [loading, setLoading] = useState(true);
-  const [sidebarOpen, setSidebarOpen] = useState(false); // Hide sidebar by default
   const [settingsPanelOpen, setSettingsPanelOpen] = useState(false);
   
   // Chat settings
@@ -192,6 +191,8 @@ export default function Chatbot() {
     // Update UI with new message
     const updatedMessages = [...messages, userMessage];
     setMessages(updatedMessages);
+    
+    // Set loading state to true at the beginning
     setLoading(true);
     
     try {
@@ -200,7 +201,6 @@ export default function Chatbot() {
       
       // If conversation is a draft or doesn't exist, create a real one in the backend
       if (!conversationId || currentConversation?.isDraft) {
-        console.log('[DEBUG] Creating new conversation from draft or new chat');
         console.log('[DEBUG] Current conversation state:', currentConversation);
         
         // Generate an intelligent title using the first user message
@@ -209,7 +209,6 @@ export default function Chatbot() {
           console.log('[DEBUG] Attempting to generate title from message:', content);
           // Try to get an AI-generated title
           title = await generateConversationTitle(content);
-          console.log('[DEBUG] Successfully generated title:', title);
         } catch (error) {
           console.error('[DEBUG] Error generating title, using fallback:', error);
           // Fallback to using the first 20 characters
@@ -223,8 +222,13 @@ export default function Chatbot() {
         
         conversationId = newConv.id;
         setCurrentConversation({...newConv, isDraft: false});
-        await fetchConversations();
-        console.log('[DEBUG] Updated conversation state:', {...newConv, isDraft: false});
+        
+        // Silently update the URL with the new conversation ID without causing a reload
+        // using replace: true to avoid adding a history entry
+        navigate(`/chatbot/${conversationId}`, { replace: true });
+        
+        // For new conversations, we'll update the conversation list after the AI response
+        // This gives the animation time to show
       }
 
       // Save the user message to the database
@@ -261,10 +265,15 @@ export default function Chatbot() {
         sources: response.sources || []
       };
       
+      // Update messages first to ensure UI updates
       setMessages(prev => [...prev, assistantMessage]);
       
-      // Refresh conversation list to update the last message preview
+      // Always refresh conversation list at the end after displaying all content
+      // This keeps the sidebar in sync with the current conversation
       await fetchConversations();
+      
+      // Keep loading state true a bit longer to ensure animations complete properly
+      await new Promise(resolve => setTimeout(resolve, 500));
       
     } catch (error) {
       console.error('Error sending message:', error);
@@ -310,12 +319,8 @@ export default function Chatbot() {
       console.error('Error deleting conversation:', error);
     }
   };
-
-  // State for Layout sidebar visibility
-  const [layoutSidebarOpen, setLayoutSidebarOpen] = useState(true);
-
   return (
-    <Layout sidebarOpen={layoutSidebarOpen}>
+    <Layout>
       <Box sx={{ 
         display: 'flex',
         height: 'calc(100vh - 64px)',
@@ -329,12 +334,7 @@ export default function Chatbot() {
               flexGrow: 1,
               height: '100%',
               display: 'flex',
-              flexDirection: 'column',
-              transition: theme.transitions.create('margin', {
-                easing: theme.transitions.easing.sharp,
-                duration: theme.transitions.duration.leavingScreen,
-              }),
-              marginRight: sidebarOpen ? '320px' : 0
+              flexDirection: 'column'
             }}>
               <ChatInterface 
                 messages={messages} 
@@ -342,31 +342,11 @@ export default function Chatbot() {
                 loading={loading}
                 conversation={currentConversation}
                 settings={chatSettings}
-                onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
                 onOpenSettings={() => setSettingsPanelOpen(true)}
               />
             </Box>
 
-            {/* Conversation Sidebar positioned on the right */}
-            <Box sx={{ 
-              position: 'fixed',
-              right: 0,
-              top: '64px', /* Match the layout header height */
-              height: 'calc(100vh - 64px)',
-              zIndex: 1200
-            }}>
-              <ConversationSidebar 
-                open={sidebarOpen}
-                conversations={conversations}
-                currentConversation={currentConversation}
-                onSelectConversation={setCurrentConversation}
-                onCreateConversation={createConversation}
-                onRenameConversation={handleRenameConversation}
-                onDeleteConversation={handleDeleteConversation}
-                onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
-                position="right"
-              />
-            </Box>
+
 
             {/* Settings Panel */}
             <SettingsPanel

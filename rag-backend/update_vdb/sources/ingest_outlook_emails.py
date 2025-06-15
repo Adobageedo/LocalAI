@@ -325,7 +325,10 @@ def ingest_outlook_emails_to_qdrant(
     force_reingest: bool = False,
     save_attachments: bool = True,
     verbose: bool = False,
-    user_id: str = "default"
+    user_id: str = "default",
+    min_date: Optional[datetime.datetime] = None,
+    credit_limit: Optional[int] = None,
+    return_count: bool = False
 ) -> Dict:
     """
     Ingère des emails Outlook dans Qdrant.
@@ -337,9 +340,13 @@ def ingest_outlook_emails_to_qdrant(
         force_reingest: Forcer la réingestion même si l'email existe déjà
         save_attachments: Sauvegarder les pièces jointes
         verbose: Mode verbeux
+        user_id: Identifiant de l'utilisateur
+        min_date: Date minimale pour filtrer les emails (ne traite que les emails postérieurs à cette date)
+        credit_limit: Limite maximale d'emails à ingérer (basée sur les crédits utilisateur)
+        return_count: Si True, retourne le nombre d'emails traités plutôt que le résultat complet
         
     Returns:
-        Un dictionnaire avec les résultats de l'ingestion
+        Dictionnaire avec les résultats de l'ingestion ou nombre d'emails traités si return_count=True
     """
     start_time = time.time()
     
@@ -362,6 +369,26 @@ def ingest_outlook_emails_to_qdrant(
         
         access_token = token_result["access_token"]
         outlook_user = token_result.get("account", {}).get("username", "outlook_user")
+        
+        # Appliquer le filtre de date si spécifié
+        date_filter = None
+        if min_date:
+            # Format without microseconds, with Z suffix for UTC (required by Microsoft Graph API)
+            date_str = min_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+            date_filter = f"receivedDateTime ge {date_str}"
+            
+            # Combiner avec la requête existante
+            if query:
+                query = f"{query} and {date_filter}"
+            else:
+                query = date_filter
+            logger.info(f"Filtre de date appliqué: {date_filter}")
+            
+        # Si une limite de crédits est spécifiée, ajuster la limite d'emails
+        if credit_limit is not None and credit_limit < limit:
+            original_limit = limit
+            limit = credit_limit
+            logger.info(f"Limite d'emails ajustée de {original_limit} à {limit} en fonction des crédits disponibles")
         
         # Récupérer les emails
         emails, total_found = fetch_outlook_emails(
@@ -506,6 +533,10 @@ def ingest_outlook_emails_to_qdrant(
     # Calculer la durée
     result["duration"] = time.time() - start_time
     
+    # Si return_count est True, renvoyer uniquement le nombre d'emails traités
+    if return_count:
+        return result["ingested_emails"]
+        
     return result
 
 def main():

@@ -27,7 +27,7 @@ def load_google_token(user_id: str) -> Optional[Any]:
     Returns:
         Objet credentials Google ou None en cas d'erreur
     """
-    token_path = os.environ.get("GMAIL_TOKEN_PATH", "token.pickle").replace("user_id", user_id)
+    token_path = os.environ.get("GMAIL_TOKEN_PATH", "data/auth/google_user_token/user_id.pickle").replace("user_id", user_id)
     try:
         if os.path.exists(token_path):
             with open(token_path, 'rb') as token_file:
@@ -50,7 +50,7 @@ def save_google_token(user_id: str, creds: Any) -> bool:
     Returns:
         True si la sauvegarde a réussi, False sinon
     """
-    token_path = os.environ.get("GMAIL_TOKEN_PATH", "token.pickle").replace("user_id", user_id)
+    token_path = os.environ.get("GMAIL_TOKEN_PATH", "data/auth/google_user_token/user_id.pickle").replace("user_id", user_id)
     try:
         # Vérifier et créer le répertoire si nécessaire
         os.makedirs(os.path.dirname(token_path), exist_ok=True)
@@ -201,7 +201,6 @@ def get_authenticated_users_by_provider(provider: str) -> List[str]:
             user_id = os.path.splitext(os.path.basename(token_file))[0]
             users.append(user_id)
             
-        logger.info(f"Trouvé {len(users)} utilisateurs authentifiés pour {provider}: {', '.join(users)}")
         return users
         
     except Exception as e:

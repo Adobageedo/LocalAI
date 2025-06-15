@@ -117,22 +117,17 @@ export async function deleteConversation(conversationId) {
 // Generate a title for a conversation based on the first user message
 export async function generateConversationTitle(message) {
   try {
-    console.log('[DEBUG] generateConversationTitle - Starting with message:', message);
-    console.log('[DEBUG] API_BASE_URL:', API_BASE_URL);
     
     // Call the backend API to generate a title
     // Try both with and without additional /api prefix to handle potential double prefix issue
     const baseUrl = API_BASE_URL.endsWith('/api') ? API_BASE_URL.substring(0, API_BASE_URL.length - 4) : API_BASE_URL;
     const apiUrl = `${baseUrl}/api/generate-title`;
-    console.log('[DEBUG] Fixed API endpoint to avoid double prefix:', apiUrl);
     
     const response = await authFetch(apiUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message })
     });
-    
-    console.log('[DEBUG] API response status:', response.status, response.statusText);
     
     if (!response.ok) {
       console.error(`[DEBUG] API Error: ${response.status} ${response.statusText}`);
@@ -152,8 +147,6 @@ export async function generateConversationTitle(message) {
     }
     
     const data = await response.json();
-    console.log('[DEBUG] Generated title data:', data);
-    console.log('[DEBUG] Final title:', data.title);
     return data.title;
   } catch (error) {
     console.error('[DEBUG] Error generating conversation title:', error);
@@ -184,7 +177,6 @@ export async function sendPrompt(promptData) {
           conversation_history: promptData.conversation_history || []
         }),
       });
-      
       if (!response.ok) {
         console.error(`LLM API Error: ${response.status} ${response.statusText}`);
         const errorText = await response.text();

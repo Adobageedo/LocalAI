@@ -302,3 +302,25 @@ def load_and_split_document(filepath: str, chunk_size: int = 500, chunk_overlap:
 
     splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap, add_start_index=True)  # track index in original document
     return splitter.split_documents(docs)
+
+def batch_load_and_split_document(filepaths: List[str], chunk_size: int = 500, chunk_overlap: int = 100) -> List[str]:
+    """
+    Charge et découpe une liste de documents en chunks.
+
+    Args:
+        filepaths (List[str]): Liste de chemins vers les fichiers à traiter.
+        chunk_size (int, optional): Taille d’un chunk. Default est 500.
+        chunk_overlap (int, optional): Chevauchement entre les chunks. Default est 100.
+
+    Returns:
+        List[str]: Liste de chunks de tous les documents.
+    """
+    all_chunks = []
+    for filepath in filepaths:
+        try:
+            chunks = load_and_split_document(filepath, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+            all_chunks.extend(chunks)
+        except Exception as e:
+            logger.warning(f"Erreur lors du traitement du fichier {filepath}: {str(e)}")
+    
+    return all_chunks

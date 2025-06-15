@@ -70,7 +70,7 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 # Autoriser le frontend React local
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://localai.newsflix.fr", "http://localhost:3000", "http://localai.newsflix.fr", "http://localhost:5173"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

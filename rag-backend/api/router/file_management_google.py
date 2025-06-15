@@ -6,6 +6,9 @@ et effectuer des opérations sur les fichiers stockés dans Google Drive.
 import os
 import io
 import logging
+import tempfile
+import os
+import shutil
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks, Response, File, Form, UploadFile
@@ -18,6 +21,9 @@ from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaIoBaseDownload, MediaIoBaseUpload
 from google_auth_oauthlib.flow import Flow
+
+# Import Google Drive Service
+from api.services.google_drive_service import GoogleDriveService
 
 # Middleware & Auth
 from middleware.auth import get_current_user
@@ -32,6 +38,9 @@ load_dotenv()
 # Logger
 router = APIRouter(tags=["googledrive"])
 logger = logging.getLogger(__name__)
+
+# Initialize services
+google_drive_service = GoogleDriveService()
 
 # Google API Configuration
 GOOGLE_CLIENT_ID = os.getenv("GMAIL_CLIENT_ID", "")
@@ -241,7 +250,8 @@ async def gdrive_oauth2_callback(code: str = None, state: str = None, error: str
                     "display_name": about["user"].get("displayName", ""),
                     "storage_quota": about.get("storageQuota", {})
                 }
-            success_message = f"Authentification réussie pour {account_info.get('email', 'l\'utilisateur')}"
+            email = account_info.get("email") or "l'utilisateur"
+            success_message = f"Authentification réussie pour {email}"
         except Exception as e:
             logger.error(f"[GDRIVE CALLBACK] Error getting account info: {str(e)}")
             success_message = "Authentification réussie"
@@ -739,6 +749,11 @@ class CopyItemRequest(BaseModel):
     source_path: str
     destination_path: str
 
+class FolderUploadConfig(BaseModel):
+    """Configuration pour l'upload de dossier"""
+    folder_path: str       # Chemin local du dossier à uploader
+    destination_path: str  # Chemin de destination dans Google Drive
+
 
 @router.post("/gdrive/move")
 async def move_gdrive_item(
@@ -1072,8 +1087,79 @@ async def upload_to_gdrive(
     except HTTPException as http_ex:
         raise http_ex
     except Exception as e:
-        logger.error(f"[GDRIVE] Error uploading file: {str(e)}")
+        logger.error(f"[GDRIVE] Error uploading folder: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
-            detail=f"Error uploading file to Google Drive: {str(e)}"
+            detail=f"Error uploading folder to Google Drive: {str(e)}"
+        )
+
+
+@router.post("/gdrive/upload_folder")
+async def upload_folder_to_gdrive(
+    path: str = Form(...),
+    background_tasks: BackgroundTasks = None,
+    user=Depends(get_current_user)
+):
+    """
+    Téléverse un dossier local et tout son contenu vers Google Drive au chemin spécifié.
+    Le dossier doit être préalablement préparé côté serveur (par exemple via un téléversement multiple).
+    Le chemin doit pointer vers un dossier temporaire existant sur le serveur.
+    
+    Args:
+        path: Chemin de destination dans Google Drive (ex: "/Mes Documents/Projets")
+        background_tasks: Pour traitement en tâche de fond si nécessaire
+        user: Utilisateur authentifié
+    """
+    try:
+        user_id = user.get("uid") if user else "gdrive"
+        local_folder = None
+        
+        # Créer un dossier temporaire pour stocker les fichiers uploadés par l'utilisateur
+        temp_dir = tempfile.mkdtemp(prefix=f"gdrive_upload_{user_id}_")
+        logger.info(f"[GDRIVE] Created temporary folder for upload: {temp_dir}")
+        
+        try:
+            # Utiliser le service GoogleDriveService pour uploader le dossier
+            result = google_drive_service.upload_folder(
+                user_id=user_id,
+                drive_path=path,
+                local_folder_path=temp_dir
+            )
+            
+            # Nettoyer le dossier temporaire en arrière-plan
+            if background_tasks:
+                background_tasks.add_task(shutil.rmtree, temp_dir, ignore_errors=True)
+            else:
+                # Si pas de tâches d'arrière-plan, nettoyer immédiatement
+                shutil.rmtree(temp_dir, ignore_errors=True)
+                
+            return {
+                "success": True,
+                "path": result.get("path"),
+                "folder_name": result.get("folder_name"),
+                "folder_id": result.get("folder_id"),
+                "statistics": {
+                    "files_uploaded": result.get("uploaded_items", {}).get("files_uploaded", 0),
+                    "folders_created": result.get("uploaded_items", {}).get("folders_created", 0),
+                    "empty_folders": result.get("uploaded_items", {}).get("empty_folders", 0),
+                    "skipped_hidden": result.get("uploaded_items", {}).get("skipped_hidden", 0),
+                    "total_size_mb": round(result.get("uploaded_items", {}).get("total_size_bytes", 0) / (1024 * 1024), 2),
+                    "errors": len(result.get("uploaded_items", {}).get("errors", []))
+                },
+                "timestamp": result.get("timestamp")
+            }
+            
+        except Exception as e:
+            # En cas d'erreur, nettoyer le dossier temporaire
+            if os.path.exists(temp_dir):
+                shutil.rmtree(temp_dir, ignore_errors=True)
+            raise e
+            
+    except HTTPException as http_ex:
+        raise http_ex
+    except Exception as e:
+        logger.error(f"[GDRIVE] Error uploading folder: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, 
+            detail=f"Error uploading folder to Google Drive: {str(e)}"
         )
