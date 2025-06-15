@@ -4,7 +4,7 @@ from rag_engine.retrieval.retrieval import retrieve_documents_advanced
 from rag_engine.retrieval.llm_router import LLMRouter
 
 
-def get_rag_response_modular(question: str, metadata_filter=None, top_k=None, user_id=None, temperature=0.7, use_retrieval=True) -> dict:
+def get_rag_response_modular(question: str, metadata_filter=None, top_k=None, user_id=None, temperature=0.7, use_retrieval=True, conversation_history=None) -> dict:
     """
     Fetch information from documents using the new modular retrieval architecture.
     - Uses config for split_prompt, rerank, use_hyde
@@ -44,9 +44,10 @@ def get_rag_response_modular(question: str, metadata_filter=None, top_k=None, us
     prompt_template = (
         config.get("system_prompt") or
         "You are an assistant. Answer the question using only the passages below. For each source used in your answer, cite it by showing only the filename in brackets, for example: [filename.ext]. Never display the full file path or any other information. If you don't know, say you don't know.\n\n" +
+        "Conversation history: {conversation_history}\n\n" +
         "{context}\n\nQuestion: {question}\nAnswer:"
     )
-    full_prompt = prompt_template.format(context=context, question=question)
+    full_prompt = prompt_template.format(context=context, question=question, conversation_history=conversation_history)
     print(context)
     # Route to LLM
     router = LLMRouter()
