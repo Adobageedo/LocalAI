@@ -4,6 +4,7 @@ import Sidebar from "./Sidebar";
 import MenuIcon from '@mui/icons-material/Menu';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useLocation, Link as RouterLink } from 'react-router-dom';
+import SyncStatusBar from "./SyncStatusBar";
 
 export default function Layout({ children, sidebarOpen = true }) {
   // Track collapsed state for the sidebar
@@ -154,8 +155,10 @@ export default function Layout({ children, sidebarOpen = true }) {
           </Toolbar>
         </AppBar>
         
+        {/* Sync Status Bar - will only display when there are active synchronizations */}
+        <SyncStatusBar />
+        
         <Box sx={{ flexGrow: 1 }}>
-
           
           <Grow in={true} timeout={300}>
             <Box 
