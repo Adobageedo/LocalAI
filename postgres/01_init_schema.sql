@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,
     email VARCHAR(255) NOT NULL UNIQUE,
     name VARCHAR(255),
+    phone VARCHAR(255),
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -73,3 +74,27 @@ CREATE INDEX idx_conversations_user_id ON conversations(user_id);
 COMMENT ON TABLE users IS 'Stores user profile information';
 COMMENT ON TABLE conversations IS 'Stores chat conversation metadata';
 COMMENT ON TABLE chat_messages IS 'Stores individual chat messages within conversations';
+
+-- Synchronization status tracking for users
+CREATE TABLE IF NOT EXISTS sync_status (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    source_type VARCHAR(50) NOT NULL,  -- 'gmail', 'nextcloud', 'outlook', etc.
+    last_sync_attempt TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_successful_sync TIMESTAMPTZ,
+    status VARCHAR(50) NOT NULL DEFAULT 'pending',  -- 'pending', 'in_progress', 'completed', 'failed'
+    items_processed INTEGER NOT NULL DEFAULT 0,
+    items_succeeded INTEGER NOT NULL DEFAULT 0,
+    items_failed INTEGER NOT NULL DEFAULT 0,
+    error_details TEXT,
+    metadata JSONB DEFAULT '{}',
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Add index for efficient querying of sync status by user
+CREATE INDEX idx_sync_status_user_id ON sync_status(user_id);
+-- Add compound index for finding specific source types per user
+CREATE INDEX idx_sync_status_user_source ON sync_status(user_id, source_type);
+
+COMMENT ON TABLE sync_status IS 'Tracks synchronization status for user data sources';

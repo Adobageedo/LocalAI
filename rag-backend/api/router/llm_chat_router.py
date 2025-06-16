@@ -1,17 +1,19 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Response
 from typing import List, Optional, Any, Dict, Union
-from pydantic import BaseModel, UUID4
+from pydantic import BaseModel, UUID4, Field, EmailStr
 from uuid import UUID
 from datetime import datetime
-import psycopg2
-from psycopg2.extras import RealDictCursor
 import os
 from middleware.auth import get_current_user
 from Agent_AI.retrieve_rag_information_modular import get_rag_response_modular
 import logging
 
+# Import the PostgresManager and models
+from db.postgres_manager import PostgresManager
+from db.models import User, Conversation as ConversationModel, ChatMessage as ChatMessageModel, SyncStatus
+
 logger = logging.getLogger(__name__)
-# Database connection parameters
+# Database connection parameters - kept for reference but not directly used
 DB_NAME = os.getenv("POSTGRES_DB", "localai_db")
 DB_USER = os.getenv("POSTGRES_USER", "localai")
 DB_PASSWORD = os.getenv("POSTGRES_PASSWORD", "localai_password")
@@ -25,6 +27,22 @@ class PromptResponse(BaseModel):
 
 class TitleResponse(BaseModel):
     title: str
+
+class UserCreate(BaseModel):
+    id: str
+    email: EmailStr
+    name: Optional[str] = None
+
+class UserUpdate(BaseModel):
+    email: Optional[EmailStr] = None
+    name: Optional[str] = None
+
+class UserResponse(BaseModel):
+    id: str
+    email: str
+    name: Optional[str] = None
+    created_at: datetime
+
 class ConversationCreate(BaseModel):
     name: str = "New Conversation"
 
@@ -35,6 +53,28 @@ class Conversation(BaseModel):
     id: UUID4
     user_id: Optional[str] = None
     name: str
+    created_at: datetime
+    updated_at: datetime
+
+# Sync Status models
+class SyncStatusCreate(BaseModel):
+    source_type: str
+    status: str = "pending"
+    details: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
+
+class SyncStatusUpdate(BaseModel):
+    status: Optional[str] = None
+    details: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
+
+class SyncStatusResponse(BaseModel):
+    id: str
+    user_id: str
+    source_type: str
+    status: str
+    details: Optional[Dict[str, Any]] = None
+    error: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -68,236 +108,121 @@ TITLE_SYSTEM_MESSAGE = """You are an assistant that creates short, descriptive t
 - Do NOT use quotes around the title
 - Respond ONLY with the title text, nothing else"""
 
-def get_db_connection():
-    """Create and return a database connection"""
-    try:
-        conn = psycopg2.connect(
-            dbname=DB_NAME,
-            user=DB_USER,
-            password=DB_PASSWORD,
-            host=DB_HOST,
-            port=DB_PORT,
-            cursor_factory=RealDictCursor
-        )
-        logger.info("Database connection successful")
-        return conn
-    except Exception as e:
-        logger.error(f"Database connection error: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Could not connect to the database"
-        )
-
 @router.get("/conversations", response_model=List[Conversation])
 async def get_conversations(user=Depends(get_current_user)):
     """Get all conversations for the current user"""
-    import uuid
-    conn = get_db_connection()
     try:
-        cursor = conn.cursor()
-        user_id = user.get("uid") if user else None
-
         # If user authentication is enabled, filter by user_id
-        if user and user_id:
-            cursor.execute(
-                """SELECT * FROM conversations 
-                WHERE user_id = %s 
-                ORDER BY updated_at DESC""",
-                (user_id,)
-            )
+        if user and user.get("uid"):
+            conversations = ConversationModel.get_by_user_id(user.get("uid"))
         else:
             # If authentication is disabled, get all conversations
-            cursor.execute(
-                """SELECT * FROM conversations 
-                ORDER BY updated_at DESC"""
-            )
+            conversations = ConversationModel.get_all()
 
-        conversations = cursor.fetchall()
-        return [dict(conversation) for conversation in conversations]
+        return [conversation.to_dict() for conversation in conversations]
     except Exception as e:
         print(f"Error fetching conversations: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error fetching conversations"
         )
-    finally:
-        conn.close()
 
 @router.get("/conversations/{conversation_id}", response_model=Conversation)
 async def get_conversation(conversation_id: UUID4, user=Depends(get_current_user)):
     """Get a specific conversation by ID"""
-    conn = get_db_connection()
     try:
-        cursor = conn.cursor()
-        
         # If user authentication is enabled, ensure the conversation belongs to the user
         if user:
-            cursor.execute(
-                """SELECT * FROM conversations 
-                WHERE id = %s AND user_id = %s""", 
-                (str(conversation_id), user.get("uid"))
-            )
+            conversation = ConversationModel.get_by_id(conversation_id, user.get("uid"))
         else:
-            cursor.execute(
-                """SELECT * FROM conversations 
-                WHERE id = %s""", 
-                (str(conversation_id),)
-            )
+            conversation = ConversationModel.get_by_id(conversation_id)
             
-        conversation = cursor.fetchone()
-        
         if not conversation:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Conversation not found"
             )
             
-        return dict(conversation)
+        return conversation.to_dict()
     except Exception as e:
         print(f"Error fetching conversation: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error fetching conversation"
         )
-    finally:
-        conn.close()
 
 @router.post("/conversations", response_model=Conversation, status_code=status.HTTP_201_CREATED)
 async def create_conversation(conversation: ConversationCreate, user=Depends(get_current_user)):
     """Create a new conversation"""
-    conn = get_db_connection()
     try:
-        cursor = conn.cursor()
         now = datetime.now()
         
         # If user authentication is enabled, use the user_id
         user_id = user.get("uid") if user else None
-        cursor.execute(
-            """INSERT INTO conversations (user_id, name, created_at, updated_at)
-            VALUES (%s, %s, %s, %s)
-            RETURNING *""",
-            (user_id, conversation.name, now, now)
-        )
-        new_conversation = cursor.fetchone()
-        conn.commit()
-        return dict(new_conversation)
+        new_conversation = ConversationModel().create(conversation.name, user_id, now, now)
+        return new_conversation.to_dict()
     except Exception as e:
-        conn.rollback()
         print(f"Error creating conversation: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error creating conversation"
         )
-    finally:
-        conn.close()
 
 @router.put("/conversations/{conversation_id}", response_model=Conversation)
 async def update_conversation(
     conversation_id: UUID4, conversation: ConversationUpdate, user=Depends(get_current_user)
 ):
     """Update a conversation name"""
-    conn = get_db_connection()
     try:
-        cursor = conn.cursor()
         now = datetime.now()
         
-        # If user authentication is enabled, ensure the conversation belongs to the user
-        if user:
-            cursor.execute(
-                """UPDATE conversations 
-                SET name = %s, updated_at = %s
-                WHERE id = %s AND user_id = %s
-                RETURNING *""",
-                (conversation.name, now, str(conversation_id), user.get("uid"))
-            )
-        else:
-            cursor.execute(
-                """UPDATE conversations 
-                SET name = %s, updated_at = %s
-                WHERE id = %s
-                RETURNING *""",
-                (conversation.name, now, str(conversation_id))
-            )
+        conversation_obj = ConversationModel.get_by_id(conversation_id)
             
-        updated_conversation = cursor.fetchone()
-        
-        if not updated_conversation:
+        if not conversation_obj:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Conversation not found"
             )
             
-        conn.commit()
-        return dict(updated_conversation)
+        conversation_obj.name = conversation.name
+        conversation_obj.updated_at = now
+        return conversation_obj.to_dict()
     except Exception as e:
-        conn.rollback()
         print(f"Error updating conversation: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error updating conversation"
         )
-    finally:
-        conn.close()
 
 @router.delete("/conversations/{conversation_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_conversation(conversation_id: UUID4, user=Depends(get_current_user)):
     """Delete a conversation"""
-    conn = get_db_connection()
     try:
-        cursor = conn.cursor()
-        
         # First, delete all messages in the conversation
         if user:
-            cursor.execute(
-                """DELETE FROM chat_messages 
-                WHERE conversation_id = %s
-                AND conversation_id IN (
-                    SELECT id FROM conversations WHERE id = %s AND user_id = %s
-                )""",
-                (str(conversation_id), str(conversation_id), user.get("uid"))
-            )
+            ChatMessageModel.delete(conversation_id=conversation_id, user_id=user.get("uid"))
         else:
-            cursor.execute(
-                """DELETE FROM chat_messages 
-                WHERE conversation_id = %s""",
-                (str(conversation_id),)
-            )
+            ChatMessageModel.delete(conversation_id=conversation_id)
         
         # Then, delete the conversation itself
         if user:
-            cursor.execute(
-                """DELETE FROM conversations 
-                WHERE id = %s AND user_id = %s
-                RETURNING id""",
-                (str(conversation_id), user.get("uid"))
-            )
+            deleted = ConversationModel.delete(conversation_id=conversation_id, user_id=user.get("uid"))
         else:
-            cursor.execute(
-                """DELETE FROM conversations 
-                WHERE id = %s
-                RETURNING id""",
-                (str(conversation_id),)
-            )
+            deleted = ConversationModel.delete(conversation_id=conversation_id)
             
-        deleted = cursor.fetchone()
-        
         if not deleted:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Conversation not found"
             )
             
-        conn.commit()
         return Response(status_code=status.HTTP_204_NO_CONTENT)
     except Exception as e:
-        conn.rollback()
         print(f"Error deleting conversation: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error deleting conversation"
         )
-    finally:
-        conn.close()
 
 @router.get("/conversations/{conversation_id}/messages", response_model=List[Message])
 async def get_conversation_messages(conversation_id: str = None, user=Depends(get_current_user)):
@@ -310,16 +235,9 @@ async def get_conversation_messages(conversation_id: str = None, user=Depends(ge
         
     print(f"Fetching messages for conversation {conversation_id}")
     conversation_id = UUID(conversation_id)
-    conn = get_db_connection()
     try:
-        cursor = conn.cursor()
-        
         # First check if the conversation exists
-        cursor.execute(
-            """SELECT id, user_id FROM conversations WHERE id = %s""",
-            (str(conversation_id),)
-        )
-        conversation = cursor.fetchone()
+        conversation = ConversationModel.get_by_id(conversation_id)
 
         if not conversation:
             raise HTTPException(
@@ -328,37 +246,16 @@ async def get_conversation_messages(conversation_id: str = None, user=Depends(ge
             )
 
         # Get all messages for the conversation
-        cursor.execute(
-            """SELECT * FROM chat_messages 
-            WHERE conversation_id = %s
-            ORDER BY timestamp ASC""",
-            (str(conversation_id),)
-        )
-            
-        messages = cursor.fetchall()
+        messages = ChatMessageModel.get_by_conversation_id(conversation_id)
         print(f"Found {len(messages) if messages else 0} messages for conversation {conversation_id}")
-        return [dict(message) for message in messages]
+        return [message.to_dict() for message in messages]
         
-    except psycopg2.Error as e:
-        print(f"Database error fetching messages: {e}")
-        if e.pgcode == '22P02':  # Invalid text representation
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid conversation ID format"
-            )
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Database error: {e.pgcode} - {e.diag.message_primary if hasattr(e, 'diag') else str(e)}"
-            )
     except Exception as e:
         print(f"Error fetching messages: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error fetching messages: {str(e)}"
         )
-    finally:
-        conn.close()
 
 @router.post("/conversations/{conversation_id}/messages", response_model=Message, status_code=status.HTTP_201_CREATED)
 async def add_message(conversation_id: Optional[UUID4] = None, message: MessageCreate = None, user=Depends(get_current_user)):
@@ -376,46 +273,29 @@ async def add_message(conversation_id: Optional[UUID4] = None, message: MessageC
             detail=f"Invalid role '{message.role}'. Must be one of: 'user', 'assistant', 'system'"
         )
         
-    conn = get_db_connection()
     try:
-        cursor = conn.cursor()
         now = datetime.now()
         user_id = user.get("uid") if user else "TestNone" # Use a default test user if no user authenticated
         
         # Check if the user exists in database
-        cursor.execute("SELECT id FROM users WHERE id = %s", (user_id,))
-        user_exists = cursor.fetchone()
+        user_exists = ConversationModel.get_by_user_id(user_id)
         
         if not user_exists:
             # User doesn't exist, create it
             try:
-                cursor.execute(
-                    """INSERT INTO users (id, email, name) 
-                    VALUES (%s, %s, %s)
-                    ON CONFLICT (id) DO NOTHING""", 
-                    (user_id, f"{user_id}@example.com", f"User {user_id}")
-                )
-                conn.commit()
+                new_user = ConversationModel.create(user_id=user_id, name="New User", created_at=now, updated_at=now)
                 print(f"Created test user with id {user_id}")
             except Exception as e:
                 print(f"Error creating user: {e}")
-                conn.rollback()
         
         # If conversation_id is None or null string, create a new conversation
         if not conversation_id:
-            cursor.execute(
-                """INSERT INTO conversations (user_id, name, created_at, updated_at)
-                VALUES (%s, %s, %s, %s)
-                RETURNING *""",
-                (user_id, "New Conversation", now, now)
-            )
-            new_conversation = cursor.fetchone()
-            conversation_id = new_conversation["id"]
+            new_conversation = ConversationModel.create(user_id=user_id, name="New Conversation", created_at=now, updated_at=now)
+            conversation_id = new_conversation.id
             print(f"Created new conversation with id {conversation_id}")
         else:
             # Check if the conversation exists
-            cursor.execute("""SELECT id FROM conversations WHERE id = %s""", (str(conversation_id),))
-            conversation = cursor.fetchone()
+            conversation = ConversationModel.get_by_id(conversation_id)
             
             if not conversation:
                 raise HTTPException(
@@ -439,63 +319,393 @@ async def add_message(conversation_id: Optional[UUID4] = None, message: MessageC
                 sources_data = processed_sources
         
         # Insert the message (let PostgreSQL generate the id)
-        cursor.execute(
-            """INSERT INTO chat_messages (conversation_id, user_id, role, message, sources, timestamp)
-            VALUES (%s, %s, %s, %s, %s, %s)
-            RETURNING *""",
-            (str(conversation_id), user_id, message.role, message.message, 
-             psycopg2.extras.Json(sources_data) if sources_data else None, now)
-        )
-        new_message = cursor.fetchone()
-        if not new_message:
-            conn.rollback()
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail="Failed to create message in database"
-            )
-            
-        # Update the conversation's updated_at timestamp
-        cursor.execute(
-            """UPDATE conversations 
-            SET updated_at = %s
-            WHERE id = %s""",
-            (now, str(conversation_id))
-        )
-        conn.commit()
-        return dict(new_message)
-    except psycopg2.Error as e:
-        conn.rollback()
-        print(f"Database error adding message: {e}")
-        # Check for specific database errors
-        if e.pgcode == '23503':  # Foreign key violation
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Invalid conversation_id or user_id reference"
-            )
-        elif e.pgcode == '23502':  # Not null violation
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Required field missing (likely role, message, or conversation_id)"
-            )
-        elif e.pgcode == '23514':  # Check constraint violation
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Check constraint failed - role must be 'user', 'assistant', or 'system'"
-            )
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Database error: {e.pgcode} - {e.pgerror}"
-            )
+        new_message = ChatMessageModel.create(conversation_id=conversation_id, user_id=user_id, role=message.role, message=message.message, sources=sources_data, timestamp=now)
+        return new_message.to_dict()
     except Exception as e:
-        conn.rollback()
         print(f"Error adding message: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error adding message: {str(e)}"
         )
-    finally:
-        conn.close()
+
+# Sync Status Management Endpoints
+
+@router.get("/sync/status", response_model=List[SyncStatusResponse])
+async def get_sync_statuses(source_type: Optional[str] = None, user=Depends(get_current_user)):
+    """Get all sync statuses for the current user, optionally filtered by source type"""
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required"
+        )
+    
+    user_id = user.get("uid")
+    
+    try:
+        if source_type:
+            # Fetch the latest sync status for the specified source type
+            sync_status = SyncStatus.get_latest_by_user_and_source(user_id, source_type)
+            if not sync_status:
+                return []
+            return [sync_status.to_dict()]
+        else:
+            # Fetch all sync statuses for this user
+            sync_statuses = SyncStatus.get_all_by_user(user_id)
+            return [status.to_dict() for status in sync_statuses]
+    except Exception as e:
+        logger.error(f"Error fetching sync statuses: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching sync statuses: {str(e)}"
+        )
+
+@router.post("/sync/status", response_model=SyncStatusResponse, status_code=status.HTTP_201_CREATED)
+async def create_sync_status(sync_data: SyncStatusCreate, user=Depends(get_current_user)):
+    """Create a new sync status entry for a user and source type"""
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required"
+        )
+    
+    user_id = user.get("uid")
+    
+    try:
+        # Create a new sync status record
+        sync_status = SyncStatus.create(
+            user_id=user_id,
+            source_type=sync_data.source_type,
+            status=sync_data.status,
+            details=sync_data.details,
+            error=sync_data.error
+        )
+        return sync_status.to_dict()
+    except Exception as e:
+        logger.error(f"Error creating sync status: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error creating sync status: {str(e)}"
+        )
+
+@router.put("/sync/status/{source_type}", response_model=SyncStatusResponse)
+async def update_sync_status(source_type: str, sync_data: SyncStatusUpdate, user=Depends(get_current_user)):
+    """Update the latest sync status for a user and source type"""
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required"
+        )
+    
+    user_id = user.get("uid")
+    
+    try:
+        # Get the latest sync status for this user and source
+        sync_status = SyncStatus.get_latest_by_user_and_source(user_id, source_type)
+        
+        if not sync_status:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"No sync status found for source type: {source_type}"
+            )
+        
+        # Update with the provided data
+        updated_status = SyncStatus.update(
+            id=sync_status.id,
+            status=sync_data.status,
+            details=sync_data.details,
+            error=sync_data.error
+        )
+        
+        if not updated_status:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update sync status"
+            )
+            
+        return updated_status.to_dict()
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating sync status: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error updating sync status: {str(e)}"
+        )
+
+@router.post("/sync/status/{source_type}/start", response_model=SyncStatusResponse)
+async def start_sync(source_type: str, user=Depends(get_current_user)):
+    """Mark a sync operation as started"""
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required"
+        )
+    
+    user_id = user.get("uid")
+    
+    try:
+        # Get the latest sync status or create a new one
+        sync_status = SyncStatus.get_latest_by_user_and_source(user_id, source_type)
+        
+        if not sync_status:
+            # Create a new sync status record if none exists
+            sync_status = SyncStatus.create(user_id=user_id, source_type=source_type)
+        
+        # Mark as started
+        sync_status.start_sync()
+        return sync_status.to_dict()
+    except Exception as e:
+        logger.error(f"Error starting sync: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error starting sync: {str(e)}"
+        )
+
+@router.post("/sync/status/{source_type}/complete", response_model=SyncStatusResponse)
+async def complete_sync(source_type: str, user=Depends(get_current_user)):
+    """Mark a sync operation as completed"""
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required"
+        )
+    
+    user_id = user.get("uid")
+    
+    try:
+        # Get the latest sync status
+        sync_status = SyncStatus.get_latest_by_user_and_source(user_id, source_type)
+        
+        if not sync_status:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"No sync status found for source type: {source_type}"
+            )
+        
+        # Mark as completed
+        sync_status.complete_sync()
+        return sync_status.to_dict()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error marking sync as completed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error marking sync as completed: {str(e)}"
+        )
+
+@router.post("/sync/status/{source_type}/fail", response_model=SyncStatusResponse)
+async def fail_sync(
+    source_type: str, 
+    error_info: Dict[str, str], 
+    user=Depends(get_current_user)
+):
+    """Mark a sync operation as failed with error details"""
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required"
+        )
+    
+    user_id = user.get("uid")
+    error_message = error_info.get("error", "Unknown error")
+    
+    try:
+        # Get the latest sync status
+        sync_status = SyncStatus.get_latest_by_user_and_source(user_id, source_type)
+        
+        if not sync_status:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"No sync status found for source type: {source_type}"
+            )
+        
+        # Mark as failed with error details
+        sync_status.fail_sync(error=error_message)
+        return sync_status.to_dict()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error marking sync as failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error marking sync as failed: {str(e)}"
+        )
+
+# User Management Endpoints
+@router.get("/users", response_model=List[UserResponse])
+async def get_users(user=Depends(get_current_user)):
+    """Get all users (admin only)"""
+    # Verify admin privileges - assuming user with uid="admin" is an admin
+    if not user or user.get("uid") != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can view all users"
+        )
+    
+    try:
+        users = User.get_all()
+        return [user.to_dict() for user in users]
+    except Exception as e:
+        logger.error(f"Error fetching users: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching users: {str(e)}"
+        )
+
+@router.get("/users/{user_id}", response_model=UserResponse)
+async def get_user(user_id: str, current_user=Depends(get_current_user)):
+    """Get a specific user by ID"""
+    # Only allow users to get their own data unless they are admin
+    if not current_user or (current_user.get("uid") != user_id and current_user.get("uid") != "admin"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this user"
+        )
+    
+    try:
+        user = User.get_by_id(user_id)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"User with ID {user_id} not found"
+            )
+        return user.to_dict()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching user: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error fetching user: {str(e)}"
+        )
+
+@router.post("/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+async def create_user(user_data: UserCreate, current_user=Depends(get_current_user)):
+    """Create a new user (admin only)"""
+    # Verify admin privileges or self-registration scenario
+    if not current_user or current_user.get("uid") != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can create users"
+        )
+    
+    try:
+        # Check if user with email already exists
+        existing_user = User.get_by_email(user_data.email)
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"User with email {user_data.email} already exists"
+            )
+        
+        # Create new user
+        user = User.create(
+            id=user_data.id,
+            email=user_data.email,
+            name=user_data.name
+        )
+        
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to create user"
+            )
+        
+        return user.to_dict()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating user: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error creating user: {str(e)}"
+        )
+
+@router.put("/users/{user_id}", response_model=UserResponse)
+async def update_user(user_id: str, user_data: UserUpdate, current_user=Depends(get_current_user)):
+    """Update a user's information"""
+    # Only allow users to update their own data unless they are admin
+    if not current_user or (current_user.get("uid") != user_id and current_user.get("uid") != "admin"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to update this user"
+        )
+    
+    try:
+        # Get the existing user
+        user = User.get_by_id(user_id)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"User with ID {user_id} not found"
+            )
+        
+        # If email is being updated, check if it already exists
+        if user_data.email and user_data.email != user.email:
+            existing_user = User.get_by_email(user_data.email)
+            if existing_user and existing_user.id != user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"User with email {user_data.email} already exists"
+                )
+        
+        # Update user
+        user.update(
+            email=user_data.email,
+            name=user_data.name
+        )
+        
+        # Get the updated user
+        updated_user = User.get_by_id(user_id)
+        return updated_user.to_dict()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating user: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error updating user: {str(e)}"
+        )
+
+@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_user(user_id: str, current_user=Depends(get_current_user)):
+    """Delete a user"""
+    # Only allow admin to delete users
+    if not current_user or current_user.get("uid") != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can delete users"
+        )
+    
+    try:
+        # Get the user
+        user = User.get_by_id(user_id)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"User with ID {user_id} not found"
+            )
+        
+        # Delete the user
+        success = user.delete()
+        if not success:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to delete user"
+            )
+        
+        # Return no content
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting user: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error deleting user: {str(e)}"
+        )
 
 @router.post("/prompt", response_model=PromptResponse)
 def prompt_ia(data: dict, user=Depends(get_current_user)):

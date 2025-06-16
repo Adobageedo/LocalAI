@@ -58,6 +58,8 @@ msal
 firebase-admin
 minio
 psycopg2-binary
+pydantic[email]
+email-validator
 # Already included but important for these formats
 # python-docx  # Word documents
 # openpyxl  # Excel files
