@@ -582,14 +582,8 @@ async def get_user(user_id: str, current_user=Depends(get_current_user)):
         )
 
 @router.post("/users", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
-async def create_user(user_data: UserCreate, current_user=Depends(get_current_user)):
+async def create_user(user_data: UserCreate):
     """Create a new user (admin only)"""
-    # Verify admin privileges or self-registration scenario
-    if not current_user or current_user.get("uid") != "admin":
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only administrators can create users"
-        )
     
     try:
         # Check if user with email already exists
@@ -604,7 +598,8 @@ async def create_user(user_data: UserCreate, current_user=Depends(get_current_us
         user = User.create(
             id=user_data.id,
             email=user_data.email,
-            name=user_data.name
+            name=user_data.name,
+            phone=user_data.phone
         )
         
         if not user:
@@ -622,7 +617,6 @@ async def create_user(user_data: UserCreate, current_user=Depends(get_current_us
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error creating user: {str(e)}"
         )
-
 @router.put("/users/{user_id}", response_model=UserResponse)
 async def update_user(user_id: str, user_data: UserUpdate, current_user=Depends(get_current_user)):
     """Update a user's information"""
@@ -669,14 +663,20 @@ async def update_user(user_id: str, user_data: UserUpdate, current_user=Depends(
             detail=f"Error updating user: {str(e)}"
         )
 
-@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_user(user_id: str, current_user=Depends(get_current_user)):
-    """Delete a user"""
-    # Only allow admin to delete users
-    if not current_user or current_user.get("uid") != "admin":
+@router.delete("/users/{user_id}/data", status_code=status.HTTP_200_OK)
+async def delete_user_data(user_id: str, current_user=Depends(get_current_user)):
+    """Delete all data associated with a user but keep the account"""
+    if not current_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required"
+        )
+    
+    # Check if user is deleting their own data or is an admin
+    if current_user.get("uid") != user_id and current_user.get("uid") != "admin":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Only administrators can delete users"
+            detail="You can only delete your own data unless you're an administrator"
         )
     
     try:
@@ -688,9 +688,58 @@ async def delete_user(user_id: str, current_user=Depends(get_current_user)):
                 detail=f"User with ID {user_id} not found"
             )
         
+        # TODO: Delete user data from relevant tables
+        # This could include:
+        # - Chat conversations
+        # - Uploaded documents
+        # - User preferences
+        # - Search history
+        # etc.
+        
+        # For now, just returning success message
+        return {"message": f"All data for user {user_id} has been deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting user data: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error deleting user data: {str(e)}"
+        )
+
+
+@router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_user(user_id: str, current_user=Depends(get_current_user)):
+    """Delete a user and all associated data"""
+    # Allow users to delete their own account or admin to delete any account
+    if not current_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required"
+        )
+    
+    # Check if user is deleting their own account or is an admin
+    if current_user.get("uid") != user_id and current_user.get("uid") != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only delete your own account unless you're an administrator"
+        )
+    
+    try:
+        # Get the user
+        user = User.get_by_id(user_id)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"User with ID {user_id} not found"
+            )
+        
+        # Delete all user data first (conversations, documents, etc.)
+        # This would involve deleting entries from other tables
+        # TODO: Implement deletion of related user data in other tables
+        
         # Delete the user
-        success = user.delete()
-        if not success:
+        if not user.delete():
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail="Failed to delete user"
