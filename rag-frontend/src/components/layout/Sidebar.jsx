@@ -96,12 +96,16 @@ const Sidebar = ({ width = 240, open = true, onClose, collapsed = false, onToggl
     
   }, []);
 
-  // Format display name
+  // Format display name with proper capitalization
   const formatDisplayName = () => {
     if (user?.name) {
       return user.name;
     }
-    return 'Utilisateur';
+    if (user?.email) {
+      // Extract name from email if no name is set
+      return user.email.split('@')[0];
+    }
+    return 'Invité'; // 'Guest' in French
   };
 
   // Generate user initials for avatar

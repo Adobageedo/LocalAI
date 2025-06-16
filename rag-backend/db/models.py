@@ -18,30 +18,30 @@ class User:
     """Model class for users table"""
     
     def __init__(self, id: str, email: str, name: Optional[str] = None, 
-                created_at: Optional[datetime] = None):
+                phone: Optional[str] = None, created_at: Optional[datetime] = None):
         self.id = id
         self.email = email
         self.name = name
+        self.phone = phone
         self.created_at = created_at or datetime.now()
     
     @classmethod
-    def create(cls, id: str, email: str, name: Optional[str] = None) -> 'User':
+    def create(cls, id: str, email: str, name: Optional[str] = None, phone: Optional[str] = None) -> 'User':
         """Create a new user record in the database"""
         db = PostgresManager()
         query = """
-            INSERT INTO users (id, email, name)
-            VALUES (%s, %s, %s)
-            RETURNING id, email, name, created_at
+            INSERT INTO users (id, email, name, phone)
+            VALUES (%s, %s, %s, %s)
         """
-        result = db.execute_query(query, (id, email, name), fetch_one=True)
-        return cls(**result) if result else None
+        db.execute_query(query, (id, email, name, phone))
+        return cls(id=id, email=email, name=name, phone=phone)
     
     @classmethod
     def get_by_id(cls, user_id: str) -> Optional['User']:
         """Get a user by their ID"""
         db = PostgresManager()
         query = """
-            SELECT id, email, name, created_at
+            SELECT id, email, name, phone, created_at
             FROM users
             WHERE id = %s
         """
@@ -53,7 +53,7 @@ class User:
         """Get a user by their email"""
         db = PostgresManager()
         query = """
-            SELECT id, email, name, created_at
+            SELECT id, email, name, phone, created_at
             FROM users
             WHERE email = %s
         """
@@ -65,7 +65,7 @@ class User:
         """Get all users"""
         db = PostgresManager()
         query = """
-            SELECT id, email, name, created_at
+            SELECT id, email, name, phone, created_at
             FROM users
             ORDER BY created_at DESC
         """
@@ -116,6 +116,7 @@ class User:
             "id": self.id,
             "email": self.email,
             "name": self.name,
+            "phone": self.phone,
             "created_at": self.created_at.isoformat() if self.created_at else None
         }
 

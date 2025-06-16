@@ -4,10 +4,13 @@ import { useNavigate } from 'react-router-dom';
 import {
   Box, Button, Typography, TextField, InputAdornment, IconButton, Checkbox, FormControlLabel, Card, Fade, Tooltip, MenuItem, Select, InputLabel, FormControl, CircularProgress
 } from '@mui/material';
-import { Visibility, VisibilityOff, InfoOutlined } from '@mui/icons-material';
+import { Visibility, VisibilityOff, InfoOutlined, Error as ErrorIcon } from '@mui/icons-material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import PasswordStrengthBar from 'react-password-strength-bar';
-
+import { API_BASE_URL } from "../config";
+import { authFetch } from '../firebase/authFetch';
+import { auth } from "../firebase/firebase";
+import { getAuth } from "firebase/auth";
 const countryCodes = [
   { code: '+1', label: '🇺🇸 US' },
   { code: '+33', label: '🇫🇷 FR' },
@@ -31,7 +34,7 @@ function validatePassword(pw) {
 }
 
 export default function Register() {
-  const { register, error } = useAuth();
+  const { register, user, getIdToken } = useAuth();
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [countryCode, setCountryCode] = useState('+33');
@@ -43,29 +46,119 @@ export default function Register() {
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [error, setError] = useState(null);
   const [touched, setTouched] = useState({});
   const navigate = useNavigate();
 
   const pwValid = validatePassword(password);
   const allPwValid = Object.values(pwValid).every(Boolean);
+  
+  // Validate fields according to database schema requirements
+  const nameValid = fullName.trim().length > 0 && fullName.trim().length <= 255;
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) && email.length <= 255;
+  const phoneValid = phone.match(/^\d{6,15}$/);
+  const passwordsMatch = password === confirmPassword;
+  
   const canSubmit =
-    fullName.trim().length > 1 &&
-    /^\S+@\S+\.\S+$/.test(email) &&
-    phone.match(/^\d{6,15}$/) &&
+    nameValid &&
+    emailValid &&
+    phoneValid &&
     allPwValid &&
-    password === confirmPassword &&
+    passwordsMatch &&
     agreed &&
     !loading;
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!canSubmit) return;
+    
     setLoading(true);
-    const ok = await register(email, password, { fullName, phone: countryCode + phone });
-    setLoading(false);
-    if (ok) {
+    setError(null);
+    
+    try {
+      // First register with Firebase auth
+      const registerResult = await register(email, password, { fullName, phone: countryCode + phone });
+      
+      if (!registerResult) {
+        throw new Error('Firebase registration failed. Please try again.');
+      }
+      
+      // We need to wait for the auth state to update
+      // This is a common issue with Firebase auth where the user object isn't immediately available
+      let tries = 0;
+      let currentUser = null;
+      
+      while (!currentUser && tries < 10) {
+        currentUser = auth.currentUser;
+        if (!currentUser) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+          tries++;
+        }
+      }
+      
+      if (!currentUser) {
+        throw new Error('Could not get user information after registration. Please try logging in.');
+      }
+      
+      // Get the Firebase user ID
+      const uid = currentUser.uid;
+      
+      console.log('Firebase user created with ID:', uid);
+        
+      // Create a user object matching your database schema
+      const userData = {
+        id: uid,
+        email: email,
+        name: fullName,
+        phone: countryCode + phone
+      };
+      
+      // We're using direct fetch instead of authFetch because of potential timing issues
+      // with the newly created Firebase auth token
+      console.log('Creating user in database:', userData);
+      const response = await fetch(`${API_BASE_URL}/users`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userData)
+      });
+      
+      if (!response.ok) {
+        let errorMessage = 'Failed to create user in database';
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.detail || errorMessage;
+        } catch (e) {
+          console.error('Error parsing error response:', e);
+        }
+        throw new Error(errorMessage);
+      }
+      
+      console.log('User successfully created in database');
+      
+      // Registration fully successful
       setSuccess(true);
       setTimeout(() => navigate('/'), 1500);
+      
+    } catch (error) {
+      console.error('Registration error:', error);
+      // Make sure we display the error to the user
+      setSuccess(false);
+      setError(error.message || 'Registration failed. Please try again.');
+      
+      // If there was an error, attempt to clean up the Firebase user
+      // This is to prevent having Firebase users without database entries
+      try {
+        const currentUser = auth.currentUser;
+        if (currentUser) {
+          await currentUser.delete();
+        }
+      } catch (cleanupError) {
+        console.error('Failed to clean up user after registration error:', cleanupError);
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -86,8 +179,43 @@ export default function Register() {
               It’s quick, secure, and always private.
             </Typography>
           </Box>
-          {error && <Box sx={{ mb: 2, p: 1.5, bgcolor: '#ffeaea', color: '#d32f2f', borderRadius: 2, fontSize: 15 }}>{error}</Box>}
-          {success && <Box sx={{ mb: 2, p: 1.5, bgcolor: '#eaffea', color: '#388e3c', borderRadius: 2, fontSize: 15 }}>Registration successful! Redirecting...</Box>}
+          {error && (
+            <Box 
+              sx={{ 
+                mb: 2, 
+                p: 2, 
+                bgcolor: '#ffeaea', 
+                color: '#d32f2f', 
+                borderRadius: 2, 
+                fontSize: 15,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1
+              }}
+            >
+              <ErrorIcon fontSize="small" />
+              <Typography variant="body2">{error}</Typography>
+            </Box>
+          )}
+          
+          {success && (
+            <Box 
+              sx={{ 
+                mb: 2, 
+                p: 2, 
+                bgcolor: '#eaffea', 
+                color: '#388e3c', 
+                borderRadius: 2, 
+                fontSize: 15,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1
+              }}
+            >
+              <CheckCircleIcon fontSize="small" />
+              <Typography variant="body2">Registration successful! Your account has been created. Redirecting to dashboard...</Typography>
+            </Box>
+          )}
           <form autoComplete="off" onSubmit={handleSubmit}>
             <TextField
               label="Full Name"
