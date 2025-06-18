@@ -28,34 +28,11 @@ QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY", "")
 
 # Configuration OpenAI
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
-OPENAI_EMBEDDING_MODEL = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
-OPENAI_GENERATION_MODEL = os.getenv("OPENAI_GENERATION_MODEL", "gpt-3.5-turbo")
+OPENAI_API_KEY=os.getenv("OPENAI_API_KEY", "")
 
 # Configuration Hugging Face
-HF_API_KEY = os.getenv("HF_API_KEY", "")
+HF_API_KEY=os.getenv("HF_API_KEY", "")
 HF_EMBEDDING_MODEL = os.getenv("HF_EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")
-
-# Configuration MinIO/S3
-MINIO_ENDPOINT = os.getenv("MINIO_ENDPOINT", "localhost:9000")
-MINIO_ACCESS_KEY = os.getenv("MINIO_ACCESS_KEY", "minioadmin")
-MINIO_SECRET_KEY = os.getenv("MINIO_SECRET_KEY", "minioadmin")
-MINIO_BUCKET = os.getenv("MINIO_BUCKET", "localai")
-MINIO_SECURE = os.getenv("MINIO_SECURE", "False").lower() == "true"
-
-# Configuration Nextcloud
-NEXTCLOUD_URL = os.getenv("NEXTCLOUD_URL", "http://localhost:8080")
-NEXTCLOUD_USERNAME = os.getenv("NEXTCLOUD_USERNAME", "admin")
-NEXTCLOUD_PASSWORD = os.getenv("NEXTCLOUD_PASSWORD", "admin_password")
-
-# Configuration Gmail
-GMAIL_CLIENT_ID = os.getenv("GMAIL_CLIENT_ID", "")
-GMAIL_CLIENT_SECRET = os.getenv("GMAIL_CLIENT_SECRET", "")
-GMAIL_REDIRECT_URI = os.getenv("GMAIL_REDIRECT_URI", "http://localhost:5173")
-GMAIL_TOKEN_PATH = os.getenv("GMAIL_TOKEN_PATH", "data/google_user_token/user_id.pickle")
-GMAIL_CREDENTIALS_PATH = os.getenv("GMAIL_CREDENTIALS_PATH", "credentials.json")
-GMAIL_AUTH_URI = os.getenv("GMAIL_AUTH_URI", "https://accounts.google.com/o/oauth2/auth")
-GMAIL_TOKEN_URI = os.getenv("GMAIL_TOKEN_URI", "https://oauth2.googleapis.com/token")
 
 # Configuration Outlook
 OUTLOOK_CLIENT_ID = os.getenv("OUTLOOK_CLIENT_ID", "")
@@ -63,24 +40,51 @@ OUTLOOK_CLIENT_SECRET = os.getenv("OUTLOOK_CLIENT_SECRET", "")
 OUTLOOK_TENANT_ID = os.getenv("OUTLOOK_TENANT_ID", "")
 OUTLOOK_TOKEN_PATH = os.getenv("OUTLOOK_TOKEN_PATH", "data/microsoft_user_token/user_id.json")
 
-# Configuration IMAP
-IMAP_SERVER = os.getenv("IMAP_SERVER", "")
-IMAP_USERNAME = os.getenv("IMAP_USERNAME", "")
-IMAP_PASSWORD = os.getenv("IMAP_PASSWORD", "")
-IMAP_PORT = int(os.getenv("IMAP_PORT", "993"))
-IMAP_SSL = os.getenv("IMAP_SSL", "True").lower() == "true"
+FILE_REGISTRY_PATH = os.getenv("FILE_REGISTRY_PATH", "data/file_registry.json")
 
 # Configuration Firebase
-FIREBASE_CREDENTIALS = os.getenv("FIREBASE_CREDENTIALS_PATH", "")
-USE_FIREBASE_AUTH = os.getenv("USE_FIREBASE_AUTH", "False").lower() == "true"
+FIREBASE_TYPE = os.getenv("FIREBASE_TYPE", "service_account")
+FIREBASE_PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID", "")
+FIREBASE_PRIVATE_KEY_ID = os.getenv("FIREBASE_PRIVATE_KEY_ID", "")
+FIREBASE_PRIVATE_KEY = os.getenv("FIREBASE_PRIVATE_KEY", "")
+FIREBASE_CLIENT_EMAIL = os.getenv("FIREBASE_CLIENT_EMAIL", "")
+FIREBASE_CLIENT_ID = os.getenv("FIREBASE_CLIENT_ID", "")
+FIREBASE_AUTH_URI = os.getenv("FIREBASE_AUTH_URI", "")
+FIREBASE_TOKEN_URI = os.getenv("FIREBASE_TOKEN_URI", "")
+FIREBASE_AUTH_PROVIDER_CERT_URL = os.getenv("FIREBASE_AUTH_PROVIDER_CERT_URL", "")
+FIREBASE_CLIENT_CERT_URL = os.getenv("FIREBASE_CLIENT_CERT_URL", "")
+FIREBASE_UNIVERSE_DOMAIN = os.getenv("FIREBASE_UNIVERSE_DOMAIN", "")
+SERVICE_ACCOUNT_PATH = os.getenv("SERVICE_ACCOUNT_PATH", "")
 
-def load_config(config_path=None):
+# Gmail API credentials
+GMAIL_CLIENT_ID_WEB=os.getenv("GMAIL_CLIENT_ID_WEB", "")
+GMAIL_CLIENT_SECRET_WEB=os.getenv("GMAIL_CLIENT_SECRET_WEB", "")
+GMAIL_CLIENT_ID=os.getenv("GMAIL_CLIENT_ID", "")
+GMAIL_CLIENT_SECRET=os.getenv("GMAIL_CLIENT_SECRET", "")
+GMAIL_REDIRECT_URI=os.getenv("GMAIL_REDIRECT_URI", "")
+GMAIL_PROJECT_ID=os.getenv("GMAIL_PROJECT_ID", "")
+GMAIL_AUTH_URI=os.getenv("GMAIL_AUTH_URI", "")
+GMAIL_TOKEN_URI=os.getenv("GMAIL_TOKEN_URI", "")
+GMAIL_AUTH_PROVIDER_X509_CERT_URL=os.getenv("GMAIL_AUTH_PROVIDER_X509_CERT_URL", "")
+GMAIL_TOKEN_PATH=os.getenv("GMAIL_TOKEN_PATH", "")
+
+# Outlook API credentials
+OUTLOOK_CLIENT_ID=os.getenv("OUTLOOK_CLIENT_ID", "")
+OUTLOOK_CLIENT_SECRET=os.getenv("OUTLOOK_CLIENT_SECRET", "")
+OUTLOOK_TENANT_ID=os.getenv("OUTLOOK_TENANT_ID", "")
+OUTLOOK_TOKEN_PATH=os.getenv("OUTLOOK_TOKEN_PATH", "")
+
+POSTGRES_USER=os.getenv("POSTGRES_USER", "")
+POSTGRES_PASSWORD=os.getenv("POSTGRES_PASSWORD", "")
+POSTGRES_DB=os.getenv("POSTGRES_DB", "")
+POSTGRES_HOST=os.getenv("POSTGRES_HOST", "")
+POSTGRES_PORT=os.getenv("POSTGRES_PORT", "")
+STORAGE_PATH=os.getenv("STORAGE_PATH", "")
+
+def load_config(config_path="./config.yaml"):
     """
     Charge la configuration YAML
     """
-    if config_path is None:
-        config_path = BASE_DIR / "config.yaml"
-    
     if not os.path.exists(config_path):
         return {}
         

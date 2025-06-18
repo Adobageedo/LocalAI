@@ -12,6 +12,7 @@ from backend.core.config import API_V1_STR, PROJECT_NAME
 import asyncio
 from backend.workers.email_ingestion_worker import email_worker
 from backend.workers.nextcloud_ingestion_worker import nextcloud_worker
+from backend.workers.gmail_ingestion_worker import gmail_worker
 
 # Créer l'application FastAPI
 app = FastAPI(
@@ -59,7 +60,8 @@ from backend.api.router import (
     ingest_router,
     nextcloud_router,
     chat_router,
-    source_router
+    source_router,
+    gmail_router
 )
 
 # Inclure les routeurs avec les préfixes centralisés
@@ -68,6 +70,7 @@ app.include_router(ingest_router.router, prefix=f"{API_V1_STR}/sources")
 app.include_router(nextcloud_router.router, prefix=f"{API_V1_STR}/nextcloud")
 app.include_router(chat_router.router, prefix=f"{API_V1_STR}")
 app.include_router(source_router.router, prefix=f"{API_V1_STR}")
+app.include_router(gmail_router.router, prefix=f"{API_V1_STR}")
 
 @app.get("/")
 async def root():
@@ -94,6 +97,7 @@ async def startup_event():
     # Démarrer les workers en arrière-plan
     await email_worker.start()
     await nextcloud_worker.start()
+    await gmail_worker.start()
     log.info("Background workers initialized")
 
 @app.on_event("shutdown")
@@ -102,6 +106,7 @@ async def shutdown_event():
     # Arrêter les workers
     await email_worker.stop()
     await nextcloud_worker.stop()
+    await gmail_worker.stop()
     log.info("Background workers stopped")
 
 # Point d'entrée pour uvicorn

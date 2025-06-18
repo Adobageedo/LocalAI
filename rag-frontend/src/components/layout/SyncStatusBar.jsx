@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Slide, IconButton, CircularProgress, useTheme, useMediaQuery } from '@mui/material';
+import { Box, Typography, Slide, IconButton, CircularProgress, LinearProgress, useTheme, useMediaQuery } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import SyncIcon from '@mui/icons-material/Sync';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -14,7 +14,8 @@ const SyncStatusBar = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
   // Function to get status icon based on sync status
-  const getStatusIcon = (status) => {
+  const getStatusIcon = (syncStatus) => {
+    const { status } = syncStatus;
     switch (status) {
       case 'in_progress':
         return <CircularProgress size={20} thickness={4} sx={{ mr: 1, color: 'info.main' }} />;
@@ -29,8 +30,12 @@ const SyncStatusBar = () => {
 
   // Function to get message based on sync status
   const getMessage = (syncStatus) => {
-    const { source_type, status } = syncStatus;
+    const { source_type, status, progress } = syncStatus;
     const sourceTypeFormatted = source_type.charAt(0).toUpperCase() + source_type.slice(1);
+    
+    // Format progress percentage
+    const progressPercent = Math.round(progress * 100);
+    const progressText = status === 'in_progress' ? ` (${progressPercent}%)` : '';
   
     const playfulPhrases = {
       'pending': [
@@ -39,9 +44,9 @@ const SyncStatusBar = () => {
         `Standing by for ${sourceTypeFormatted} sync...`
       ],
       'in_progress': [
-        `AI hard at work syncing your ${sourceTypeFormatted} files 🧠📡`,
-        `Beam me your ${sourceTypeFormatted} docs! 🚀`,
-        `${sourceTypeFormatted} sync in progress — hold tight! 🌀`
+        `AI hard at work syncing your ${sourceTypeFormatted} files${progressText} 🧠📡`,
+        `Beam me your ${sourceTypeFormatted} docs${progressText}! 🚀`,
+        `${sourceTypeFormatted} sync in progress${progressText} — hold tight! 🌀`
       ],
       'completed': [
         `${sourceTypeFormatted} sync complete — everything's shiny ✨`,
@@ -49,9 +54,9 @@ const SyncStatusBar = () => {
         `${sourceTypeFormatted} files synced — mission accomplished 🚀`
       ],
       'failed': [
-        `${sourceTypeFormatted} sync failed 😓 — ${syncStatus.error || 'Unknown error'}`,
+        `${sourceTypeFormatted} sync failed 😓 — ${syncStatus.error_details || 'Unknown error'}`,
         `Oops... ${sourceTypeFormatted} didn't want to cooperate 🤖❌`,
-        `Error syncing ${sourceTypeFormatted}: ${syncStatus.error || 'Check your connection'}`,
+        `Error syncing ${sourceTypeFormatted}: ${syncStatus.error_details || 'Check your connection'}`,
       ]
     };
   
@@ -126,22 +131,37 @@ const SyncStatusBar = () => {
           justifyContent: 'space-between',
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
-          {getStatusIcon(syncStatuses[0]?.status)}
-          <Typography
-            variant="body2"
-            sx={{
-              fontWeight: 500,
-              flexGrow: 1,
-              textOverflow: 'ellipsis',
-              overflow: 'hidden',
-              whiteSpace: 'nowrap',
-              maxWidth: { xs: '70vw', sm: '80vw' }
-            }}
-          >
-            {syncStatuses[0] ? getMessage(syncStatuses[0]) : 'Synchronization in progress...'}
-            {syncStatuses.length > 1 && ` (+${syncStatuses.length - 1} more)`}
-          </Typography>
+        <Box sx={{ display: 'flex', flexDirection: 'column', flexGrow: 1, mr: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+            {syncStatuses[0] && getStatusIcon(syncStatuses[0])}
+            <Typography
+              variant="body2"
+              sx={{
+                fontWeight: 500,
+                flexGrow: 1,
+                textOverflow: 'ellipsis',
+                overflow: 'hidden',
+                whiteSpace: 'nowrap',
+                maxWidth: { xs: '70vw', sm: '80vw' }
+              }}
+            >
+              {syncStatuses[0] ? getMessage(syncStatuses[0]) : 'Synchronization in progress...'}
+              {syncStatuses.length > 1 && ` (+${syncStatuses.length - 1} more)`}
+            </Typography>
+          </Box>
+          
+          {/* Progress bar for in-progress syncs */}
+          {syncStatuses[0]?.status === 'in_progress' && (
+            <LinearProgress 
+              variant="determinate" 
+              value={syncStatuses[0].progress * 100} 
+              sx={{ 
+                height: 4, 
+                borderRadius: 1,
+                backgroundColor: theme.palette.mode === 'light' ? 'rgba(0,0,0,0.1)' : 'rgba(255,255,255,0.1)'
+              }}
+            />
+          )}
         </Box>
         
         <IconButton 

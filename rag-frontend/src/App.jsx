@@ -9,7 +9,6 @@ import Dashboard from './pages/Dashboard';
 import Folders from './pages/Folders';
 // Pages de profil utilisateur
 import UserProfilePage from './pages/UserProfilePage';
-import UserPreferences from './pages/UserPreferences';
 import DocumentExplorer from './pages/DocumentExplorer';
 import MailImport from './pages/MailImport';
 import Login from './pages/Login';
@@ -31,7 +30,6 @@ function App() {
           {/* Private (user-only) routes */}
           <Route path="/folders" element={<PrivateRoute><Folders /></PrivateRoute>} />
           <Route path="/profile" element={<PrivateRoute><UserProfilePage /></PrivateRoute>} />
-          <Route path="/preferences" element={<PrivateRoute><UserPreferences /></PrivateRoute>} />
           <Route path="/mail-import" element={<PrivateRoute><MailImport /></PrivateRoute>} />
           <Route path="/document-explorer" element={<PrivateRoute><DocumentExplorer /></PrivateRoute>} />
           <Route path="/chatbot" element={<PrivateRoute><Chatbot /></PrivateRoute>} />

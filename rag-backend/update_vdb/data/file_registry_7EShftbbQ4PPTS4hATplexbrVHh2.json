@@ -5814,5 +5814,68 @@
       "parent_email_id": null,
       "ingest_date": "2025-06-15T22:43:33.623454"
     }
+  },
+  "null": {
+    "doc_id": "4cce741007d0196ebaac9b3bf3bd6512ad6020908c06e9e90caa071f14c15e6e",
+    "hash": "4cce741007d0196ebaac9b3bf3bd6512ad6020908c06e9e90caa071f14c15e6e",
+    "source_path": null,
+    "last_modified": "2025-06-17T19:56:09.945316",
+    "last_synced": "2025-06-17T19:56:09.945327",
+    "metadata": {
+      "producer": "OpenPDF 1.3.30.jaspersoft.2",
+      "creator": "JasperReports Library version 6.20.5-3efcf2e67f959db3888d79f73dde2dbd7acb4f8e",
+      "creationdate": "2024-08-06T18:07:17+02:00",
+      "moddate": "2024-08-06T18:07:17+02:00",
+      "source": "/Users/edoardo/Documents/LocalAI/rag-backend/data/storage/user_7EShftbbQ4PPTS4hATplexbrVHh2/Carte avantage.pdf",
+      "total_pages": 1,
+      "page": 0,
+      "page_label": "1",
+      "source_path": null,
+      "document_type": "pdf",
+      "start_index": 0,
+      "user": "7EShftbbQ4PPTS4hATplexbrVHh2",
+      "doc_id": "4cce741007d0196ebaac9b3bf3bd6512ad6020908c06e9e90caa071f14c15e6e",
+      "original_path": "/Users/edoardo/Documents/LocalAI/rag-backend/data/storage/user_7EShftbbQ4PPTS4hATplexbrVHh2/Carte avantage.pdf",
+      "original_filename": "Carte avantage.pdf",
+      "attachment_name": "Carte avantage.pdf",
+      "title": "Carte avantage",
+      "chunk_id": 0,
+      "unique_id": "482584a1-dae7-4fc7-99a5-d9954fb63756",
+      "relative_path": "Carte avantage.pdf",
+      "data_dir": "/Users/edoardo/Documents/LocalAI/rag-backend/data/storage/user_7EShftbbQ4PPTS4hATplexbrVHh2",
+      "user_id": "7EShftbbQ4PPTS4hATplexbrVHh2",
+      "ingestion_date": "2025-06-17T19:56:09.124363",
+      "ingestion_type": "user_storage"
+    }
+  },
+  "null": {
+    "doc_id": "gdrive_7EShftbbQ4PPTS4hATplexbrVHh2_1R5_hc5ZCCG9RH8OS05Kbde5vYVVAjAaH",
+    "hash": "gdrive_7EShftbbQ4PPTS4hATplexbrVHh2_1R5_hc5ZCCG9RH8OS05Kbde5vYVVAjAaH",
+    "source_path": null,
+    "last_modified": "2025-06-17T20:34:05.177846",
+    "last_synced": "2025-06-17T20:34:05.177857",
+    "metadata": {
+      "source": "/var/folders/30/ljmrlr_57td3xpsf39c2t87h0000gn/T/tmpsvrqf7c_.txt",
+      "source_path": null,
+      "document_type": "txt",
+      "start_index": 0,
+      "user": "7EShftbbQ4PPTS4hATplexbrVHh2",
+      "doc_id": "gdrive_7EShftbbQ4PPTS4hATplexbrVHh2_1R5_hc5ZCCG9RH8OS05Kbde5vYVVAjAaH",
+      "original_path": "gdrive://7EShftbbQ4PPTS4hATplexbrVHh2/1R5_hc5ZCCG9RH8OS05Kbde5vYVVAjAaH/test_file_20250614_232646.txt",
+      "original_filename": "tmpsvrqf7c_.txt",
+      "attachment_name": "tmpsvrqf7c_.txt",
+      "title": "tmpsvrqf7c_",
+      "chunk_id": 0,
+      "unique_id": "76153f09-fe6e-4e77-9c64-2f2f414a3853",
+      "gdrive_id": "1R5_hc5ZCCG9RH8OS05Kbde5vYVVAjAaH",
+      "gdrive_name": "test_file_20250614_232646.txt",
+      "gdrive_mimetype": "text/plain",
+      "gdrive_weblink": "https://drive.google.com/file/d/1R5_hc5ZCCG9RH8OS05Kbde5vYVVAjAaH/view?usp=drivesdk",
+      "gdrive_modified": "2025-06-14T21:26:48.986Z",
+      "data_source": "gdrive",
+      "user_id": "7EShftbbQ4PPTS4hATplexbrVHh2",
+      "ingestion_date": "2025-06-17T20:34:04.535544",
+      "content_hash": "1e75fb28754e7453c1035de9feacc8a7b424e76311726a52fe9d9d45c26bb7ea"
+    }
   }
 }

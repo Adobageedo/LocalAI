@@ -1,417 +1,258 @@
-"""
-Service pour interagir avec la base de vecteurs Qdrant.
-"""
-
-import logging
-from typing import List, Dict, Any, Optional, Union
 import os
-import json
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..')))
+import logging
+import traceback
 from qdrant_client import QdrantClient
-from qdrant_client.http.models import (
-    VectorParams, 
-    Distance, 
-    PointStruct, 
-    CollectionStatus,
-    Filter,
-    FieldCondition,
-    MatchValue,
-    Range
+from qdrant_client.http import models as rest
+from typing import List, Dict, Any
+from langchain_qdrant import QdrantVectorStore
+from backend.services.embeddings.embedding_service import EmbeddingService
+
+from backend.core.config import (
+    QDRANT_URL,
+    QDRANT_API_KEY
 )
 
-from backend.core.config import QDRANT_URL, QDRANT_API_KEY
-from backend.core.logger import log
+# Configure logging
+logger = logging.getLogger("rag-backend.vectorstore")
 
-class QdrantManager:
-    """
-    Gestionnaire pour interagir avec Qdrant Vector DB.
-    """
-    
-    def __init__(self, url: str = None, api_key: str = None):
-        """
-        Initialise le client Qdrant.
-        
-        Args:
-            url (str, optional): URL du serveur Qdrant. Par défaut, utilise QDRANT_URL de config.
-            api_key (str, optional): Clé API pour Qdrant. Par défaut, utilise QDRANT_API_KEY de config.
-        """
-        self.url = url or QDRANT_URL
-        self.api_key = api_key or QDRANT_API_KEY
-        self.client = QdrantClient(url=self.url, api_key=self.api_key)
-        log.info(f"QdrantManager initialisé avec l'URL: {self.url}")
-        
-    def check_connection(self) -> bool:
-        """
-        Vérifie la connexion à Qdrant.
-        
-        Returns:
-            bool: True si la connexion est établie, sinon False.
-        """
+class VectorStoreManager:
+    def __init__(self, collection_name: str):
+        if QDRANT_API_KEY:
+            self.client = QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
+        else:
+            self.client = QdrantClient(url=QDRANT_URL)
+        self.collection_name = collection_name
+        self.ensure_collection_exists()
+
+    def ensure_collection_exists(self, vector_size=1536, distance="Cosine"):
+        """Create the collection if it does not exist."""
         try:
-            collections = self.client.get_collections()
-            return True
+            self.client.get_collection(self.collection_name)
         except Exception as e:
-            log.error(f"Erreur de connexion à Qdrant: {str(e)}")
-            return False
-            
-    def create_collection(
-        self,
-        collection_name: str,
-        vector_size: int = 384,
-        distance: str = "Cosine",
-        on_disk_payload: bool = True
-    ) -> bool:
-        """
-        Crée une nouvelle collection dans Qdrant si elle n'existe pas déjà.
+            if "doesn't exist" in str(e) or "not found" in str(e).lower():
+                self.client.recreate_collection(
+                    collection_name=self.collection_name,
+                    vectors_config={"size": vector_size, "distance": distance}
+                )
+            else:
+                raise
+
+    def add_documents(self, docs: List[Any]):
+        """Add a list of langchain Document objects to the collection."""
+        self.ensure_collection_exists()
+        embedder_instance = EmbeddingService()
+        
+        vectorstore = QdrantVectorStore(client=self.client, collection_name=self.collection_name, embedding=embedder_instance._embedder)
+        vectorstore.add_documents(docs)
+
+    def add_documents_in_batches(self, docs: List[Any], batch_size: int = 20) -> Dict[str, Any]:
+        """Add a list of langchain Document objects to the collection in batches.
+        
+        This method breaks down large document lists into smaller batches for more
+        efficient processing, better memory management, and improved error handling.
         
         Args:
-            collection_name (str): Nom de la collection
-            vector_size (int, optional): Taille du vecteur d'embedding. Par défaut 384.
-            distance (str, optional): Mesure de distance à utiliser. Par défaut "Cosine".
-            on_disk_payload (bool, optional): Stocker la charge utile sur disque. Par défaut True.
+            docs: List of langchain Document objects to add to the collection
+            batch_size: Number of documents to process in each batch (default: 20)
             
         Returns:
-            bool: True si la collection est créée ou existe déjà, sinon False.
+            Dict containing stats about the process:
+                - total: Total number of documents received
+                - processed: Number of documents successfully processed
+                - errors: Number of batches with errors
+                - batches: Total number of batches processed
         """
-        try:
-            # Vérifier si la collection existe déjà
-            collections = self.client.get_collections()
-            if collection_name in [c.name for c in collections.collections]:
-                log.info(f"Collection {collection_name} existe déjà")
-                return True
+        self.ensure_collection_exists()
+        embedder_instance = EmbeddingService()
+        vectorstore = QdrantVectorStore(client=self.client, collection_name=self.collection_name, embedding=embedder_instance._embedder)
+        
+        total_docs = len(docs)
+        if total_docs == 0:
+            return {"total": 0, "processed": 0, "errors": 0, "batches": 0}
+            
+        stats = {
+            "total": total_docs,
+            "processed": 0,
+            "errors": 0,
+            "batches": 0
+        }
+        
+        # Calculate number of batches
+        num_batches = (total_docs + batch_size - 1) // batch_size  # Ceiling division
+        
+        logger.info(f"Processing {total_docs} documents in {num_batches} batches of size {batch_size}")
+        
+        # Process documents in batches
+        for i in range(0, total_docs, batch_size):
+            batch = docs[i:i+batch_size]
+            batch_num = (i // batch_size) + 1
+            stats["batches"] += 1
+            
+            try:
+                logger.debug(f"Processing batch {batch_num}/{num_batches} with {len(batch)} documents")
+                vectorstore.add_documents(batch)
+                stats["processed"] += len(batch)
+                logger.debug(f"Completed batch {batch_num}/{num_batches}")
+            except Exception as e:
+                stats["errors"] += 1
+                logger.error(f"Error processing batch {batch_num}/{num_batches}: {str(e)}")
+                # Continue processing other batches despite errors
+        
+        success_rate = (stats["processed"] / stats["total"]) * 100 if stats["total"] > 0 else 0
+        logger.info(f"Document batch processing complete: {stats['processed']}/{stats['total']} documents processed successfully ({success_rate:.1f}%)")
+        
+        return stats
+
+    def delete_by_path(self, path: str):
+        self.ensure_collection_exists()
+        self.client.delete(
+            collection_name=self.collection_name,
+            points_selector=rest.Filter(must=[{"key": "path", "match": {"value": path}}])
+        )
+
+    def delete_by_doc_id(self, doc_id: str) -> int:
+        """Delete all points associated with a document ID.
+        
+        Args:
+            doc_id: The document ID to delete
+            
+        Returns:
+            int: Number of points deleted
+        """
+        logger.info(f"QDRANT DELETION: Starting deletion for doc_id={doc_id} in collection={self.collection_name}")
+        print(f"QDRANT DELETION: Starting deletion for doc_id={doc_id} in collection={self.collection_name}", flush=True)
+        self.ensure_collection_exists()
+        
+        # Find points with doc_id at root or in metadata
+        points_to_delete = set()
+        offset = None
+        while True:
+            try:
+                points, next_offset = self.client.scroll(
+                    collection_name=self.collection_name,
+                    offset=offset,
+                    limit=100,
+                    with_payload=True
+                )
+                logger.info(f"QDRANT DELETION: Scrolled batch of {len(points)} points")
+                print(f"QDRANT DELETION: Scrolled batch of {len(points)} points", flush=True)
                 
-            # Mapper la chaîne de distance à l'enum Distance
-            distance_map = {
-                "Cosine": Distance.COSINE,
-                "Euclid": Distance.EUCLID,
-                "Dot": Distance.DOT
-            }
-            distance_enum = distance_map.get(distance, Distance.COSINE)
-            
-            # Créer la collection
-            self.client.create_collection(
-                collection_name=collection_name,
-                vectors_config=VectorParams(size=vector_size, distance=distance_enum),
-                on_disk_payload=on_disk_payload
-            )
-            
-            log.info(f"Collection {collection_name} créée avec succès")
-            return True
-        except Exception as e:
-            log.exception(f"Erreur lors de la création de la collection {collection_name}: {str(e)}")
-            return False
-            
-    def delete_collection(self, collection_name: str) -> bool:
-        """
-        Supprime une collection de Qdrant.
-        
-        Args:
-            collection_name (str): Nom de la collection à supprimer
-            
-        Returns:
-            bool: True si la suppression est réussie, sinon False
-        """
-        try:
-            self.client.delete_collection(collection_name=collection_name)
-            log.info(f"Collection {collection_name} supprimée avec succès")
-            return True
-        except Exception as e:
-            log.exception(f"Erreur lors de la suppression de la collection {collection_name}: {str(e)}")
-            return False
-            
-    def list_collections(self) -> List[str]:
-        """
-        Liste toutes les collections disponibles dans Qdrant.
-        
-        Returns:
-            List[str]: Liste des noms de collections
-        """
-        try:
-            collections = self.client.get_collections()
-            return [collection.name for collection in collections.collections]
-        except Exception as e:
-            log.exception(f"Erreur lors de la liste des collections: {str(e)}")
-            return []
-            
-    def upsert_point(
-        self,
-        collection_name: str,
-        point_id: str,
-        vector: List[float],
-        payload: Dict[str, Any]
-    ) -> bool:
-        """
-        Insère ou met à jour un point dans Qdrant.
-        
-        Args:
-            collection_name (str): Nom de la collection
-            point_id (str): ID unique du point
-            vector (List[float]): Vecteur d'embedding
-            payload (Dict[str, Any]): Données associées au vecteur
-            
-        Returns:
-            bool: True si l'opération est réussie, sinon False
-        """
-        try:
-            self.client.upsert(
-                collection_name=collection_name,
-                points=[
-                    PointStruct(
-                        id=point_id,
-                        vector=vector,
-                        payload=payload
-                    )
-                ]
-            )
-            return True
-        except Exception as e:
-            log.exception(f"Erreur lors de l'insertion du point {point_id} dans {collection_name}: {str(e)}")
-            return False
-            
-    def search_points(
-        self,
-        collection_name: str,
-        query_vector: List[float],
-        limit: int = 5,
-        filter_dict: Optional[Dict[str, Any]] = None,
-        with_payload: bool = True,
-        with_vectors: bool = False,
-        score_threshold: Optional[float] = None
-    ) -> List[Dict[str, Any]]:
-        """
-        Recherche les points les plus similaires dans Qdrant.
-        
-        Args:
-            collection_name (str): Nom de la collection à interroger
-            query_vector (List[float]): Vecteur de requête
-            limit (int, optional): Nombre maximum de résultats. Par défaut 5.
-            filter_dict (Dict[str, Any], optional): Filtres à appliquer. Par défaut None.
-            with_payload (bool, optional): Inclure la charge utile. Par défaut True.
-            with_vectors (bool, optional): Inclure les vecteurs. Par défaut False.
-            score_threshold (float, optional): Seuil de score minimal. Par défaut None.
-            
-        Returns:
-            List[Dict[str, Any]]: Liste des résultats de recherche
-        """
-        try:
-            # Construire le filtre s'il est fourni
-            filter_obj = None
-            if filter_dict:
-                # Logique simplifiée pour construire le filtre
-                # Dans une implémentation réelle, il faudrait une fonction récursive pour construire des filtres complexes
-                conditions = []
-                for field, value in filter_dict.items():
-                    if isinstance(value, dict):
-                        # Gérer les plages (ex: {"year": {"$gte": 2020}})
-                        if "$gte" in value and "$lte" in value:
-                            conditions.append(
-                                FieldCondition(
-                                    key=field,
-                                    range=Range(
-                                        gte=value["$gte"],
-                                        lte=value["$lte"]
-                                    )
-                                )
-                            )
-                        elif "$gte" in value:
-                            conditions.append(
-                                FieldCondition(
-                                    key=field,
-                                    range=Range(gte=value["$gte"])
-                                )
-                            )
-                        elif "$lte" in value:
-                            conditions.append(
-                                FieldCondition(
-                                    key=field,
-                                    range=Range(lte=value["$lte"])
-                                )
-                            )
-                    else:
-                        # Correspondance exacte
-                        conditions.append(
-                            FieldCondition(
-                                key=field,
-                                match=MatchValue(value=value)
-                            )
-                        )
+                for point in points:
+                    payload = point.payload or {}
+                    root_id = payload.get("doc_id")
+                    meta_id = payload.get("metadata", {}).get("doc_id") if isinstance(payload.get("metadata"), dict) else None
+                    if root_id == doc_id or meta_id == doc_id:
+                        points_to_delete.add(point.id)
+                        logger.info(f"QDRANT DELETION: Found matching point: id={point.id}, root_id={root_id}, meta_id={meta_id}")
+                        print(f"QDRANT DELETION: Found matching point: id={point.id}, root_id={root_id}, meta_id={meta_id}", flush=True)
                 
-                if conditions:
-                    filter_obj = Filter(must=conditions)
-            
-            # Effectuer la recherche
-            search_result = self.client.search(
-                collection_name=collection_name,
-                query_vector=query_vector,
-                limit=limit,
-                query_filter=filter_obj,
-                with_payload=with_payload,
-                with_vectors=with_vectors,
-                score_threshold=score_threshold
-            )
-            
-            # Formater les résultats
-            results = []
-            for hit in search_result:
-                result = {
-                    "id": hit.id,
-                    "score": hit.score
-                }
-                if with_payload:
-                    result["payload"] = hit.payload
-                if with_vectors:
-                    result["vector"] = hit.vector
-                results.append(result)
-                
-            return results
-        except Exception as e:
-            log.exception(f"Erreur lors de la recherche dans {collection_name}: {str(e)}")
-            return []
-            
-    def get_point(
-        self,
-        collection_name: str,
-        point_id: str,
-        with_payload: bool = True,
-        with_vectors: bool = False
-    ) -> Optional[Dict[str, Any]]:
-        """
-        Récupère un point spécifique par son ID.
+                if next_offset is None:
+                    break
+                offset = next_offset
+            except Exception as e:
+                logger.error(f"QDRANT DELETION ERROR: Error while scrolling collection: {str(e)}")
+                logger.error(traceback.format_exc())
+                print(f"QDRANT DELETION ERROR: Error while scrolling collection: {str(e)}", flush=True)
+                print(traceback.format_exc(), flush=True)
+                raise
         
-        Args:
-            collection_name (str): Nom de la collection
-            point_id (str): ID du point à récupérer
-            with_payload (bool, optional): Inclure la charge utile. Par défaut True.
-            with_vectors (bool, optional): Inclure le vecteur. Par défaut False.
-            
-        Returns:
-            Optional[Dict[str, Any]]: Données du point ou None si non trouvé
-        """
-        try:
-            points = self.client.retrieve(
-                collection_name=collection_name,
-                ids=[point_id],
-                with_payload=with_payload,
-                with_vectors=with_vectors
-            )
-            
-            if not points:
-                return None
-                
-            point = points[0]
-            result = {
-                "id": point.id
-            }
-            if with_payload:
-                result["payload"] = point.payload
-            if with_vectors:
-                result["vector"] = point.vector
-                
-            return result
-        except Exception as e:
-            log.exception(f"Erreur lors de la récupération du point {point_id} dans {collection_name}: {str(e)}")
-            return None
-            
-    def delete_point(self, collection_name: str, point_id: str) -> bool:
-        """
-        Supprime un point spécifique par son ID.
+        deleted_count = len(points_to_delete)
+        logger.info(f"QDRANT DELETION: Found {deleted_count} points to delete for doc_id={doc_id}")
+        print(f"QDRANT DELETION: Found {deleted_count} points to delete for doc_id={doc_id}", flush=True)
         
-        Args:
-            collection_name (str): Nom de la collection
-            point_id (str): ID du point à supprimer
-            
-        Returns:
-            bool: True si la suppression est réussie, sinon False
-        """
-        try:
-            self.client.delete(
-                collection_name=collection_name,
-                points_selector=[point_id]
-            )
-            return True
-        except Exception as e:
-            log.exception(f"Erreur lors de la suppression du point {point_id} dans {collection_name}: {str(e)}")
-            return False
-            
-    def search_by_metadata(
-        self,
-        collection_name: str,
-        metadata_filter: Dict[str, Any],
-        limit: int = 100
-    ) -> List[Dict[str, Any]]:
-        """
-        Recherche les points par métadonnées.
+        if points_to_delete:
+            try:
+                # Delete by root doc_id
+                logger.info(f"QDRANT DELETION: Deleting by root doc_id filter")
+                print(f"QDRANT DELETION: Deleting by root doc_id filter", flush=True)
+                self.client.delete(
+                    collection_name=self.collection_name,
+                    points_selector=rest.Filter(must=[{"key": "doc_id", "match": {"value": doc_id}}])
+                )
+                
+                # Delete by metadata.doc_id if needed
+                logger.info(f"QDRANT DELETION: Deleting by metadata.doc_id filter")
+                print(f"QDRANT DELETION: Deleting by metadata.doc_id filter", flush=True)
+                self.client.delete(
+                    collection_name=self.collection_name,
+                    points_selector=rest.Filter(must=[{"key": "metadata.doc_id", "match": {"value": doc_id}}])
+                )
+                logger.info(f"QDRANT DELETION: Successfully deleted {deleted_count} points for doc_id={doc_id}")
+                print(f"QDRANT DELETION: Successfully deleted {deleted_count} points for doc_id={doc_id}", flush=True)
+            except Exception as e:
+                logger.error(f"QDRANT DELETION ERROR: Failed to delete points: {str(e)}")
+                logger.error(traceback.format_exc())
+                print(f"QDRANT DELETION ERROR: Failed to delete points: {str(e)}", flush=True)
+                print(traceback.format_exc(), flush=True)
+                raise
+        else:
+            logger.warning(f"QDRANT DELETION: No points found to delete for doc_id={doc_id}")
+            print(f"QDRANT DELETION: No points found to delete for doc_id={doc_id}", flush=True)
         
-        Args:
-            collection_name (str): Nom de la collection
-            metadata_filter (Dict[str, Any]): Filtre de métadonnées
-            limit (int, optional): Nombre maximum de résultats. Par défaut 100.
-            
-        Returns:
-            List[Dict[str, Any]]: Liste des résultats correspondants
-        """
-        try:
-            # Construire le filtre
-            conditions = []
-            for field, value in metadata_filter.items():
-                if isinstance(value, dict):
-                    # Gérer les plages (ex: {"year": {"$gte": 2020}})
-                    if "$gte" in value and "$lte" in value:
-                        conditions.append(
-                            FieldCondition(
-                                key=f"metadata.{field}",
-                                range=Range(
-                                    gte=value["$gte"],
-                                    lte=value["$lte"]
-                                )
-                            )
-                        )
-                    elif "$gte" in value:
-                        conditions.append(
-                            FieldCondition(
-                                key=f"metadata.{field}",
-                                range=Range(gte=value["$gte"])
-                            )
-                        )
-                    elif "$lte" in value:
-                        conditions.append(
-                            FieldCondition(
-                                key=f"metadata.{field}",
-                                range=Range(lte=value["$lte"])
-                            )
-                        )
-                else:
-                    # Correspondance exacte
-                    conditions.append(
-                        FieldCondition(
-                            key=f"metadata.{field}",
-                            match=MatchValue(value=value)
-                        )
-                    )
-            
-            filter_obj = Filter(must=conditions) if conditions else None
-            
-            # Récupérer les points
+        return deleted_count
+
+    def update_path(self, old_path: str, new_path: str) -> int:
+        self.ensure_collection_exists()
+        points = []
+        offset = None
+        while True:
             scroll_result = self.client.scroll(
-                collection_name=collection_name,
-                scroll_filter=filter_obj,
-                limit=limit,
+                collection_name=self.collection_name,
+                scroll_filter=rest.Filter(must=[{"key": "path", "match": {"value": old_path}}]),
                 with_payload=True,
-                with_vectors=False
+                offset=offset
             )
-            
-            # Formater les résultats
-            results = []
-            for point in scroll_result[0]:
-                results.append({
-                    "id": point.id,
-                    "payload": point.payload
-                })
-                
-            return results
-        except Exception as e:
-            log.exception(f"Erreur lors de la recherche par métadonnées dans {collection_name}: {str(e)}")
-            return []
+            points.extend(scroll_result[0])
+            if scroll_result[1] is None:
+                break
+            offset = scroll_result[1]
+        if not points:
+            return 0
+        for point in points:
+            self.client.set_payload(
+                collection_name=self.collection_name,
+                payload={"path": new_path},
+                points=[point.id]
+            )
+        return len(points)
 
+    def fetch_existing_doc_ids(self) -> set:
+        self.ensure_collection_exists()
+        existing_ids = set()
+        offset = None
+        page_size = 100
+        while True:
+            points, next_offset = self.client.scroll(
+                collection_name=self.collection_name,
+                offset=offset,
+                limit=page_size,
+                with_payload=True
+            )
+            for point in points:
+                payload = point.payload or {}
+                doc_id = None
+                if "doc_id" in payload:
+                    doc_id = payload["doc_id"]
+                elif "metadata" in payload and isinstance(payload["metadata"], dict):
+                    doc_id = payload["metadata"].get("doc_id")
+                if doc_id:
+                    existing_ids.add(doc_id)
+            if next_offset is None:
+                break
+            offset = next_offset
+        return existing_ids
 
-# Instance singleton pour utilisation dans l'application
-vectorstore = QdrantManager()
+    def count(self) -> int:
+        self.ensure_collection_exists()
+        info = self.client.get_collection(self.collection_name)
+        return info.points_count
+
+    def purge_all(self):
+        self.ensure_collection_exists()
+        self.client.delete(collection_name=self.collection_name, points_selector=rest.PointIdsSelector(points=[]))  # Use Qdrant's API for full purge if available
+
+    def get_qdrant_client(self):
+        """Return the underlying QdrantClient instance."""
+        return self.client

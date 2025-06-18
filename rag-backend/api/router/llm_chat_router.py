@@ -11,6 +11,7 @@ import logging
 # Import the PostgresManager and models
 from db.postgres_manager import PostgresManager
 from db.models import User, Conversation as ConversationModel, ChatMessage as ChatMessageModel, SyncStatus
+from db.user_preferences import UserPreferences
 
 logger = logging.getLogger(__name__)
 # Database connection parameters - kept for reference but not directly used
@@ -60,21 +61,21 @@ class Conversation(BaseModel):
 class SyncStatusCreate(BaseModel):
     source_type: str
     status: str = "pending"
-    details: Optional[Dict[str, Any]] = None
-    error: Optional[str] = None
+    progress: float = 0.0
+    error_details: Optional[str] = None
 
 class SyncStatusUpdate(BaseModel):
     status: Optional[str] = None
-    details: Optional[Dict[str, Any]] = None
-    error: Optional[str] = None
+    progress: Optional[float] = None
+    error_details: Optional[str] = None
 
 class SyncStatusResponse(BaseModel):
     id: str
     user_id: str
     source_type: str
     status: str
-    details: Optional[Dict[str, Any]] = None
-    error: Optional[str] = None
+    progress: float
+    error_details: Optional[str] = None
     created_at: datetime
     updated_at: datetime
 
@@ -409,11 +410,17 @@ async def update_sync_status(source_type: str, sync_data: SyncStatusUpdate, user
             )
         
         # Update with the provided data
+        update_params = {}
+        if sync_data.status:
+            update_params["status"] = sync_data.status
+        if sync_data.progress is not None:
+            update_params["progress"] = max(0.0, min(1.0, sync_data.progress))  # Ensure value is between 0.0 and 1.0
+        if sync_data.error_details is not None:
+            update_params["error_details"] = sync_data.error_details
+        
         updated_status = SyncStatus.update(
             id=sync_status.id,
-            status=sync_data.status,
-            details=sync_data.details,
-            error=sync_data.error
+            **update_params
         )
         
         if not updated_status:
@@ -509,7 +516,7 @@ async def fail_sync(
         )
     
     user_id = user.get("uid")
-    error_message = error_info.get("error", "Unknown error")
+    error_message = error_info.get("error_details", "Unknown error")
     
     try:
         # Get the latest sync status
@@ -522,7 +529,7 @@ async def fail_sync(
             )
         
         # Mark as failed with error details
-        sync_status.fail_sync(error=error_message)
+        sync_status.fail_sync(error_details=error_message)
         return sync_status.to_dict()
     except HTTPException:
         raise
@@ -531,6 +538,52 @@ async def fail_sync(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error marking sync as failed: {str(e)}"
+        )
+
+@router.post("/sync/status/{source_type}/update_progress", response_model=SyncStatusResponse)
+async def update_sync_progress(
+    source_type: str,
+    progress_data: Dict[str, float],
+    user=Depends(get_current_user)
+):
+    """Update the progress of a sync operation with a progress value between 0.0 and 1.0"""
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required"
+        )
+    
+    user_id = user.get("uid")
+    progress_value = progress_data.get("progress", 0.0)
+    
+    # Ensure progress value is between 0.0 and 1.0
+    progress_value = max(0.0, min(1.0, progress_value))
+    
+    try:
+        # Get the latest sync status
+        sync_status = SyncStatus.get_latest_by_user_and_source(user_id, source_type)
+        
+        if not sync_status:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"No sync status found for source type: {source_type}"
+            )
+        
+        # Update progress
+        if sync_status.status != "in_progress":
+            sync_status.start_sync()
+        
+        # Update progress value
+        sync_status.update_progress(progress_value)
+        
+        return sync_status.to_dict()
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating sync progress: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error updating sync progress: {str(e)}"
         )
 
 # User Management Endpoints
@@ -688,15 +741,21 @@ async def delete_user_data(user_id: str, current_user=Depends(get_current_user))
                 detail=f"User with ID {user_id} not found"
             )
         
-        # TODO: Delete user data from relevant tables
-        # This could include:
-        # - Chat conversations
-        # - Uploaded documents
-        # - User preferences
-        # - Search history
-        # etc.
+        # Delete user preferences
+        try:
+            user_prefs = UserPreferences.get_by_user_id(user_id)
+            if user_prefs:
+                user_prefs.delete()
+                logger.info(f"Deleted preferences for user {user_id}")
+        except Exception as e:
+            logger.error(f"Error deleting user preferences: {e}")
         
-        # For now, just returning success message
+        # TODO: Delete other user-related data:
+        # - Conversations and messages
+        # - Documents in vectorstore
+        # - Search history
+        
+        # Return success message
         return {"message": f"All data for user {user_id} has been deleted successfully"}
     except HTTPException:
         raise
@@ -707,6 +766,94 @@ async def delete_user_data(user_id: str, current_user=Depends(get_current_user))
             detail=f"Error deleting user data: {str(e)}"
         )
 
+
+@router.get("/users/{user_id}/preferences", status_code=status.HTTP_200_OK)
+async def get_user_preferences(user_id: str, current_user=Depends(get_current_user)):
+    """Get user preferences"""
+    if not current_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required"
+        )
+    
+    # Check if user is requesting their own preferences or is an admin
+    if current_user.get("uid") != user_id and not current_user.get("is_admin", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only access your own preferences"
+        )
+    
+    try:
+        # Ensure user exists
+        user = User.get_by_id(user_id)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"User with ID {user_id} not found"
+            )
+        
+        # Create the table if it doesn't exist
+        UserPreferences.create_table_if_not_exists()
+        
+        # Get preferences
+        preferences = UserPreferences.get_by_user_id(user_id)
+        
+        # Return preferences as dict
+        return preferences.to_dict()
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting user preferences: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error getting user preferences: {str(e)}"
+        )
+
+@router.put("/users/{user_id}/preferences", status_code=status.HTTP_200_OK)
+async def update_user_preferences(user_id: str, preferences_data: dict, current_user=Depends(get_current_user)):
+    """Update user preferences"""
+    if not current_user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required"
+        )
+    
+    # Check if user is updating their own preferences or is an admin
+    if current_user.get("uid") != user_id and not current_user.get("is_admin", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You can only update your own preferences"
+        )
+    
+    try:
+        # Ensure user exists
+        user = User.get_by_id(user_id)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"User with ID {user_id} not found"
+            )
+        
+        # Create the table if it doesn't exist
+        UserPreferences.create_table_if_not_exists()
+        
+        # Create preferences object from data
+        preferences = UserPreferences.from_dict(user_id, preferences_data)
+        
+        # Save preferences
+        preferences.save()
+        
+        return {"message": "Preferences updated successfully", "preferences": preferences.to_dict()}
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating user preferences: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error updating user preferences: {str(e)}"
+        )
 
 @router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_user(user_id: str, current_user=Depends(get_current_user)):

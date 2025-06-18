@@ -80,16 +80,13 @@ CREATE TABLE IF NOT EXISTS sync_status (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     source_type VARCHAR(50) NOT NULL,  -- 'gmail', 'nextcloud', 'outlook', etc.
-    last_sync_attempt TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    last_successful_sync TIMESTAMPTZ,
+    progress NUMERIC(5, 4) NOT NULL DEFAULT 0.0,  -- from 0.0000 to 1.0000
     status VARCHAR(50) NOT NULL DEFAULT 'pending',  -- 'pending', 'in_progress', 'completed', 'failed'
-    items_processed INTEGER NOT NULL DEFAULT 0,
-    items_succeeded INTEGER NOT NULL DEFAULT 0,
-    items_failed INTEGER NOT NULL DEFAULT 0,
     error_details TEXT,
-    metadata JSONB DEFAULT '{}',
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    
+    UNIQUE (user_id, source_type)
 );
 
 -- Add index for efficient querying of sync status by user

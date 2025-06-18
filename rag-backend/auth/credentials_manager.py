@@ -173,7 +173,7 @@ def get_authenticated_users_by_provider(provider: str) -> List[str]:
     
     try:
         # Déterminer le chemin de base et le pattern selon le provider
-        if provider.lower() == 'gmail':
+        if provider.lower() == 'gmail' or provider.lower() == 'gdrive':
             # On considère TOKEN_DIRECTORY/gmail/*.json comme structure
             token_dir = os.environ.get('GMAIL_TOKEN_PATH', 'token.pickle')
             base_path = token_dir.replace("user_id.pickle", "")
@@ -182,6 +182,11 @@ def get_authenticated_users_by_provider(provider: str) -> List[str]:
             # On considère TOKEN_DIRECTORY/outlook/*.json comme structure
             token_dir = os.environ.get('OUTLOOK_TOKEN_PATH', 'outlook_token.json')
             base_path = token_dir.replace("user_id.json", "")
+            pattern = '*.json'
+        elif provider.lower() == 'personal-storage':
+            # On considère TOKEN_DIRECTORY/personal-storage/*.json comme structure
+            data_dir = os.environ.get('STORAGE_PATH', 'data/auth/personal_storage_token/user_id.json')
+            base_path = data_dir.replace("user_id.json", "")
             pattern = '*.json'
         else:
             logger.error(f"Provider non supporté: {provider}")

@@ -302,7 +302,7 @@ const DocumentExplorer = () => {
   const authenticateGoogleDrive = async () => {
     try {
       // Set documents as callback route after authentication
-      const callbackUrl = window.location.origin + '/documents';
+      const callbackUrl = "http://localhost:8000/api/db/gdrive/oauth2_callback"//window.location.origin + '/documents';
       console.log('Using callback URL:', callbackUrl);
       
       const result = await gdriveService.getAuthUrl(callbackUrl);

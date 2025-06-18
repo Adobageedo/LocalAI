@@ -17,16 +17,16 @@ from backend.core.logger import log
 class FileRegistry:
     """
     Gestionnaire de registre de fichiers JSON qui suit les fichiers ingérés.
-    Sert de source de vérité pour les documents synchronisés entre Nextcloud et Qdrant.
+    Sert de source de vérité pour les documents synchronisés entre Personal Storage et Qdrant.
     """
     
-    def __init__(self, user_id: str, source_name: str = "nextcloud"):
+    def __init__(self, user_id: str, source_name: str = "personal_storage"):
         """
         Initialise le registre de fichiers.
         
         Args:
             user_id (str): Identifiant de l'utilisateur
-            source_name (str, optional): Nom de la source (nextcloud, gmail, etc.). Par défaut "nextcloud".
+            source_name (str, optional): Nom de la source (personal_storage, gmail, etc.). Par défaut "personal_storage".
         """
         self.user_id = user_id
         self.source_name = source_name
@@ -47,7 +47,7 @@ class FileRegistry:
         # Charger le registre existant s'il existe
         self._load_registry()
         
-        log.info(f"Registre de fichiers initialisé pour {user_id} - source: {source_name}")
+        log.info(f"Registre de fichiers initialisé depuis {self.registry_file} pour {user_id} - source: {source_name}")
         
     def _load_registry(self) -> None:
         """
