@@ -1,0 +1,98 @@
+# ===============================
+# RAG Backend Complete Configuration
+# ===============================
+
+metadata:
+  project: rag-backend
+  version: 1.0.0
+  maintainer: edoardo@example.com
+
+retrieval:
+  top_k: 500                       # Number of documents to retrieve per query
+  hybrid: true                    # Use hybrid (dense + sparse) retrieval
+  split_prompt: true              # Whether to split prompt into subquestions
+  rerank: false                    # Whether to rerank retrieved documents
+  use_hyde: false                 # Whether to use HyDE hypothetical answer
+  embedder: openai                # Use OpenAI embeddings (options: openai, huggingface)
+  vectorstore:
+    path: ./data/vectorstore      # Path to vector store
+    type: qdrant                  # qdrant, faiss, chroma, etc.
+    host: localhost
+    port: 6333
+    collection: rag_documents1536
+  filter_fallback: false           # Fallback to no-filter if filtered results are empty
+  supported_types: ["email", "pdf", "contract"]
+  min_score: 0.2                  # Minimum score threshold for retrieved docs
+
+embedder:
+  provider: openai                # openai, huggingface
+  model: text-embedding-3-small
+
+llm:
+  provider: openai                # openai, azure, local, etc.
+  model: gpt-4.1-nano
+  temperature: 0.7
+  max_tokens: 512
+  api_base: https://api.openai.com/v1
+  timeout: 30                     # seconds
+  system_prompt: |
+    Tu es un assistant qui répond à la question en t'appuyant uniquement sur les passages ci-dessous. Pour chaque passage utilisé, indique le numéro de la source entre crochets [Source X]. Si aucune information pertinente n'est trouvée dans les passages, indique-le.\n
+
+api:
+  host: 0.0.0.0
+  port: 8000
+  cors:
+    enabled: true
+    allowed_origins: ["*"]        # Use ["*"] for development only!
+  auth:
+    enabled: false                # Set to true to require API key
+    api_key_env: RAG_API_KEY      # Name of env var for API key
+
+logging:
+  level: INFO                     # DEBUG, INFO, WARNING, ERROR
+  file: ./logs/rag-backend.log
+
+monitoring:
+  enabled: true
+  prometheus_endpoint: /metrics
+
+ingestion:
+  watch_path: ../data
+  supported_types: [
+    "pdf",    # Fichiers PDF
+    "docx",   # Documents Microsoft Word
+    "txt",    # Fichiers texte brut
+    "md",     # Fichiers Markdown
+    "ppt",    # Présentations PowerPoint (ancien format)
+    "pptx",   # Présentations PowerPoint
+    "csv",    # Fichiers de données CSV
+    "json",   # Fichiers JSON
+    "email",  # Emails
+    #"odt",    # Documents OpenDocument Text
+    #"ods",    # Feuilles de calcul OpenDocument
+    "excel",  # Feuilles de calcul Excel (inclut xlsx, xlsm, xls)
+    "xls",    # Feuilles de calcul Excel (ancien format)
+    "xlsx",   # Feuilles de calcul Excel (format Office 2007+)
+    "xlsm",   # Feuilles de calcul Excel avec macros
+    "fods",   # Format OpenDocument Flat XML pour les feuilles de calcul
+    "gdoc",   # Google Documents
+    "gsheet", # Google Sheets
+    "gslides" # Google Slides
+  ]
+  batch_size: 10
+  schedule_cron: "0 * * * *"      # Every hour
+
+features:
+  enable_hybrid: true
+  enable_filter_extraction: true
+  enable_source_attribution: true
+  enable_fallback: true
+
+security:
+  secrets_via_env: true           # Store all secrets in env variables
+  allowed_hosts: ["localhost", "127.0.0.1"]
+
+# ===============================
+# Place secrets in environment variables, not here!
+# Example: export OPENAI_API_KEY=your-key
+# ===============================

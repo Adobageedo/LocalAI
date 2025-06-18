@@ -228,7 +228,8 @@ const Sidebar = ({ width = 240, open = true, onClose, collapsed = false, onToggl
   const connectGoogle = async () => {
     try {
       // Utiliser le service Google Drive pour obtenir l'URL d'authentification
-      const callbackUrl = window.location.origin + '/auth/google/callback';
+      const callbackUrl = "http://localhost:8000/api/db/gdrive/oauth2_callback"//window.location.origin + '/auth/google/callback';
+      console.log('Using callback URL:', callbackUrl);
       const result = await gdriveService.getAuthUrl(callbackUrl);
       
       // Ouvrir l'URL d'authentification dans une nouvelle fenêtre/onglet
@@ -260,7 +261,7 @@ const Sidebar = ({ width = 240, open = true, onClose, collapsed = false, onToggl
   
   // Paramètres
   const openSettings = () => {
-    navigateTo('/preferences');
+    navigateTo('/profile');
   };
 
   return (

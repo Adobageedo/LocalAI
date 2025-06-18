@@ -12,7 +12,7 @@ import shutil
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException, status, Query, BackgroundTasks, Response, File, Form, UploadFile
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse, RedirectResponse
 from pydantic import BaseModel
 
 # Google Drive API
@@ -45,7 +45,7 @@ google_drive_service = GoogleDriveService()
 # Google API Configuration
 GOOGLE_CLIENT_ID = os.getenv("GMAIL_CLIENT_ID", "")
 GOOGLE_CLIENT_SECRET = os.getenv("GMAIL_CLIENT_SECRET", "")
-GOOGLE_REDIRECT_URI = os.getenv("GMAIL_REDIRECT_URI", "http://localhost:5173")
+GOOGLE_REDIRECT_URI = os.getenv("GMAIL_REDIRECT_URI", "http://localhost:8000/api/db/gdrive/oauth2_callback")
 GOOGLE_TOKEN_PATH = os.getenv("GMAIL_TOKEN_PATH", "token.pickle")
 GOOGLE_SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",
@@ -157,7 +157,7 @@ async def get_gdrive_auth_url(callback_url: str = None, user=Depends(get_current
         user_id = user.get("uid") if user else "gdrive"
         logger.debug(f"[GDRIVE AUTH URL] Generating auth URL for user {user_id}")
         
-        redirect_uri = callback_url or GOOGLE_REDIRECT_URI
+        redirect_uri = GOOGLE_REDIRECT_URI
         if not redirect_uri:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
@@ -237,7 +237,7 @@ async def gdrive_oauth2_callback(code: str = None, state: str = None, error: str
         
         # Sauvegarder les credentials
         creds = flow.credentials
-        save_google_token(user_id, creds, token_type="drive")
+        save_google_token(user_id, creds)
         
         # Obtenir les informations sur le compte Google Drive
         try:
@@ -256,11 +256,8 @@ async def gdrive_oauth2_callback(code: str = None, state: str = None, error: str
             logger.error(f"[GDRIVE CALLBACK] Error getting account info: {str(e)}")
             success_message = "Authentification réussie"
             
-        return {
-            "success": True,
-            "message": success_message,
-            "redirect": True
-        }
+        return RedirectResponse(url="http://localhost:5173/Connectionsuccess")
+
     except Exception as e:
         logger.error(f"[GDRIVE CALLBACK] Error in callback: {str(e)}")
         return {"success": False, "error": str(e)}

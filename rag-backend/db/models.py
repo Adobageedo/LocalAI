@@ -5,6 +5,7 @@ This module provides model classes for the PostgreSQL database tables:
 - Conversation: For managing chat conversations
 - ChatMessage: For managing individual messages within conversations
 - SyncStatus: For tracking synchronization operations
+- UserPreferences: For managing user preferences
 """
 
 import uuid
@@ -341,48 +342,39 @@ class SyncStatus:
     """Model class for sync_status table to track synchronization operations"""
     
     def __init__(self, id: Union[str, uuid.UUID], user_id: str, source_type: str,
-                last_sync_attempt: Optional[datetime] = None,
-                last_successful_sync: Optional[datetime] = None,
+                progress: float = 0.0,
                 status: str = "pending",
-                items_processed: int = 0,
-                items_succeeded: int = 0,
-                items_failed: int = 0,
                 error_details: Optional[str] = None,
-                metadata: Optional[Dict[str, Any]] = None,
                 created_at: Optional[datetime] = None,
                 updated_at: Optional[datetime] = None):
         self.id = str(id) if isinstance(id, uuid.UUID) else id
         self.user_id = user_id
         self.source_type = source_type
-        self.last_sync_attempt = last_sync_attempt or datetime.now()
-        self.last_successful_sync = last_successful_sync
+        self.progress = progress
         self.status = status
-        self.items_processed = items_processed
-        self.items_succeeded = items_succeeded
-        self.items_failed = items_failed
         self.error_details = error_details
-        self.metadata = metadata or {}
         self.created_at = created_at or datetime.now()
         self.updated_at = updated_at or datetime.now()
     
     @classmethod
     def create(cls, user_id: str, source_type: str, status: str = "pending",
-              metadata: Optional[Dict[str, Any]] = None) -> 'SyncStatus':
+              progress: float = 0.0) -> 'SyncStatus':
         """Create a new sync status record in the database"""
         db = PostgresManager()
         query = """
             INSERT INTO sync_status (
-                user_id, source_type, status, metadata
+                user_id, source_type, status, progress
             ) VALUES (%s, %s, %s, %s)
-            RETURNING id, user_id, source_type, last_sync_attempt, 
-                      last_successful_sync, status, items_processed, 
-                      items_succeeded, items_failed, error_details, 
-                      metadata, created_at, updated_at
+            ON CONFLICT (user_id, source_type) DO UPDATE
+            SET status = EXCLUDED.status, 
+                progress = EXCLUDED.progress, 
+                updated_at = NOW()
+            RETURNING id, user_id, source_type, progress,
+                      status, error_details, created_at, updated_at
         """
-        metadata_json = json.dumps(metadata) if metadata else '{}'
         result = db.execute_query(
             query, 
-            (user_id, source_type, status, metadata_json), 
+            (user_id, source_type, status, progress), 
             fetch_one=True
         )
         return cls(**result) if result else None
@@ -392,10 +384,8 @@ class SyncStatus:
         """Get a sync status record by ID"""
         db = PostgresManager()
         query = """
-            SELECT id, user_id, source_type, last_sync_attempt, 
-                   last_successful_sync, status, items_processed, 
-                   items_succeeded, items_failed, error_details, 
-                   metadata, created_at, updated_at
+            SELECT id, user_id, source_type, progress, 
+                   status, error_details, created_at, updated_at
             FROM sync_status
             WHERE id = %s
         """
@@ -404,17 +394,13 @@ class SyncStatus:
     
     @classmethod
     def get_by_user_source(cls, user_id: str, source_type: str) -> Optional['SyncStatus']:
-        """Get the latest sync status for a specific user and source type"""
+        """Get the sync status for a specific user and source type"""
         db = PostgresManager()
         query = """
-            SELECT id, user_id, source_type, last_sync_attempt, 
-                   last_successful_sync, status, items_processed, 
-                   items_succeeded, items_failed, error_details, 
-                   metadata, created_at, updated_at
+            SELECT id, user_id, source_type, progress, 
+                   status, error_details, created_at, updated_at
             FROM sync_status
             WHERE user_id = %s AND source_type = %s
-            ORDER BY last_sync_attempt DESC
-            LIMIT 1
         """
         result = db.execute_query(query, (user_id, source_type), fetch_one=True)
         return cls(**result) if result else None
@@ -424,10 +410,8 @@ class SyncStatus:
         """Get all sync status records for a user"""
         db = PostgresManager()
         query = """
-            SELECT id, user_id, source_type, last_sync_attempt, 
-                   last_successful_sync, status, items_processed, 
-                   items_succeeded, items_failed, error_details, 
-                   metadata, created_at, updated_at
+            SELECT id, user_id, source_type, progress, 
+                   status, error_details, created_at, updated_at
             FROM sync_status
             WHERE user_id = %s
             ORDER BY created_at DESC
@@ -437,20 +421,8 @@ class SyncStatus:
     
     @classmethod
     def get_latest_by_user_and_source(cls, user_id: str, source_type: str) -> Optional['SyncStatus']:
-        """Get the latest sync status for a user and source type"""
-        db = PostgresManager()
-        query = """
-            SELECT id, user_id, source_type, last_sync_attempt, 
-                   last_successful_sync, status, items_processed, 
-                   items_succeeded, items_failed, error_details, 
-                   metadata, created_at, updated_at
-            FROM sync_status
-            WHERE user_id = %s AND source_type = %s
-            ORDER BY created_at DESC
-            LIMIT 1
-        """
-        result = db.execute_query(query, (user_id, source_type), fetch_one=True)
-        return cls(**result) if result else None
+        """Get the sync status for a user and source type (there should be only one due to UNIQUE constraint)"""
+        return cls.get_by_user_source(user_id, source_type)
     
     @classmethod
     def get_all_by_user(cls, user_id: str) -> List['SyncStatus']:
@@ -506,38 +478,19 @@ class SyncStatus:
         return cls(**result) if result else None
     
     def update_status(self, status: str, 
-                     items_processed: Optional[int] = None,
-                     items_succeeded: Optional[int] = None,
-                     items_failed: Optional[int] = None,
-                     error_details: Optional[str] = None,
-                     metadata: Optional[Dict[str, Any]] = None) -> bool:
+                     progress: Optional[float] = None,
+                     error_details: Optional[str] = None) -> bool:
         """Update sync operation status"""
         updates = {'status': status, 'updated_at': 'NOW()'}
         values = [status]
         
-        # Update last_successful_sync if completed
-        if status == 'completed':
-            updates['last_successful_sync'] = 'NOW()'
-        
-        if items_processed is not None:
-            updates['items_processed'] = items_processed
-            values.append(items_processed)
-        
-        if items_succeeded is not None:
-            updates['items_succeeded'] = items_succeeded
-            values.append(items_succeeded)
-            
-        if items_failed is not None:
-            updates['items_failed'] = items_failed
-            values.append(items_failed)
+        if progress is not None:
+            updates['progress'] = progress
+            values.append(progress)
             
         if error_details is not None:
             updates['error_details'] = error_details
             values.append(error_details)
-            
-        if metadata is not None:
-            updates['metadata'] = json.dumps(metadata)
-            values.append(json.dumps(metadata))
             
         # Build the query
         query_parts = [f"{field} = {val if val == 'NOW()' else '%s'}" 
@@ -546,10 +499,8 @@ class SyncStatus:
             UPDATE sync_status
             SET {', '.join(query_parts)}
             WHERE id = %s
-            RETURNING id, user_id, source_type, last_sync_attempt, 
-                      last_successful_sync, status, items_processed, 
-                      items_succeeded, items_failed, error_details, 
-                      metadata, created_at, updated_at
+            RETURNING id, user_id, source_type, progress, 
+                      status, error_details, created_at, updated_at
         """
         
         # Remove NOW() placeholders from values as they're directly in the query
@@ -569,28 +520,23 @@ class SyncStatus:
     
     def start_sync(self) -> bool:
         """Mark sync operation as started"""
-        return self.update_status('in_progress')
+        return self.update_status('in_progress', progress=0.0)
     
-    def complete_sync(self, items_processed: int, items_succeeded: int, 
-                     items_failed: int = 0) -> bool:
-        """Mark sync operation as completed"""
-        return self.update_status(
-            'completed', 
-            items_processed=items_processed,
-            items_succeeded=items_succeeded,
-            items_failed=items_failed
-        )
+    def update_progress(self, progress: float) -> bool:
+        """Update the progress of an ongoing sync operation"""
+        if progress < 0:
+            progress = 0.0
+        elif progress > 1:
+            progress = 1.0
+        return self.update_status(self.status, progress=progress)
     
-    def fail_sync(self, error_details: str, items_processed: int = 0,
-                 items_succeeded: int = 0, items_failed: int = 0) -> bool:
+    def complete_sync(self) -> bool:
+        """Mark sync operation as completed with 100% progress"""
+        return self.update_status('completed', progress=1.0)
+    
+    def fail_sync(self, error_details: str) -> bool:
         """Mark sync operation as failed"""
-        return self.update_status(
-            'failed', 
-            items_processed=items_processed,
-            items_succeeded=items_succeeded,
-            items_failed=items_failed,
-            error_details=error_details
-        )
+        return self.update_status('failed', error_details=error_details)
     
     def delete(self) -> bool:
         """Delete sync status record"""
@@ -608,14 +554,9 @@ class SyncStatus:
             "id": self.id,
             "user_id": self.user_id,
             "source_type": self.source_type,
-            "last_sync_attempt": self.last_sync_attempt.isoformat() if self.last_sync_attempt else None,
-            "last_successful_sync": self.last_successful_sync.isoformat() if self.last_successful_sync else None,
+            "progress": self.progress,
             "status": self.status,
-            "items_processed": self.items_processed,
-            "items_succeeded": self.items_succeeded,
-            "items_failed": self.items_failed,
             "error_details": self.error_details,
-            "metadata": self.metadata,
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None
         }

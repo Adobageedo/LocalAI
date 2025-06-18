@@ -1,6 +1,9 @@
 """
 Service pour la génération d'embeddings de documents.
 """
+import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 import logging
 from typing import List, Dict, Any, Optional, Union
@@ -10,37 +13,60 @@ import os
 
 from backend.core.config import (
     OPENAI_API_KEY, 
-    OPENAI_EMBEDDING_MODEL,
     HF_API_KEY,
-    HF_EMBEDDING_MODEL
+    CONFIG
 )
 from backend.core.logger import log
+from langchain_openai import OpenAIEmbeddings
+try:
+    from langchain_huggingface import HuggingFaceEmbeddings
+except ImportError:
+    from langchain_huggingface import HuggingFaceEmbeddings
 
-class EmbeddingService:
+from abc import ABC, abstractmethod
+from typing import List
+
+class BaseEmbedder(ABC):
+    @abstractmethod
+    def embed(self, text: str) -> List[float]:
+        """
+        Return the embedding vector for the given text.
+        """
+        pass
+
+class EmbeddingService(BaseEmbedder):
     """
     Service pour générer des embeddings à partir de texte.
     Prend en charge différentes sources d'embeddings (OpenAI, Hugging Face, etc.).
     """
     
-    def __init__(self, provider: str = "openai"):
+    def __init__(self, provider: str = None, model: str = None):
         """
         Initialise le service d'embeddings.
         
         Args:
             provider (str, optional): Fournisseur d'embeddings ('openai' ou 'huggingface'). Par défaut 'openai'.
         """
+        if provider is None:
+            provider = CONFIG.get("embedder", {}).get("provider", "openai")
+        
+        if model is None:
+            model = CONFIG.get("embedder", {}).get("model", "text-embedding-3-small")
+        
         self.provider = provider.lower()
+        self.model = model.lower()
         
         if self.provider == "openai":
             self.api_key = OPENAI_API_KEY
-            self.model = OPENAI_EMBEDDING_MODEL
             if not self.api_key:
-                log.warning("Clé API OpenAI non configurée!")
+                raise ValueError("OPENAI_API_KEY environment variable not set.")
+            self._embedder = OpenAIEmbeddings(model=self.model)
+
         elif self.provider == "huggingface":
             self.api_key = HF_API_KEY
-            self.model = HF_EMBEDDING_MODEL
             if not self.api_key:
-                log.warning("Clé API Hugging Face non configurée!")
+                raise ValueError("HF_API_KEY environment variable not set.")
+            self._embedder = HuggingFaceEmbeddings(model_name=self.model, model_kwargs={"device": "cpu"})
         else:
             raise ValueError(f"Fournisseur d'embeddings '{provider}' non pris en charge")
             
@@ -88,10 +114,7 @@ class EmbeddingService:
             # Appel API avec retries et backoff
             for attempt in range(3):
                 try:
-                    response = openai.embeddings.create(
-                        model=self.model,
-                        input=texts
-                    )
+                    response = self._embedder.embed_query(texts)
                     
                     # Extraction des embeddings
                     embeddings = [item.embedding for item in response.data]
@@ -178,7 +201,16 @@ class EmbeddingService:
         """
         embeddings = self.get_embeddings([text])
         return embeddings[0] if embeddings else []
-
-
-# Instance singleton pour utilisation dans l'application
-embedding_service = EmbeddingService()
+        
+    def embed(self, text: str) -> List[float]:
+        """
+        Implémente la méthode abstraite de BaseEmbedder.
+        Génère un embedding pour un texte donné.
+        
+        Args:
+            text (str): Texte à encoder
+            
+        Returns:
+            List[float]: Embedding du texte
+        """
+        return self.get_embedding(text)
