@@ -1,0 +1,78 @@
+{
+  "/Personal_Storage/Imposition_12432831.pdf": {
+    "doc_id": "9b25927e5b61f93e8e8a51f300bf10bbb74534f34000e9fcfaa2386c62c031d4",
+    "hash": "9b25927e5b61f93e8e8a51f300bf10bbb74534f34000e9fcfaa2386c62c031d4",
+    "source_path": "/Personal_Storage/Imposition_12432831.pdf",
+    "last_modified": "2025-06-19T21:19:35.405673",
+    "last_synced": "2025-06-19T21:19:35.405693",
+    "metadata": {
+      "path": "/Personal_Storage/Imposition_12432831.pdf",
+      "user": "TEST_NEW_ARCHITECTURE",
+      "ingestion_type": "Personal_Storage",
+      "filename": "Imposition_12432831.pdf",
+      "ingestion_date": "2025-06-19T21:19:33.908660",
+      "doc_id": "9b25927e5b61f93e8e8a51f300bf10bbb74534f34000e9fcfaa2386c62c031d4",
+      "document_type": "pdf",
+      "chunk_id": 0,
+      "unique_id": "73a4af7f-8fa6-4a98-b078-70f669416bbe",
+      "num_chunks": 1,
+      "embedded": true,
+      "start_index": 0
+    }
+  },
+  "/Personal_Storage/Hébergement_12432770.pdf": {
+    "doc_id": "c6b4f7ac83398db4d145676ae9f8484ea1ec8a05592712bd241c11d3e14c2d0d",
+    "hash": "c6b4f7ac83398db4d145676ae9f8484ea1ec8a05592712bd241c11d3e14c2d0d",
+    "source_path": "/Personal_Storage/Hébergement_12432770.pdf",
+    "last_modified": "2025-06-19T21:19:35.406723",
+    "last_synced": "2025-06-19T21:19:35.406737",
+    "metadata": {
+      "path": "/Personal_Storage/Hébergement_12432770.pdf",
+      "user": "TEST_NEW_ARCHITECTURE",
+      "ingestion_type": "Personal_Storage",
+      "filename": "Hébergement_12432770.pdf",
+      "ingestion_date": "2025-06-19T21:19:33.908706",
+      "doc_id": "c6b4f7ac83398db4d145676ae9f8484ea1ec8a05592712bd241c11d3e14c2d0d",
+      "embedded": false,
+      "unique_id": "c6b4f7ac83398db4d145676ae9f8484ea1ec8a05592712bd241c11d3e14c2d0d"
+    }
+  },
+  "/Personal_Storage/Justificatif_ressources_12432823.pdf": {
+    "doc_id": "9d2d9e32b193515e84d1757d3d4674bc366d23f39766d881cb1d1a2d8cb39753",
+    "hash": "9d2d9e32b193515e84d1757d3d4674bc366d23f39766d881cb1d1a2d8cb39753",
+    "source_path": "/Personal_Storage/Justificatif_ressources_12432823.pdf",
+    "last_modified": "2025-06-19T21:19:35.407304",
+    "last_synced": "2025-06-19T21:19:35.407313",
+    "metadata": {
+      "path": "/Personal_Storage/Justificatif_ressources_12432823.pdf",
+      "user": "TEST_NEW_ARCHITECTURE",
+      "ingestion_type": "Personal_Storage",
+      "filename": "Justificatif_ressources_12432823.pdf",
+      "ingestion_date": "2025-06-19T21:19:33.908709",
+      "doc_id": "9d2d9e32b193515e84d1757d3d4674bc366d23f39766d881cb1d1a2d8cb39753",
+      "document_type": "pdf",
+      "chunk_id": 0,
+      "unique_id": "2373f5e5-0c62-4aab-b862-b2fc8202c955",
+      "num_chunks": 1,
+      "embedded": true,
+      "start_index": 0
+    }
+  },
+  "/Personal_Storage/test/Identité_12432708.pdf": {
+    "doc_id": "9f5cf6b89c1f36d0f17637b5cbbc136429a4ce4d33e0056938912bd8b343820e",
+    "hash": "9f5cf6b89c1f36d0f17637b5cbbc136429a4ce4d33e0056938912bd8b343820e",
+    "source_path": "/Personal_Storage/test/Identité_12432708.pdf",
+    "last_modified": "2025-06-19T21:19:35.407709",
+    "last_synced": "2025-06-19T21:19:35.407717",
+    "metadata": {
+      "path": "/Personal_Storage/test/Identité_12432708.pdf",
+      "user": "TEST_NEW_ARCHITECTURE",
+      "ingestion_type": "Personal_Storage",
+      "filename": "Identité_12432708.pdf",
+      "ingestion_date": "2025-06-19T21:19:33.908710",
+      "doc_id": "9f5cf6b89c1f36d0f17637b5cbbc136429a4ce4d33e0056938912bd8b343820e",
+      "embedded": false,
+      "unique_id": "9f5cf6b89c1f36d0f17637b5cbbc136429a4ce4d33e0056938912bd8b343820e"
+    }
+  }
+}

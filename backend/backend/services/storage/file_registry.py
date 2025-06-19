@@ -1,309 +1,271 @@
 """
-Service de registre de fichiers JSON pour suivre les documents ingérés.
+Module de gestion du registre des fichiers ingérés dans Qdrant.
+Permet de suivre les fichiers, leurs hashes, dates de modification et IDs.
 """
-
-import json
 import os
+import json
 import logging
 import hashlib
+from typing import Dict, List, Optional, Any, Set
 from datetime import datetime
-from pathlib import Path
-from typing import Dict, List, Any, Optional, Union
-import shutil
 
-from backend.core.config import DATA_DIR
 from backend.core.logger import log
+logger = log.bind(name="backend.services.storage.file_registry")
 
 class FileRegistry:
     """
-    Gestionnaire de registre de fichiers JSON qui suit les fichiers ingérés.
-    Sert de source de vérité pour les documents synchronisés entre Personal Storage et Qdrant.
+    Classe permettant de gérer un registre des fichiers ingérés dans Qdrant
+    sous forme de fichier JSON.
     """
-    
-    def __init__(self, user_id: str, source_name: str = "personal_storage"):
+    def __init__(self,user_id):
         """
-        Initialise le registre de fichiers.
+        Initialise le registre des fichiers.
         
         Args:
-            user_id (str): Identifiant de l'utilisateur
-            source_name (str, optional): Nom de la source (personal_storage, gmail, etc.). Par défaut "personal_storage".
+            user_id: Identifiant de l'utilisateur.
         """
-        self.user_id = user_id
-        self.source_name = source_name
-        
-        # Chemin du registre JSON
-        self.registry_dir = DATA_DIR / "file_registry"
-        self.registry_dir.mkdir(exist_ok=True, parents=True)
-        self.registry_file = self.registry_dir / f"{source_name}_{user_id}_registry.json"
-        
-        # Structure du registre
-        self.registry = {
-            "files": {},
-            "last_update": None,
-            "user_id": user_id,
-            "source": source_name
-        }
-        
-        # Charger le registre existant s'il existe
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        data_dir = os.path.join(base_dir, 'data')
+        os.makedirs(data_dir, exist_ok=True)
+        self.registry_path = os.path.join(data_dir, f'file_registry_{user_id}.json')
+        self.registry: Dict[str, Dict[str, Any]] = {}
         self._load_registry()
-        
-        log.info(f"Registre de fichiers initialisé depuis {self.registry_file} pour {user_id} - source: {source_name}")
-        
+    
     def _load_registry(self) -> None:
-        """
-        Charge le registre de fichiers depuis le disque.
-        """
-        if os.path.exists(self.registry_file):
+        """Charge le registre depuis le fichier JSON s'il existe."""
+        if os.path.exists(self.registry_path):
             try:
-                with open(self.registry_file, 'r') as f:
+                with open(self.registry_path, 'r', encoding='utf-8') as f:
                     self.registry = json.load(f)
-                log.debug(f"Registre chargé: {len(self.registry.get('files', {}))} fichiers trouvés")
-            except Exception as e:
-                log.error(f"Erreur lors du chargement du registre: {str(e)}")
-                # Créer une sauvegarde du fichier corrompu
-                if os.path.exists(self.registry_file):
-                    backup_file = f"{self.registry_file}.bak.{datetime.now().strftime('%Y%m%d%H%M%S')}"
-                    shutil.copy(self.registry_file, backup_file)
-                    log.warning(f"Sauvegarde du registre corrompu créée: {backup_file}")
+            except (json.JSONDecodeError, IOError) as e:
+                logger.error(f"Erreur lors du chargement du registre: {e}")
+                # Si le fichier est corrompu, créer un nouveau registre vide
+                self.registry = {}
         else:
-            log.debug(f"Aucun registre existant trouvé, création d'un nouveau registre")
+            logger.info("Aucun registre existant trouvé, création d'un nouveau registre")
+            self.registry = {}
             self._save_registry()
     
     def _save_registry(self) -> None:
-        """
-        Sauvegarde le registre de fichiers sur le disque.
-        """
+        """Sauvegarde le registre dans le fichier JSON."""
         try:
-            # Mettre à jour la date de dernière mise à jour
-            self.registry["last_update"] = datetime.now().isoformat()
-            
-            with open(self.registry_file, 'w') as f:
-                json.dump(self.registry, f, indent=2)
-            log.debug(f"Registre sauvegardé: {len(self.registry.get('files', {}))} fichiers")
-        except Exception as e:
-            log.error(f"Erreur lors de la sauvegarde du registre: {str(e)}")
+            with open(self.registry_path, 'w', encoding='utf-8') as f:
+                json.dump(self.registry, f, indent=2, ensure_ascii=False)
+            logger.debug(f"Registre sauvegardé: {len(self.registry)} fichiers")
+        except IOError as e:
+            logger.error(f"Erreur lors de la sauvegarde du registre: {e}")
     
-    def add_file(
-        self,
-        doc_id: str,
-        source_path: str,
-        file_hash: str,
-        last_modified: str,
-        metadata: Dict[str, Any]
-    ) -> None:
+    def compute_file_hash(self, file_content: bytes) -> str:
         """
-        Ajoute un fichier au registre.
+        Calcule le hash SHA-256 du contenu d'un fichier.
         
         Args:
-            doc_id (str): Identifiant unique du document dans Qdrant
-            source_path (str): Chemin source du document
-            file_hash (str): Hash SHA-256 du contenu
-            last_modified (str): Date de dernière modification au format ISO
-            metadata (Dict[str, Any]): Métadonnées additionnelles (nom, extension, etc.)
-        """
-        if "files" not in self.registry:
-            self.registry["files"] = {}
+            file_content: Contenu du fichier en bytes.
             
-        self.registry["files"][source_path] = {
+        Returns:
+            Hash SHA-256 du fichier sous forme de chaîne hexadécimale.
+        """
+        hasher = hashlib.sha256()
+        hasher.update(file_content)
+        return hasher.hexdigest()
+    
+    def add_file(self, 
+                doc_id: str, 
+                file_hash: str, 
+                source_path: str = None,
+                last_modified: Optional[str] = None,
+                metadata: Optional[Dict[str, Any]] = None) -> None:
+        """
+        Ajoute ou met à jour un fichier dans le registre.
+        
+        Args:
+            file_path: Chemin du fichier (clé unique dans le registre).
+            doc_id: Identifiant du document dans Qdrant.
+            file_hash: Hash SHA-256 du contenu du fichier.
+            source_path: Chemin source du document (peut être différent du file_path).
+            last_modified: Date de dernière modification (ISO format).
+                           Si None, utilise la date actuelle.
+            metadata: Métadonnées additionnelles du fichier.
+        """
+        if last_modified is None:
+            last_modified = datetime.now().isoformat()
+        print(source_path)
+        self.registry[source_path] = {
             "doc_id": doc_id,
             "hash": file_hash,
-            "source_path": source_path,
+            "source_path": source_path,  # Utiliser file_path comme fallback
             "last_modified": last_modified,
-            "metadata": metadata
+            "last_synced": datetime.now().isoformat()
         }
         
-        self._save_registry()
-        log.debug(f"Fichier ajouté au registre: {source_path}")
-    
-    def update_file(
-        self,
-        source_path: str,
-        doc_id: Optional[str] = None,
-        file_hash: Optional[str] = None,
-        last_modified: Optional[str] = None,
-        metadata: Optional[Dict[str, Any]] = None
-    ) -> None:
-        """
-        Met à jour les informations d'un fichier existant.
-        
-        Args:
-            source_path (str): Chemin source du document
-            doc_id (Optional[str]): Nouvel identifiant du document
-            file_hash (Optional[str]): Nouveau hash SHA-256
-            last_modified (Optional[str]): Nouvelle date de modification
-            metadata (Optional[Dict[str, Any]]): Nouvelles métadonnées
-        """
-        if "files" not in self.registry or source_path not in self.registry["files"]:
-            log.warning(f"Tentative de mise à jour d'un fichier non existant: {source_path}")
-            return
-            
-        if doc_id:
-            self.registry["files"][source_path]["doc_id"] = doc_id
-        if file_hash:
-            self.registry["files"][source_path]["hash"] = file_hash
-        if last_modified:
-            self.registry["files"][source_path]["last_modified"] = last_modified
         if metadata:
-            self.registry["files"][source_path]["metadata"] = metadata
+            self.registry[source_path]["metadata"] = metadata
             
         self._save_registry()
-        log.debug(f"Fichier mis à jour dans le registre: {source_path}")
-    
-    def remove_file(self, source_path: str) -> bool:
+        
+    def remove_file(self, file_path: str) -> bool:
         """
         Supprime un fichier du registre.
         
         Args:
-            source_path (str): Chemin source du document à supprimer
+            file_path: Chemin du fichier à supprimer.
             
         Returns:
-            bool: True si le fichier a été supprimé, False sinon
+            True si le fichier a été supprimé, False sinon.
         """
-        if "files" not in self.registry or source_path not in self.registry["files"]:
-            log.warning(f"Tentative de suppression d'un fichier non existant: {source_path}")
-            return False
-            
-        del self.registry["files"][source_path]
-        self._save_registry()
-        log.debug(f"Fichier supprimé du registre: {source_path}")
-        return True
+        if file_path in self.registry:
+            del self.registry[file_path]
+            self._save_registry()
+            return True
+        return False
     
-    def get_file(self, source_path: str) -> Optional[Dict[str, Any]]:
-        """
-        Récupère les informations d'un fichier du registre.
-        
-        Args:
-            source_path (str): Chemin source du document
-            
-        Returns:
-            Optional[Dict[str, Any]]: Informations du fichier ou None si non trouvé
-        """
-        if "files" not in self.registry or source_path not in self.registry["files"]:
-            return None
-            
-        return self.registry["files"][source_path]
-    
-    def get_file_by_id(self, doc_id: str) -> Optional[Dict[str, Any]]:
-        """
-        Récupère les informations d'un fichier par son ID de document.
-        
-        Args:
-            doc_id (str): ID du document à rechercher
-            
-        Returns:
-            Optional[Dict[str, Any]]: Informations du fichier ou None si non trouvé
-        """
-        if "files" not in self.registry:
-            return None
-            
-        for file_info in self.registry["files"].values():
-            if file_info.get("doc_id") == doc_id:
-                return file_info
-                
-        return None
-    
-    def file_exists(self, source_path: str) -> bool:
+    def file_exists(self, file_path: str) -> bool:
         """
         Vérifie si un fichier existe dans le registre.
         
         Args:
-            source_path (str): Chemin source du document
+            file_path: Chemin du fichier à vérifier.
             
         Returns:
-            bool: True si le fichier existe, False sinon
+            True si le fichier existe dans le registre, False sinon.
         """
-        return "files" in self.registry and source_path in self.registry["files"]
+        return file_path in self.registry
     
-    def get_all_files(self) -> Dict[str, Dict[str, Any]]:
+    def get_file_info(self, file_path: str) -> Optional[Dict[str, Any]]:
         """
-        Récupère tous les fichiers du registre.
-        
-        Returns:
-            Dict[str, Dict[str, Any]]: Dictionnaire de tous les fichiers
-        """
-        return self.registry.get("files", {})
-    
-    def get_file_paths(self) -> List[str]:
-        """
-        Récupère tous les chemins de fichiers du registre.
-        
-        Returns:
-            List[str]: Liste des chemins de fichiers
-        """
-        return list(self.registry.get("files", {}).keys())
-    
-    def get_doc_ids(self) -> List[str]:
-        """
-        Récupère tous les IDs de documents du registre.
-        
-        Returns:
-            List[str]: Liste des IDs de documents
-        """
-        return [file_info.get("doc_id") for file_info in self.registry.get("files", {}).values()]
-    
-    def clear_registry(self) -> None:
-        """
-        Vide complètement le registre.
-        """
-        self.registry["files"] = {}
-        self._save_registry()
-        log.warning(f"Registre vidé pour {self.user_id} - source: {self.source_name}")
-    
-    def backup_registry(self) -> str:
-        """
-        Crée une sauvegarde du registre.
-        
-        Returns:
-            str: Chemin du fichier de sauvegarde
-        """
-        backup_file = f"{self.registry_file}.bak.{datetime.now().strftime('%Y%m%d%H%M%S')}"
-        try:
-            shutil.copy(self.registry_file, backup_file)
-            log.info(f"Sauvegarde du registre créée: {backup_file}")
-            return backup_file
-        except Exception as e:
-            log.error(f"Erreur lors de la création de la sauvegarde: {str(e)}")
-            return ""
-    
-    @staticmethod
-    def calculate_file_hash(file_path: str) -> str:
-        """
-        Calcule le hash SHA-256 d'un fichier.
+        Récupère les informations d'un fichier dans le registre.
         
         Args:
-            file_path (str): Chemin du fichier
+            file_path: Chemin du fichier.
             
         Returns:
-            str: Hash SHA-256 du contenu du fichier
+            Informations du fichier ou None s'il n'existe pas.
         """
-        try:
-            sha256_hash = hashlib.sha256()
-            with open(file_path, "rb") as f:
-                # Lire le fichier par blocs pour éviter de charger des fichiers volumineux en mémoire
-                for byte_block in iter(lambda: f.read(4096), b""):
-                    sha256_hash.update(byte_block)
-            return sha256_hash.hexdigest()
-        except Exception as e:
-            log.error(f"Erreur lors du calcul du hash pour {file_path}: {str(e)}")
-            return ""
+        return self.registry.get(file_path)
     
-    def has_file_changed(self, source_path: str, file_path: str) -> bool:
+    def get_doc_id(self, file_path: str) -> Optional[str]:
         """
-        Vérifie si un fichier a été modifié en comparant son hash actuel avec celui du registre.
+        Récupère l'ID du document dans Qdrant.
         
         Args:
-            source_path (str): Chemin source du document dans le registre
-            file_path (str): Chemin réel du fichier à vérifier
+            file_path: Chemin du fichier.
             
         Returns:
-            bool: True si le fichier a été modifié ou n'existe pas dans le registre, False sinon
+            ID du document ou None s'il n'existe pas.
         """
-        file_info = self.get_file(source_path)
+        file_info = self.get_file_info(file_path)
+        return file_info["doc_id"] if file_info else None
+    
+    def has_changed(self, file_path: str, new_hash: str) -> bool:
+        """
+        Vérifie si un fichier a changé en comparant son hash.
+        
+        Args:
+            file_path: Chemin du fichier.
+            new_hash: Nouveau hash à comparer.
+            
+        Returns:
+            True si le fichier a changé, False sinon ou s'il n'existe pas.
+        """
+        file_info = self.get_file_info(file_path)
         if not file_info:
-            return True  # Le fichier n'existe pas dans le registre
+            return True  # Considéré comme changé s'il n'existe pas
+        return file_info["hash"] != new_hash
+    
+    def get_all_file_paths(self) -> Set[str]:
+        """
+        Récupère l'ensemble des chemins de fichiers dans le registre.
+        
+        Returns:
+            Ensemble des chemins de fichiers.
+        """
+        return set(self.registry.keys())
+    
+    def get_files_by_prefix(self, prefix: str) -> List[str]:
+        """
+        Récupère les fichiers dont le chemin commence par un préfixe.
+        
+        Args:
+            prefix: Préfixe à rechercher.
             
-        current_hash = self.calculate_file_hash(file_path)
-        if not current_hash:
-            return True  # Erreur lors du calcul du hash, considérer comme modifié
+        Returns:
+            Liste des chemins de fichiers correspondants.
+        """
+        return [path for path in self.registry.keys() if path.startswith(prefix)]
+        
+    def get_user_documents(self, document_type: Optional[str] = None, include_metadata: bool = True) -> List[Dict[str, Any]]:
+        """
+        Récupère les documents/emails uniques d'un utilisateur avec leurs métadonnées.
+        
+        Args:
+            document_type: Type de document à filtrer ("email", "email_attachment", etc.)
+                         Si None, retourne tous les types de documents.
+            include_metadata: Si True, inclut les métadonnées complètes pour chaque document.
             
-        return current_hash != file_info.get("hash", "")
+        Returns:
+            Liste de dictionnaires contenant les informations sur chaque document.
+        """
+        results = []
+        
+        # Parcourir tous les fichiers dans le registre
+        for file_path, file_info in self.registry.items():
+            # Si un type de document est spécifié, vérifier dans les métadonnées
+            if document_type and "metadata" in file_info:
+                if file_info["metadata"].get("document_type") != document_type:
+                    continue
+            
+            # Construire les informations de base du document
+            doc_info = {
+                "path": file_path,
+                "doc_id": file_info["doc_id"],
+                "last_modified": file_info["last_modified"],
+                "last_synced": file_info.get("last_synced")
+            }
+            
+            # Ajouter la source si disponible
+            if "source_path" in file_info:
+                doc_info["source_path"] = file_info["source_path"]
+            
+            # Ajouter les métadonnées si demandé
+            if include_metadata and "metadata" in file_info:
+                doc_info["metadata"] = file_info["metadata"]
+            
+            results.append(doc_info)
+        
+        # Trier par date de modification (du plus récent au plus ancien)
+        results.sort(key=lambda x: x.get("last_modified", ""), reverse=True)
+        
+        return results
+        
+    def count_user_documents(self, document_type: Optional[str] = None, prefix: Optional[str] = None) -> int:
+        """
+        Compte le nombre de documents/emails d'un utilisateur, avec filtrage optionnel.
+        
+        Args:
+            document_type: Type de document à filtrer ("email", "email_attachment", etc.)
+                         Si None, compte tous les types de documents.
+            prefix: Préfixe de chemin pour filtrer les documents (ex: "gmail/", "outlook/")
+                  Si None, compte tous les documents sans filtrage par préfixe.
+            
+        Returns:
+            Nombre de documents correspondants aux critères.
+        """
+        count = 0
+        
+        # Si un préfixe est spécifié, filtrer d'abord par préfixe
+        if prefix:
+            file_paths = self.get_files_by_prefix(prefix)
+        else:
+            file_paths = list(self.registry.keys())
+            
+        # Si aucun type de document n'est spécifié, retourner simplement le nombre de fichiers
+        if not document_type:
+            return len(file_paths)
+            
+        # Compter les fichiers correspondant au type spécifié
+        for path in file_paths:
+            file_info = self.registry.get(path, {})
+            if "metadata" in file_info and file_info["metadata"].get("document_type") == document_type:
+                count += 1
+                
+        return count

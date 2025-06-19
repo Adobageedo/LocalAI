@@ -4,9 +4,11 @@ import os
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..')))
 import json
+import uuid
 import zipfile
-from backend.core.config import load_config
-from typing import List
+from backend.core.config import CONFIG
+from backend.core.logger import log
+from typing import List, Dict, Any
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_core.documents import Document
 from langchain_community.document_loaders import (
@@ -30,10 +32,9 @@ from langchain_community.document_loaders import (
 )
 from unstructured.partition.email import partition_email
 import pandas as pd
-import logging
 
 # Configuration du logger
-logger = logging.getLogger(__name__)
+logger = log.bind(name="backend.services.ingestion.core.chunking")
 
 def get_supported_extensions():
     """
@@ -43,28 +44,15 @@ def get_supported_extensions():
         set: Ensemble des extensions supportées avec le point devant (.pdf, .docx, etc.)
     """
     try:
-        config = load_config()
-        supported_types = config.get('ingestion', {}).get('supported_types', [])
+        supported_types = CONFIG.get('ingestion', {}).get('supported_types', [])
+        logger.info(f"Supported types: {supported_types}")
         # Convertir les types en extensions avec un point devant
-        supported_extensions = {f'.{ext.lower()}' for ext in supported_types}
-        
-        # Ajouter des mappings pour certaines extensions
-        # Documents Office
-        if 'ppt' in supported_types or 'pptx' in supported_types:
-            supported_extensions.update({'.ppt', '.pptx'})
-        
-        # Formats de tableurs Microsoft Office
-        if 'excel' in supported_types:
-            supported_extensions.update({'.xlsx', '.xlsm', '.xls', '.csv'})
-        
+        supported_extensions = {ext.lower() for ext in supported_types}
+
         # Formats LibreOffice/OpenDocument
         if 'ods' in supported_types or 'excel' in supported_types:
             supported_extensions.update({'.ods', '.fods'})
-            
-        # Formats
-        if 'email' in supported_types:
-            supported_extensions.add('.eml')
-            
+
         # Si aucune extension trouvée, utiliser les valeurs par défaut
         if not supported_extensions:
             logger.warning("Aucune extension supportée trouvée dans la configuration, utilisation des valeurs par défaut")
@@ -79,7 +67,7 @@ def get_supported_extensions():
 SUPPORTED_EXTS = get_supported_extensions()
 
 
-def load_and_split_document(filepath: str, chunk_size: int = 500, chunk_overlap: int = 100) -> List[str]:
+def load_and_split_document(filepath: str, metadata: Dict[str, Any], chunk_size: int = 500, chunk_overlap: int = 100) -> List[str]:
     ext = os.path.splitext(filepath)[1].lower()
     if ext not in SUPPORTED_EXTS:
         raise ValueError(f"Unsupported file type: {ext}")
@@ -152,7 +140,7 @@ def load_and_split_document(filepath: str, chunk_size: int = 500, chunk_overlap:
         # Email : extraction avec unstructured
         elements = partition_email(filename=filepath)
         text = "\n".join([el.text for el in elements if hasattr(el, "text") and el.text])
-        docs = [Document(page_content=text, metadata={"source_path": os.path.abspath(filepath), "document_type": "email"})]
+        docs = [Document(page_content=text)]
 
     # Fichiers tableurs (Excel, CSV, LibreOffice Calc, etc.)
     elif ext in {".csv", ".xlsx", ".xlsm", ".xls", ".ods", ".fods"}:
@@ -223,13 +211,8 @@ def load_and_split_document(filepath: str, chunk_size: int = 500, chunk_overlap:
                         loader = TextLoader(filepath, encoding='utf-8', autodetect_encoding=True)
                         docs = loader.load()
                         return docs
-                    
             # Créer le document avec le contenu extrait
-            docs = [Document(page_content=text, metadata={
-                "source_path": os.path.abspath(filepath), 
-                "document_type": ext.lstrip('.'),
-                "filename": os.path.basename(filepath)
-            })]
+            docs = [Document(page_content=text)]
             
         except Exception as e:
             logger.warning(f"Erreur avec le traitement tableur: {str(e)}. Utilisation de TextLoader comme fallback.")
@@ -255,53 +238,58 @@ def load_and_split_document(filepath: str, chunk_size: int = 500, chunk_overlap:
             # Créer un document avec les métadonnées
             # Note: Le contenu réel nécessiterait l'API Google Drive pour être récupéré
             text = f"Titre: {title}\nDocument Google Drive ID: {doc_id}\nType: {doc_type}"
-            docs = [Document(page_content=text, metadata={
-                "source_path": os.path.abspath(filepath),
-                "document_type": doc_type,
-                "title": title,
-                "doc_id": doc_id
-            })]
+            docs = [Document(page_content=text)]
         except Exception as e:
             logger.error(f"Erreur lors du traitement du fichier Google Drive {filepath}: {str(e)}")
             # Créer un document minimal
-            docs = [Document(page_content=f"Erreur de traitement du fichier Google Drive", 
-                            metadata={"source_path": os.path.abspath(filepath), "document_type": ext.lstrip('.')})]
+            docs = [Document(page_content=f"Erreur de traitement du fichier Google Drive")]
     else:
         # Ce cas ne devrait pas se produire car on vérifie si l'extension est supportée au début
         raise ValueError(f"Unsupported file type: {ext}")
 
-    # Add absolute path and document_type to metadata for all docs
-    abs_path = os.path.abspath(filepath)
-    # Map extension to document_type
-    ext_map = {".pdf": "pdf", ".docx": "docx", ".txt": "txt", ".eml": "email"}
+    # Map extension to document_type and update metadata
+    ext_map = {".pdf": "pdf", ".docx": "docx", ".txt": "txt", ".eml": "email", ".csv": "csv", ".xlsx": "xlsx", ".xlsm": "xlsm", ".xls": "xls", ".ods": "ods", ".fods": "fods"}
     doc_type = ext_map.get(ext, ext.lstrip('.'))
-    for doc in docs:
-        if not hasattr(doc, 'metadata') or doc.metadata is None:
-            doc.metadata = {}
-        doc.metadata["source_path"] = abs_path
-        doc.metadata["document_type"] = doc_type
+    
+    # Update the passed metadata with document type
+    metadata["document_type"] = doc_type
+    
+    # Ensure all docs have the correct metadata
+    for i, doc in enumerate(docs):
+        # Start with the passed metadata and ensure it's a new dictionary
+        doc_metadata = metadata.copy()
+        # Add document-specific metadata
+        doc_metadata["chunk_id"] = i
+        doc_metadata["unique_id"] = str(uuid.uuid4())
+        doc_metadata["num_chunks"] = len(docs)
+        doc_metadata["embedded"] = True
+        # Assign the combined metadata to the document
+        doc.metadata = doc_metadata
 
     splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap, add_start_index=True)  # track index in original document
     return splitter.split_documents(docs)
 
-def batch_load_and_split_document(filepaths: List[str], chunk_size: int = 500, chunk_overlap: int = 100) -> List[str]:
+def batch_load_and_split_document(filepaths: List[dict], chunk_size: int = 500, chunk_overlap: int = 100) -> List[str]:
     """
     Charge et découpe une liste de documents en chunks.
 
     Args:
-        filepaths (List[str]): Liste de chemins vers les fichiers à traiter.
-        chunk_size (int, optional): Taille d’un chunk. Default est 500.
+        filepaths (List[dict]): Liste de dictionnaires contenant tmp_path et metadata des documents à traiter.
+        chunk_size (int, optional): Taille d'un chunk. Default est 500.
         chunk_overlap (int, optional): Chevauchement entre les chunks. Default est 100.
 
     Returns:
         List[str]: Liste de chunks de tous les documents.
     """
     all_chunks = []
-    for filepath in filepaths:
+    for file_info in filepaths:
+        tmp_path = file_info.get("tmp_path")
+        metadata = file_info.get("metadata").copy()
         try:
-            chunks = load_and_split_document(filepath, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+            chunks = load_and_split_document(tmp_path, metadata, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
             all_chunks.extend(chunks)
         except Exception as e:
-            logger.warning(f"Erreur lors du traitement du fichier {filepath}: {str(e)}")
+            logger.warning(f"Erreur lors du traitement du fichier {tmp_path}: {str(e)}")
+
     
     return all_chunks
