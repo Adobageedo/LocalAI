@@ -4,11 +4,10 @@ Configuration de logging pour le backend.
 
 import logging
 import sys
-from pathlib import Path
 from loguru import logger
 import json
 
-from .config import BASE_DIR
+from .constants import BASE_DIR
 
 # Configuration
 LOG_LEVEL = logging.INFO
@@ -79,6 +78,18 @@ def setup_logging():
         logging_logger = logging.getLogger(logger_name)
         logging_logger.handlers = [InterceptHandler()]
         logging_logger.propagate = False
+    
+    # Configuration des logs pour supprimer les messages de débogage des bibliothèques HTTP
+    noisy_loggers = [
+        "httpx", "httpcore", "httpcore.http11", "httpcore.connection",
+        "urllib3.connectionpool", "urllib3", "openai._base_client", 
+        "unstructured.trace", "chardet.universaldetector",
+        "chardet.charsetprober", "chardet", "cachecontrol.controller",
+        "python_multipart.multipart", "msal", "google.auth", "googleapiclient"
+    ]
+    
+    for logger_name in noisy_loggers:
+        logging.getLogger(logger_name).setLevel(logging.WARNING)
         
     return logger
 

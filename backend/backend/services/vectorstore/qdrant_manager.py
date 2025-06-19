@@ -8,14 +8,14 @@ from qdrant_client.http import models as rest
 from typing import List, Dict, Any
 from langchain_qdrant import QdrantVectorStore
 from backend.services.embeddings.embedding_service import EmbeddingService
-
+from backend.core.logger import log
 from backend.core.config import (
     QDRANT_URL,
     QDRANT_API_KEY
 )
 
 # Configure logging
-logger = logging.getLogger("rag-backend.vectorstore")
+logger = log.bind(name="backend.services.vectorstore.qdrant_manager")
 
 class VectorStoreManager:
     def __init__(self, collection_name: str):

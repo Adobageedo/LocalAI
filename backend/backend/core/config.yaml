@@ -57,27 +57,25 @@ monitoring:
   prometheus_endpoint: /metrics
 
 ingestion:
-  watch_path: ../data
   supported_types: [
-    "pdf",    # Fichiers PDF
-    "docx",   # Documents Microsoft Word
-    "txt",    # Fichiers texte brut
-    "md",     # Fichiers Markdown
-    "ppt",    # Présentations PowerPoint (ancien format)
-    "pptx",   # Présentations PowerPoint
-    "csv",    # Fichiers de données CSV
-    "json",   # Fichiers JSON
-    "email",  # Emails
+    ".pdf",    # Fichiers PDF
+    ".docx",   # Documents Microsoft Word
+    ".txt",    # Fichiers texte brut
+    ".md",     # Fichiers Markdown
+    ".ppt",    # Présentations PowerPoint (ancien format)
+    ".pptx",   # Présentations PowerPoint
+    ".csv",    # Fichiers de données CSV
+    ".json",   # Fichiers JSON
+    ".eml",  # Emails
     #"odt",    # Documents OpenDocument Text
     #"ods",    # Feuilles de calcul OpenDocument
-    "excel",  # Feuilles de calcul Excel (inclut xlsx, xlsm, xls)
-    "xls",    # Feuilles de calcul Excel (ancien format)
-    "xlsx",   # Feuilles de calcul Excel (format Office 2007+)
-    "xlsm",   # Feuilles de calcul Excel avec macros
-    "fods",   # Format OpenDocument Flat XML pour les feuilles de calcul
-    "gdoc",   # Google Documents
-    "gsheet", # Google Sheets
-    "gslides" # Google Slides
+    ".xls",    # Feuilles de calcul Excel (ancien format)
+    ".xlsx",   # Feuilles de calcul Excel (format Office 2007+)
+    ".xlsm",   # Feuilles de calcul Excel avec macros
+    ".fods",   # Format OpenDocument Flat XML pour les feuilles de calcul
+    ".gdoc",   # Google Documents
+    ".gsheet", # Google Sheets
+    ".gslides" # Google Slides
   ]
   batch_size: 10
   schedule_cron: "0 * * * *"      # Every hour

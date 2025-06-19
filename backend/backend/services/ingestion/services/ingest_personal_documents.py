@@ -92,7 +92,6 @@ def batch_ingest_user_documents(user_id: str, storage_path: str = None, limit: i
     for file_idx, filepath in enumerate(files):
         try:
             # Prepare metadata with original path
-            original_path = filepath
             if user_dir and filepath.startswith(user_dir):
                 # Keep the relative path from the user directory
                 relative_path = filepath[len(user_dir):].lstrip(os.path.sep)
@@ -101,17 +100,16 @@ def batch_ingest_user_documents(user_id: str, storage_path: str = None, limit: i
             
             # Create document metadata
             metadata = {
-                "source_path": "/Personal_Storage/" + relative_path,
-                "relative_path": relative_path,
-                "data_dir": user_dir,
-                "user_id": user_id,
-                "ingestion_date": datetime.now().isoformat(),
-                "ingestion_type": "user_storage"
+                "path": "/Personal_Storage/" + relative_path,
+                "user": user_id,
+                "ingestion_type": "Personal_Storage",
+                "filename": os.path.basename(filepath),
+                "ingestion_date": datetime.now().isoformat()
             }
             
             # Add document to batch
             batch_documents.append({
-                "filepath": filepath,
+                "tmp_path": filepath,
                 "metadata": metadata
             })
             
