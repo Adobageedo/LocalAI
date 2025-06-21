@@ -49,7 +49,10 @@ from backend.core.constants import (
     POSTGRES_DB,
     POSTGRES_HOST,
     POSTGRES_PORT,
-    STORAGE_PATH
+    STORAGE_PATH,
+    DEFAULT_TOTAL_CREDITS,
+    DEFAULT_USED_CREDITS,
+    DEFAULT_MAX_DOCUMENT_AGE_DAYS
 )
 
 logger = log.bind(name="backend.core.config")
