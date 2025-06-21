@@ -341,20 +341,12 @@ class ChatMessage:
 class SyncStatus:
     """Model class for sync_status table to track synchronization operations"""
     
-    def __init__(self, id: Union[str, uuid.UUID], user_id: str, source_type: str,
-                progress: float = 0.0,
-                status: str = "pending",
-                error_details: Optional[str] = None,
-                created_at: Optional[datetime] = None,
-                updated_at: Optional[datetime] = None):
-        self.id = str(id) if isinstance(id, uuid.UUID) else id
+    def __init__(self, user_id: str, source_type: str):
+        self.id = None
         self.user_id = user_id
         self.source_type = source_type
-        self.progress = progress
-        self.status = status
-        self.error_details = error_details
-        self.created_at = created_at or datetime.now()
-        self.updated_at = updated_at or datetime.now()
+        self.created_at = None
+        self.updated_at = None
     
     @classmethod
     def create(cls, user_id: str, source_type: str, status: str = "pending",
@@ -432,7 +424,6 @@ class SyncStatus:
     @classmethod
     def update(cls, id: Union[str, uuid.UUID], 
               status: Optional[str] = None,
-              details: Optional[Dict[str, Any]] = None, 
               error: Optional[str] = None) -> Optional['SyncStatus']:
         """Update a sync status record (static method)"""
         updates = {}
@@ -441,11 +432,7 @@ class SyncStatus:
         if status:
             updates['status'] = '%s'
             values.append(status)
-        
-        if details is not None:
-            updates['details'] = '%s'
-            values.append(json.dumps(details))
-            
+                    
         if error is not None:
             updates['error'] = '%s'
             values.append(error)
@@ -476,6 +463,69 @@ class SyncStatus:
         
         # Return updated object
         return cls(**result) if result else None
+
+    def upsert_status(self, status: str,
+                      progress: Optional[float] = None,
+                      error_details: Optional[str] = None) -> bool:
+        """Upsert sync operation status for a user and source_type."""
+        db = PostgresManager()
+
+        # Check if a row already exists
+        select_query = """
+            SELECT id FROM sync_status
+            WHERE user_id = %s AND source_type = %s
+        """
+        existing = db.execute_query(select_query, [self.user_id, self.source_type], fetch_one=True)
+
+        if existing:
+            # Update existing row
+            updates = {'status': status, 'updated_at': 'NOW()'}
+            values = [status]
+
+            if progress is not None:
+                updates['progress'] = progress
+                values.append(progress)
+
+            if error_details is not None:
+                updates['error_details'] = error_details
+                values.append(error_details)
+
+            query_parts = [f"{field} = {val if val == 'NOW()' else '%s'}"
+                           for field, val in updates.items()]
+            update_query = f"""
+                UPDATE sync_status
+                SET {', '.join(query_parts)}
+                WHERE user_id = %s AND source_type = %s
+                RETURNING id, user_id, source_type, progress, 
+                          status, error_details, created_at, updated_at
+            """
+            values = [v for v in values if v != 'NOW()']
+            values.extend([self.user_id, self.source_type])
+            result = db.execute_query(update_query, values, fetch_one=True)
+        else:
+            # Insert new row
+            insert_query = """
+                INSERT INTO sync_status (user_id, source_type, status, progress, error_details)
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING id, user_id, source_type, progress, 
+                          status, error_details, created_at, updated_at
+            """
+            values = [
+                self.user_id,
+                self.source_type,
+                status,
+                progress if progress is not None else 0.0,
+                error_details
+            ]
+            result = db.execute_query(insert_query, values, fetch_one=True)
+
+        # Sync local object with DB
+        if result:
+            for key, value in result.items():
+                setattr(self, key, value)
+            return True
+
+        return False
     
     def update_status(self, status: str, 
                      progress: Optional[float] = None,

@@ -3,6 +3,7 @@ Module centralisé pour gérer les identifiants d'authentification pour les diff
 """
 
 import os
+import glob
 import pickle
 import json
 import logging
@@ -10,6 +11,7 @@ from pathlib import Path
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 from google_auth_oauthlib.flow import InstalledAppFlow
+from typing import List
 
 logger = logging.getLogger("backend.services.auth.credentials_manager")
 

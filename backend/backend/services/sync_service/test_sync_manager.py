@@ -14,7 +14,7 @@ from pathlib import Path
 # Ajouter les chemins nécessaires au path
 current_dir = Path(__file__).parent
 root_dir = current_dir.parent
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..')))  
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))  
 sys.path.append(str(current_dir))
 
 # Configurer le logger
