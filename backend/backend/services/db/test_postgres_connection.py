@@ -8,7 +8,7 @@ import os
 import sys
 import psycopg2
 from pathlib import Path
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..')))  
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))  
 
 # Load environment variables from .env file
 from backend.core.logger import log

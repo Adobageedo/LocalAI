@@ -122,8 +122,7 @@ class VectorStoreManager:
         Returns:
             int: Number of points deleted
         """
-        logger.info(f"QDRANT DELETION: Starting deletion for doc_id={doc_id} in collection={self.collection_name}")
-        print(f"QDRANT DELETION: Starting deletion for doc_id={doc_id} in collection={self.collection_name}", flush=True)
+        logger.debug(f"QDRANT DELETION: Starting deletion for doc_id={doc_id} in collection={self.collection_name}")
         self.ensure_collection_exists()
         
         # Find points with doc_id at root or in metadata
@@ -137,8 +136,7 @@ class VectorStoreManager:
                     limit=100,
                     with_payload=True
                 )
-                logger.info(f"QDRANT DELETION: Scrolled batch of {len(points)} points")
-                print(f"QDRANT DELETION: Scrolled batch of {len(points)} points", flush=True)
+                logger.debug(f"QDRANT DELETION: Scrolled batch of {len(points)} points")
                 
                 for point in points:
                     payload = point.payload or {}
@@ -146,8 +144,7 @@ class VectorStoreManager:
                     meta_id = payload.get("metadata", {}).get("doc_id") if isinstance(payload.get("metadata"), dict) else None
                     if root_id == doc_id or meta_id == doc_id:
                         points_to_delete.add(point.id)
-                        logger.info(f"QDRANT DELETION: Found matching point: id={point.id}, root_id={root_id}, meta_id={meta_id}")
-                        print(f"QDRANT DELETION: Found matching point: id={point.id}, root_id={root_id}, meta_id={meta_id}", flush=True)
+                        logger.debug(f"QDRANT DELETION: Found matching point: id={point.id}, root_id={root_id}, meta_id={meta_id}")
                 
                 if next_offset is None:
                     break
@@ -155,37 +152,30 @@ class VectorStoreManager:
             except Exception as e:
                 logger.error(f"QDRANT DELETION ERROR: Error while scrolling collection: {str(e)}")
                 logger.error(traceback.format_exc())
-                print(f"QDRANT DELETION ERROR: Error while scrolling collection: {str(e)}", flush=True)
-                print(traceback.format_exc(), flush=True)
                 raise
         
         deleted_count = len(points_to_delete)
-        logger.info(f"QDRANT DELETION: Found {deleted_count} points to delete for doc_id={doc_id}")
-        print(f"QDRANT DELETION: Found {deleted_count} points to delete for doc_id={doc_id}", flush=True)
+        logger.debug(f"QDRANT DELETION: Found {deleted_count} points to delete for doc_id={doc_id}")
         
         if points_to_delete:
             try:
                 # Delete by root doc_id
-                logger.info(f"QDRANT DELETION: Deleting by root doc_id filter")
-                print(f"QDRANT DELETION: Deleting by root doc_id filter", flush=True)
+                logger.debug(f"QDRANT DELETION: Deleting by root doc_id filter")
                 self.client.delete(
                     collection_name=self.collection_name,
                     points_selector=rest.Filter(must=[{"key": "doc_id", "match": {"value": doc_id}}])
                 )
                 
                 # Delete by metadata.doc_id if needed
-                logger.info(f"QDRANT DELETION: Deleting by metadata.doc_id filter")
-                print(f"QDRANT DELETION: Deleting by metadata.doc_id filter", flush=True)
+                logger.debug(f"QDRANT DELETION: Deleting by metadata.doc_id filter")
                 self.client.delete(
                     collection_name=self.collection_name,
                     points_selector=rest.Filter(must=[{"key": "metadata.doc_id", "match": {"value": doc_id}}])
                 )
-                logger.info(f"QDRANT DELETION: Successfully deleted {deleted_count} points for doc_id={doc_id}")
-                print(f"QDRANT DELETION: Successfully deleted {deleted_count} points for doc_id={doc_id}", flush=True)
+                logger.debug(f"QDRANT DELETION: Successfully deleted {deleted_count} points for doc_id={doc_id}")
             except Exception as e:
                 logger.error(f"QDRANT DELETION ERROR: Failed to delete points: {str(e)}")
                 logger.error(traceback.format_exc())
-                print(f"QDRANT DELETION ERROR: Failed to delete points: {str(e)}", flush=True)
                 print(traceback.format_exc(), flush=True)
                 raise
         else:

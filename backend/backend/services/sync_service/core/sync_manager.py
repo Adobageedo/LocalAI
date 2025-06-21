@@ -93,7 +93,6 @@ class SyncManager:
             config: Configuration dictionary
         """
         self.config = config
-        self.sync_stats = SyncStatus()
         # Initialize credits manager for user ingestion limits
         self.credits_manager = UserCreditsManager()
         
@@ -104,26 +103,63 @@ class SyncManager:
         Returns:
             Dict mapping user IDs to lists of provider names
         """
+        import os
+        import glob
+        
         users = {}
         
-        # Utiliser la fonction de credentials_manager pour obtenir les utilisateurs Gmail
+        # Direct implementation of user discovery
         for provider_name in ['gmail', 'outlook', 'gdrive', 'personal-storage']:
-            # Skip disabled providers
-            if not self.config.get('sync', {}).get(provider_name, {}).get('enabled', True):
-                logger.info(f"Provider {provider_name} is disabled in config, skipping user discovery")
-                continue
                 
             try:
-                provider_users = get_authenticated_users_by_provider(provider_name)
-                for user_id in provider_users:
+                # Determine base path and pattern based on provider
+                if provider_name.lower() == 'gmail' or provider_name.lower() == 'gdrive':
+                    token_dir = os.environ.get('GMAIL_TOKEN_PATH', 'data/auth/google_user_token/user_id.pickle')
+                    base_path = token_dir.replace("user_id.pickle", "")
+                    pattern = '*.pickle'
+                elif provider_name.lower() == 'outlook':
+                    token_dir = os.environ.get('OUTLOOK_TOKEN_PATH', 'data/auth/microsoft_user_token/user_id.json')
+                    base_path = token_dir.replace("user_id.json", "")
+                    pattern = '*.json'
+                elif provider_name.lower() == 'personal-storage':
+                    data_dir = os.environ.get('STORAGE_PATH', 'data/storage/user_user_id/')
+                    base_path = data_dir.replace("user_user_id/", "")
+                    pattern = 'user_*'
+                else:
+                    logger.warning(f"Provider non supporté: {provider_name}")
+                    continue
+                
+                # Check if directory exists
+                if not os.path.exists(base_path):
+                    logger.warning(f"Répertoire des tokens non trouvé: {base_path}")
+                    continue
+                
+                # Find token files
+                search_pattern = os.path.join(base_path, pattern)
+                logger.debug(f"Searching for {provider_name} tokens with pattern: {search_pattern}")
+                token_files = glob.glob(search_pattern)
+                
+                # Extract user IDs from filenames
+                for token_file in token_files:
+                    if provider_name.lower() == 'personal-storage':
+                        # For personal storage, directory name is user_USERID
+                        dir_name = os.path.basename(token_file)
+                        if dir_name.startswith('user_'):
+                            user_id = dir_name[5:] # Remove 'user_' prefix
+                        else:
+                            continue
+                    else:
+                        # For other providers, extract from filename
+                        user_id = os.path.splitext(os.path.basename(token_file))[0]
+                    
+                    # Add to users dict
                     if user_id not in users:
                         users[user_id] = []
                     users[user_id].append(provider_name)
                     logger.debug(f"Found {provider_name.capitalize()} credentials for user {user_id}")
+                    
             except Exception as e:
-                logger.error(f"Error retrieving {provider_name} users: {e}")
-                self.sync_stats.update(user_id, provider_name, status="error", error=str(e))
-
+                logger.error(f"Error retrieving {provider_name} users: {e}", exc_info=True)
         
         return users
     
@@ -138,7 +174,7 @@ class SyncManager:
         
         total_users = len(users)
         logger.info(f"Found {total_users} authenticated users")
-        
+
         # Synchronize each user's emails
         for user_id, providers in users.items():
             for provider_name in providers:
@@ -157,46 +193,54 @@ class SyncManager:
             logger.warning(f"User {user_id} has no available credits for {provider_name} synchronization")
             return
         
-        # Create sync status
-        self.sync_stats.create(user_id, provider_name, status="in_progress")
-
-        # Get date threshold for filtering old documents
-        date_threshold = self.credits_manager.get_date_threshold(user_id)
-        logger.info(f"Using date threshold for {user_id}: {date_threshold.isoformat()[:10]} ({date_threshold.strftime('%Y-%m-%d')})")
-            
-        # Get query from config
-        query = provider_config.get('query', '')
-        if not query and provider_name == 'gmail':
-            query = None  # Default value for Gmail
-        elif not query and provider_name == 'outlook':
-            query = None  # Default value for Outlook
-        
         try:
-            # Execute provider-specific synchronization
-            if provider_name == 'gmail':
-                self._sync_gmail(user_id, query, date_threshold)
-            elif provider_name == 'outlook':
-                self._sync_outlook(user_id, query, date_threshold)
-            elif provider_name == 'gdrive':
-                self._sync_gdrive(user_id, query)
-            elif provider_name == 'personal-storage':
-                self._sync_personal_storage(user_id)
-            else:
-                logger.warning(f"Unknown provider: {provider_name}")
+            # Create sync status record
+            syncstatus = SyncStatus(user_id=user_id, source_type=provider_name)
+            syncstatus.upsert_status(status="in_progress", progress=0.0)
+            # Get date threshold for filtering old documents
+            date_threshold = self.credits_manager.get_date_threshold(user_id)
+            logger.info(f"Using date threshold for {user_id}: {date_threshold.isoformat()[:10]} ({date_threshold.strftime('%Y-%m-%d')})")
             
-            # After sync is complete, get new document count from file registry
-            self.sync_stats.update(user_id, provider_name, status="success")
-            registry = FileRegistry(user_id)  # Reload registry to see changes
-            final_docs = registry.count_user_documents()
-            # Deduct credits based on actual new documents added to the registry
-            if final_docs > 0:
-                self.credits_manager.use_credits(user_id, final_docs)
-                logger.info(f"User {user_id} used {final_docs} credits for {provider_name} sync")
+            # Get query from config
+            query = provider_config.get('query', '')
+            if not query and provider_name == 'gmail':
+                query = None  # Default value for Gmail
+            elif not query and provider_name == 'outlook':
+                query = None  # Default value for Outlook
         
+            try:
+                # Execute provider-specific synchronization
+                if provider_name == 'gmail':
+                    logger.info(f"Syncing Gmail for user {user_id}")
+                    self._sync_gmail(user_id=user_id, query=query, date_threshold=date_threshold, syncstatus=syncstatus)
+                elif provider_name == 'outlook':
+                    logger.info(f"Syncing Outlook for user {user_id}")
+                    self._sync_outlook(user_id=user_id, query=query, date_threshold=date_threshold, syncstatus=syncstatus)
+                elif provider_name == 'gdrive':
+                    logger.info(f"Syncing Google Drive for user {user_id}")
+                    self._sync_gdrive(user_id=user_id, query=query, syncstatus=syncstatus)
+                elif provider_name == 'personal-storage':
+                    logger.info(f"Syncing Personal Storage for user {user_id}")
+                    self._sync_personal_storage(user_id=user_id, syncstatus=syncstatus)
+                else:
+                    logger.warning(f"Unknown provider: {provider_name}")
+            
+                # After sync is complete, get new document count from file registry
+                registry = FileRegistry(user_id)  # Reload registry to see changes
+                final_docs = registry.count_user_documents()
+                # Deduct credits based on actual new documents added to the registry
+                if final_docs > 0:
+                    self.credits_manager.use_credits(user_id, final_docs)
+                # Update sync status
+                syncstatus.update_status(status="completed", progress=1.0)
+            except Exception as e:
+                logger.error(f"Error synchronizing {provider_name} for user {user_id}: {e}", exc_info=True)
+                syncstatus.update_status(status="failed")
         except Exception as e:
             logger.error(f"Error synchronizing {provider_name} for user {user_id}: {e}", exc_info=True)
-    
-    def _sync_gmail(self, user_id: str, query: str = None, date_threshold: Optional[datetime] = None) -> int:
+            SyncStatus.create(user_id=user_id, source_type=provider_name, status="error")
+        
+    def _sync_gmail(self, user_id: str, query: str = None, date_threshold: Optional[datetime] = None, syncstatus: SyncStatus = None) -> int:
         """Synchronize Gmail emails for a specific user.
         
         Args:
@@ -229,7 +273,7 @@ class SyncManager:
                 user_id=user_id,
                 query=query,
                 labels=labels,  # Gmail uses 'labels' instead of 'folders'
-                limit=2000,
+                limit=2,
                 force_reingest=force_reingest,
                 min_date=date_threshold,  # Pass the date threshold to the ingest function
                 return_count=True  # Request count of processed emails
@@ -240,7 +284,7 @@ class SyncManager:
         except Exception as e:
             logger.error(f"Gmail sync error for {user_id}: {e}")
     
-    def _sync_outlook(self, user_id: str, query: str = None, date_threshold: Optional[datetime] = None) -> int:
+    def _sync_outlook(self, user_id: str, query: str = None, date_threshold: Optional[datetime] = None, syncstatus: SyncStatus = None) -> int:
         """Synchronize Outlook emails for a specific user.
         
         Args:
@@ -275,7 +319,7 @@ class SyncManager:
             ingest_outlook_emails_to_qdrant(
                 user_id=user_id,
                 query=query,
-                limit=200,
+                limit=2,
                 save_attachments=save_attachments,
                 force_reingest=force_reingest,
                 min_date=date_threshold,
@@ -285,7 +329,7 @@ class SyncManager:
         except Exception as e:
             logger.error(f"Failed to sync Outlook for user {user_id}: {e}", exc_info=True)
 
-    def _sync_personal_storage(self, user_id: str) -> int:
+    def _sync_personal_storage(self, user_id: str, syncstatus: SyncStatus = None) -> int:
             """Synchronize personal storage for a specific user.
             
             Args:
@@ -309,7 +353,7 @@ class SyncManager:
                 batch_ingest_user_documents(
                     user_id=user_id,
                     storage_path=user_dir,
-                    limit=limit,
+                    limit=2,
                     force_reingest=force_reingest
                 )
                 logger.info(f"Personal storage sync completed for user {user_id}")
@@ -317,7 +361,7 @@ class SyncManager:
                 logger.error(f"Failed to sync personal storage for user {user_id}: {e}", exc_info=True)
 
     def _sync_gdrive(self, user_id: str, query: str = None, folder_id: str = None, 
-                        limit: int = 100, force_reingest: bool = False) -> Dict[str, Any]:
+                        limit: int = 100, force_reingest: bool = False, syncstatus: SyncStatus = None) -> Dict[str, Any]:
         """Synchronize Google Drive documents for a specific user.
             
         Args:
@@ -340,17 +384,20 @@ class SyncManager:
             # Call the Google Drive ingestion function
             result = batch_ingest_gdrive_documents(
                 query=query,
-                limit=limit,
+                limit=2,
                 folder_id=folder_id,
                 force_reingest=force_reingest,
                 verbose=verbose,
                 user_id=user_id,
-                batch_size=batch_size,
-                skip_duplicate_check=skip_duplicate_check
+                batch_size=batch_size
             )
+            
+            # Safely access result dictionary keys
+            files_ingested = result.get('items_ingested', 0)
+            files_skipped = result.get('items_skipped', 0)
                 
             logger.info(f"Google Drive sync completed for user {user_id}: "
-                        f"{result['files_ingested']} ingested, {result['files_skipped']} skipped")
+                        f"{files_ingested} ingested, {files_skipped} skipped")
                 
             return result
                 
