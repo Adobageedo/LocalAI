@@ -26,19 +26,49 @@ class BaseDocumentMetadata(BaseModel):
             data['ingestion_date'] = data['ingestion_date'].isoformat()
         return data
 
-# Email-specific metadata    
-class EmailMetadata(BaseDocumentMetadata):
-    sender: Optional[str] = None
-    receiver: Optional[str] = None
-    cc: Optional[List[str]] = None
-    bcc: Optional[List[str]] = None
-    subject: Optional[str] = None
-    date: Optional[str] = None
-    message_id: Optional[str] = None
-    document_type: str = "email"
-    source: Optional[str] = None
-    content_type: Optional[str] = None
-    parent_email_id: Optional[str] = None
+# Définition des classes pour les emails
+class EmailContent:
+    """Classe représentant le contenu d'un email."""
+    def __init__(self, body_text=None, body_html=None, attachments=None):
+        self.body_text = body_text
+        self.body_html = body_html
+        self.attachments = attachments
+        
+class EmailAttachment:
+    """Classe représentant une pièce jointe d'email."""
+    def __init__(self, filename=None, content_type=None, content=None, size=None, id=None):
+        self.filename = filename
+        self.content_type = content_type
+        self.content = content
+        self.size = size
+        self.id = id
+        
+class EmailMetadata:
+    """Classe représentant les métadonnées d'un email."""
+    def __init__(self, doc_id=None, user=None, message_id=None, subject=None, sender=None, 
+                 receiver=None, cc=None, bcc=None, date=None, folders=None, source=None,
+                 content_type=None, has_attachments=False, parent_email_id=None):
+        self.doc_id = doc_id
+        self.user = user
+        self.message_id = message_id
+        self.subject = subject
+        self.sender = sender
+        self.receiver = receiver
+        self.cc = cc
+        self.bcc = bcc
+        self.date = date
+        self.folders = folders or []
+        self.source = source
+        self.content_type = content_type
+        self.has_attachments = has_attachments
+        self.parent_email_id = parent_email_id
+        
+class Email:
+    """Classe représentant un email complet."""
+    def __init__(self, metadata=None, content=None, attachments=None):
+        self.metadata = metadata or EmailMetadata()
+        self.content = content or EmailContent()
+        self.attachments = attachments or []
 
 # User document metadata
 class DocumentMetadata(BaseDocumentMetadata):

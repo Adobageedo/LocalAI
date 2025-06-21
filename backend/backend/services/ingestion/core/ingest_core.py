@@ -3,7 +3,7 @@ import os
 
 # Ajouter le chemin racine du projet aux chemins d'import
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..')))
-
+import traceback
 from backend.services.vectorstore.qdrant_manager import VectorStoreManager
 from backend.services.ingestion.core.chunking import batch_load_and_split_document
 from langchain.schema import Document
@@ -25,6 +25,33 @@ def get_vector_store_manager(collection):
     if collection not in _manager_cache:
         _manager_cache[collection] = VectorStoreManager(collection)
     return _manager_cache[collection]
+
+def flush_batch(batch_documents, user_id, result, file_registry):
+    """
+    Ingest a batch of documents and update result statistics.
+    """
+    if not batch_documents:
+        return
+    logger.info(f"Batch de {len(batch_documents)} documents a ingérer and result: {result['items_ingested']}")
+    try:
+        # Ingest the batch of documents
+        batch_ingest_documents(
+            batch_documents=batch_documents,
+            user=user_id,
+            collection=user_id,
+            file_registry=file_registry
+        )
+        
+        # Update successful ingestion count
+        result["items_ingested"] += len(batch_documents)
+        logger.info(f"Batch of {len(batch_documents)} documents ingested successfully")
+    except Exception as batch_err:
+        logger.error(f"Error in batch ingestion: {batch_err}")
+        logger.error(traceback.format_exc())
+        result["errors"].append(f"Batch error: {str(batch_err)}")
+    finally:
+        # Clear the batch list for the next batch
+        batch_documents.clear()
 
 def batch_ingest_documents(batch_documents, user, collection=None, file_registry=None):
     import time
@@ -92,13 +119,12 @@ def batch_ingest_documents(batch_documents, user, collection=None, file_registry
     for doc in split_docs:
         filepath = doc.metadata.get("path")
         doc_id = doc.metadata.get("doc_id")
-        logger.info(f"Ajout du document {filepath} au qdrant et doc_id {doc_id}")
 
         if doc.metadata.get("document_type") == "email":
             email_fields = [
                 "sender", "receiver", "cc", "bcc", "subject", "date", 
                 "message_id", "document_type", "source", "content_type",
-                "parent_email_id", "ingest_date"
+                "parent_email_id", "ingestion_date"
             ]
             for key in email_fields:
                 doc.metadata.setdefault(key, None)
@@ -108,7 +134,7 @@ def batch_ingest_documents(batch_documents, user, collection=None, file_registry
         try:
             logger.info(f"Upload de {len(split_docs)} chunks pour {len(filepaths_to_process)} fichiers")
             record_step_time("document_upload")
-            manager.add_documents(split_docs)
+            manager.add_documents_in_batches(split_docs)
             logger.info("Upload terminé.")
         except Exception as e:
             logger.error(f"Erreur lors de l'upload: {e}")
@@ -116,12 +142,9 @@ def batch_ingest_documents(batch_documents, user, collection=None, file_registry
         record_step_time("document_registry")
         for file_info in filepaths_to_process:
             doc_id = file_info["metadata"]["doc_id"]
-            logger.info(f"Ajout du fichier {file_info['tmp_path']} au registre et doc_id {doc_id}")
             # Find a representative doc for this file
             doc = next((d for d in split_docs if d.metadata["doc_id"] == file_info["metadata"]["doc_id"]), None)
-            logger.info(f"Ajout du fichier {doc} au registre")
             if doc:
-                logger.info(f"Ajout du fichier {file_info['metadata']['path']} au registre")
                 file_registry.add_file(
                     doc_id=doc_id,
                     file_hash=doc_id,
@@ -130,7 +153,7 @@ def batch_ingest_documents(batch_documents, user, collection=None, file_registry
                     metadata=doc.metadata
                 )
             else:
-                logger.warning(f"Aucun document trouvé pour {file_info['tmp_path']}")
+                logger.warning(f"Aucun chunk à uploader. Mais document non embedded a ne pas traiter pour {file_info['tmp_path']}")
                 file_info["metadata"]["embedded"] = False
                 file_info["metadata"]["unique_id"] = doc_id
                 file_registry.add_file(
@@ -144,8 +167,6 @@ def batch_ingest_documents(batch_documents, user, collection=None, file_registry
         logger.info("Aucun chunk à uploader. Mais document non embedded a ne pas traiter")
         for file_info in filepaths_to_process:
             doc_id = file_info["metadata"]["doc_id"]
-            logger.info(f"Ajout du fichier {file_info['tmp_path']} au registre et doc_id {doc_id}")
-            # Find a representative doc for this file
             file_info["metadata"]["embedded"] = False
             file_info["metadata"]["unique_id"] = doc_id
             file_registry.add_file(

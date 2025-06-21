@@ -10,7 +10,7 @@ import time
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..')))
 
 from typing import Optional, Dict, List, Any
-from backend.services.ingestion.core.ingest_core import batch_ingest_documents
+from backend.services.ingestion.core.ingest_core import flush_batch
 from backend.services.storage.file_registry import FileRegistry
 import hashlib
 
@@ -47,7 +47,7 @@ def batch_ingest_user_documents(user_id: str, storage_path: str = None, limit: i
             "success": False,
             "error": f"No storage directory found for user {user_id}",
             "files_processed": 0,
-            "files_ingested": 0
+            "items_ingested": 0
         }
     
     # Initialize FileRegistry for this user
@@ -65,7 +65,7 @@ def batch_ingest_user_documents(user_id: str, storage_path: str = None, limit: i
             "success": False,
             "error": f"No files found in {user_dir}",
             "files_processed": 0,
-            "files_ingested": 0
+            "items_ingested": 0
         }
     
     # Apply limit if specified
@@ -78,7 +78,7 @@ def batch_ingest_user_documents(user_id: str, storage_path: str = None, limit: i
         "success": False,
         "total_files": len(files),
         "files_processed": 0,
-        "files_ingested": 0,
+        "items_ingested": 0,
         "files_skipped": 0,
         "errors": [],
         "user_id": user_id,
@@ -100,9 +100,9 @@ def batch_ingest_user_documents(user_id: str, storage_path: str = None, limit: i
             
             # Create document metadata
             metadata = {
-                "path": "/Personal_Storage/" + relative_path,
+                "path": "/personal_storage/" + relative_path,
                 "user": user_id,
-                "ingestion_type": "Personal_Storage",
+                "ingestion_type": "personal_storage",
                 "filename": os.path.basename(filepath),
                 "ingestion_date": datetime.now().isoformat()
             }
@@ -121,7 +121,7 @@ def batch_ingest_user_documents(user_id: str, storage_path: str = None, limit: i
             
             # Process batch when it reaches the batch size
             if len(batch_documents) >= batch_size:
-                flush_batch(batch_documents, user_id, result)
+                flush_batch(batch_documents, user_id, result, file_registry)
                 result["batches"] += 1
                 
         except Exception as e:
@@ -138,42 +138,13 @@ def batch_ingest_user_documents(user_id: str, storage_path: str = None, limit: i
     # Calculate elapsed time
     elapsed_time = time.time() - result["start_time"]
     result["elapsed_time"] = elapsed_time
-    result["success"] = result["files_ingested"] > 0
+    result["success"] = result["items_ingested"] > 0
     
-    logger.info(f"Batch ingestion complete: {result['files_ingested']} files ingested out of "
+    logger.info(f"Batch ingestion complete: {result['items_ingested']} files ingested out of "
                f"{result['files_processed']} processed in {elapsed_time:.2f} seconds "
                f"({result['batches']} batches)")
     
     return result
-
-
-def flush_batch(batch_documents, user_id, result, file_registry):
-    """
-    Ingest a batch of documents and update result statistics.
-    """
-    if not batch_documents:
-        return
-    
-    try:
-        # Ingest the batch of documents
-        batch_ingest_documents(
-            batch_documents=batch_documents,
-            user=user_id,
-            collection=user_id,
-            file_registry=file_registry
-        )
-        
-        # Update successful ingestion count
-        result["files_ingested"] += len(batch_documents)
-        logger.info(f"Batch of {len(batch_documents)} documents ingested successfully")
-    except Exception as batch_err:
-        logger.error(f"Error in batch ingestion: {batch_err}")
-        logger.error(traceback.format_exc())
-        result["errors"].append(f"Batch error: {str(batch_err)}")
-    finally:
-        # Clear the batch list for the next batch
-        batch_documents.clear()
-
 
 def main():
     parser = argparse.ArgumentParser(description='Ingest documents from a user\'s storage directory')
@@ -191,7 +162,7 @@ def main():
                                           batch_size=args.batch_size)
     
     if result["success"]:
-        print(f"Successfully ingested {result['files_ingested']} documents for user {args.user_id}")
+        print(f"Successfully ingested {result['items_ingested']} documents for user {args.user_id}")
         sys.exit(0)
     else:
         print(f"Error: {result.get('error', 'Unknown error during ingestion')}")

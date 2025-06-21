@@ -30,3 +30,5 @@ rag-backend/data/*
 **/__pycache__/
 *.pyc
 *config.js
+*.json
+**/data/

@@ -24,8 +24,8 @@ class FileRegistry:
         Args:
             user_id: Identifiant de l'utilisateur.
         """
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        data_dir = os.path.join(base_dir, 'data')
+        backend_dir = os.path.abspath(os.path.join(__file__, '..', '..', '..', '..'))
+        data_dir = os.path.join(backend_dir, 'data', 'file_registry')
         os.makedirs(data_dir, exist_ok=True)
         self.registry_path = os.path.join(data_dir, f'file_registry_{user_id}.json')
         self.registry: Dict[str, Dict[str, Any]] = {}
@@ -89,7 +89,6 @@ class FileRegistry:
         """
         if last_modified is None:
             last_modified = datetime.now().isoformat()
-        print(source_path)
         self.registry[source_path] = {
             "doc_id": doc_id,
             "hash": file_hash,
