@@ -39,12 +39,13 @@ class VectorStoreManager:
             else:
                 raise
 
-    def add_documents(self, docs: List[Any]):
+    def add_documents(self, docs: List[Any], embedder = None):
         """Add a list of langchain Document objects to the collection."""
         self.ensure_collection_exists()
-        embedder_instance = EmbeddingService()
-        
-        vectorstore = QdrantVectorStore(client=self.client, collection_name=self.collection_name, embedding=embedder_instance._embedder)
+        if embedder is None:
+            embedder_instance = EmbeddingService()
+            embedder = embedder_instance._embedder
+        vectorstore = QdrantVectorStore(client=self.client, collection_name=self.collection_name, embedding=embedder)
         vectorstore.add_documents(docs)
 
     def add_documents_in_batches(self, docs: List[Any], batch_size: int = 20) -> Dict[str, Any]:
@@ -82,7 +83,7 @@ class VectorStoreManager:
         # Calculate number of batches
         num_batches = (total_docs + batch_size - 1) // batch_size  # Ceiling division
         
-        logger.info(f"Processing {total_docs} documents in {num_batches} batches of size {batch_size}")
+        logger.info(f"Processing {total_docs} chunks in {num_batches} batches of size {batch_size}")
         
         # Process documents in batches
         for i in range(0, total_docs, batch_size):
@@ -92,7 +93,7 @@ class VectorStoreManager:
             
             try:
                 logger.debug(f"Processing batch {batch_num}/{num_batches} with {len(batch)} documents")
-                vectorstore.add_documents(batch)
+                self.add_documents(batch,embedder_instance._embedder)
                 stats["processed"] += len(batch)
                 logger.debug(f"Completed batch {batch_num}/{num_batches}")
             except Exception as e:
