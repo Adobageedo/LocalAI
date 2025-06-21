@@ -17,6 +17,10 @@ STORAGE_DIR.mkdir(exist_ok=True)
 API_V1_STR = "/api"
 PROJECT_NAME = "LocalAI RAG Backend"
 
+DEFAULT_TOTAL_CREDITS = os.getenv("DEFAULT_TOTAL_CREDITS", 10000)
+DEFAULT_USED_CREDITS = os.getenv("DEFAULT_USED_CREDITS", 0)
+DEFAULT_MAX_DOCUMENT_AGE_DAYS = os.getenv("DEFAULT_MAX_DOCUMENT_AGE_DAYS", 90)
+
 # Qdrant Configuration
 QDRANT_URL = os.getenv("QDRANT_URL", "http://localhost:6333")
 QDRANT_API_KEY = os.getenv("QDRANT_API_KEY", "")

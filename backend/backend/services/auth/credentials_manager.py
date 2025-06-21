@@ -233,3 +233,57 @@ def check_microsoft_credentials(user_id):
         result["error"] = str(e)
         logger.error(f"Erreur lors de la vérification des credentials Microsoft pour {user_id}: {str(e)}")
         return result
+
+def get_authenticated_users_by_provider(provider: str) -> List[str]:
+    """
+    Récupère la liste des utilisateurs authentifiés pour un provider spécifique.
+    
+    Args:
+        provider: Nom du provider ('gmail' ou 'outlook')
+        
+    Returns:
+        Liste des identifiants utilisateurs ayant des tokens enregistrés
+    """
+    users = []
+    
+    try:
+        # Déterminer le chemin de base et le pattern selon le provider
+        if provider.lower() == 'gmail' or provider.lower() == 'gdrive':
+            # On considère TOKEN_DIRECTORY/gmail/*.json comme structure
+            token_dir = os.environ.get('GMAIL_TOKEN_PATH', 'token.pickle')
+            base_path = token_dir.replace("user_id.pickle", "")
+            pattern = '*.pickle'
+        elif provider.lower() == 'outlook':
+            # On considère TOKEN_DIRECTORY/outlook/*.json comme structure
+            token_dir = os.environ.get('OUTLOOK_TOKEN_PATH', 'outlook_token.json')
+            base_path = token_dir.replace("user_id.json", "")
+            pattern = '*.json'
+        elif provider.lower() == 'personal-storage':
+            # On considère TOKEN_DIRECTORY/personal-storage/*.json comme structure
+            data_dir = os.environ.get('STORAGE_PATH', 'data/auth/personal_storage_token/user_id.json')
+            base_path = data_dir.replace("user_id.json", "")
+            pattern = '*.json'
+        else:
+            logger.error(f"Provider non supporté: {provider}")
+            return []
+            
+        # Vérifier si le répertoire existe
+        if not os.path.exists(base_path):
+            logger.warning(f"Répertoire des tokens non trouvé: {base_path}")
+            return []
+            
+        # Rechercher les fichiers de token
+        search_pattern = os.path.join(base_path, pattern)
+        token_files = glob.glob(search_pattern)
+        
+        # Extraire les identifiants utilisateurs (nom du fichier sans extension)
+        for token_file in token_files:
+            user_id = os.path.splitext(os.path.basename(token_file))[0]
+            users.append(user_id)
+            
+        return users
+        
+    except Exception as e:
+        logger.error(f"Erreur lors de la recherche des utilisateurs {provider}: {str(e)}")
+        return []
+
