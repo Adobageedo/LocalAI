@@ -27,6 +27,7 @@ from backend.core.logger import log
 from backend.services.auth.microsoft_auth import get_outlook_token
 from backend.services.ingestion.core.model import Email, EmailAttachment, EmailContent, EmailMetadata
 from backend.services.ingestion.core.utils import generate_email_id
+from backend.services.db.models import SyncStatus
 
 # Utiliser le logger centralisé avec un nom spécifique pour ce module
 logger = log.bind(name="backend.services.ingestion.services.ingest_outlook_emails")
@@ -262,7 +263,8 @@ def ingest_outlook_emails_to_qdrant(
     user_id: str = "default",
     min_date: Optional[datetime.datetime] = None,
     batch_size: int = 10,
-    return_count: bool = False
+    return_count: bool = False,
+    syncstatus: SyncStatus = None
 ) -> Dict[str, Any]:
     """
     Ingère des emails Outlook dans Qdrant.
@@ -431,7 +433,7 @@ def ingest_outlook_emails_to_qdrant(
                 
                 # Procéder par lots de batch_size documents
                 if len(batch_documents) >= batch_size:
-                    flush_batch(batch_documents, user_id, result, file_registry)
+                    flush_batch(batch_documents, user_id, result, file_registry, syncstatus)
                     result["batches"] += 1
                     
             except Exception as e:
@@ -442,7 +444,7 @@ def ingest_outlook_emails_to_qdrant(
         # Traiter les documents restants dans le batch
         if batch_documents:
             logger.info(f"Traitement du dernier lot de {len(batch_documents)} documents")
-            flush_batch(batch_documents, user_id, result, file_registry)
+            flush_batch(batch_documents, user_id, result, file_registry, syncstatus)
             result["batches"] += 1
         
         # Nettoyer le répertoire temporaire

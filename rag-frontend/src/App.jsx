@@ -3,10 +3,8 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './auth/AuthProvider';
 
 // Authentication provider removed
-import Dashboard from './pages/Dashboard';
 
 // Importation de tous les composants de pages disponibles pour l'accès direct
-import Folders from './pages/Folders';
 // Pages de profil utilisateur
 import UserProfilePage from './pages/UserProfilePage';
 import DocumentExplorer from './pages/DocumentExplorer';
@@ -16,6 +14,7 @@ import Register from './pages/Register';
 import Chatbot from './pages/Chatbot';
 import { PrivateRoute } from './components/PrivateRoute';
 import DefaultRoute from './DefaultRoute';
+import Home from './pages/Home';
 
 function App() {
   return (
@@ -26,9 +25,9 @@ function App() {
           <Route path="/" element={<DefaultRoute />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/home" element={<Home />} />
 
           {/* Private (user-only) routes */}
-          <Route path="/folders" element={<PrivateRoute><Folders /></PrivateRoute>} />
           <Route path="/profile" element={<PrivateRoute><UserProfilePage /></PrivateRoute>} />
           <Route path="/mail-import" element={<PrivateRoute><MailImport /></PrivateRoute>} />
           <Route path="/document-explorer" element={<PrivateRoute><DocumentExplorer /></PrivateRoute>} />

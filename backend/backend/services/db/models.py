@@ -341,12 +341,13 @@ class ChatMessage:
 class SyncStatus:
     """Model class for sync_status table to track synchronization operations"""
     
-    def __init__(self, user_id: str, source_type: str):
+    def __init__(self, user_id: str, source_type: str, total_documents: int):
         self.id = None
         self.user_id = user_id
         self.source_type = source_type
         self.created_at = None
         self.updated_at = None
+        self.total_documents = total_documents
     
     @classmethod
     def create(cls, user_id: str, source_type: str, status: str = "pending",
@@ -483,6 +484,7 @@ class SyncStatus:
             values = [status]
 
             if progress is not None:
+                progress = progress / self.total_documents
                 updates['progress'] = progress
                 values.append(progress)
 
@@ -535,6 +537,7 @@ class SyncStatus:
         values = [status]
         
         if progress is not None:
+            progress = progress / self.total_documents
             updates['progress'] = progress
             values.append(progress)
             

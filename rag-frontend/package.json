@@ -39,6 +39,7 @@
     "eslint-plugin-react-hooks": "^5.1.0-rc.0",
     "express": "^5.1.0",
     "firebase": "^11.8.1",
+    "framer-motion": "^12.18.1",
     "http-proxy-middleware": "^3.0.5",
     "keycloak-js": "^22.0.5",
     "multer": "^2.0.0",

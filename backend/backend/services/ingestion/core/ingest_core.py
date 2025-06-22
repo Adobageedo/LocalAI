@@ -11,6 +11,7 @@ from backend.services.storage.file_registry import FileRegistry
 from datetime import datetime
 from backend.services.ingestion.core.utils import compute_doc_id, compute_file_content_hash
 from backend.core.logger import log
+from backend.services.db.models import SyncStatus
 
 # Utiliser le logger centralisé avec un nom spécifique pour ce module
 logger = log.bind(name="backend.services.ingestion.core.ingest_core")
@@ -26,7 +27,7 @@ def get_vector_store_manager(collection):
         _manager_cache[collection] = VectorStoreManager(collection)
     return _manager_cache[collection]
 
-def flush_batch(batch_documents, user_id, result, file_registry):
+def flush_batch(batch_documents, user_id, result, file_registry, syncstatus: SyncStatus = None):
     """
     Ingest a batch of documents and update result statistics.
     """
@@ -44,6 +45,10 @@ def flush_batch(batch_documents, user_id, result, file_registry):
         
         # Update successful ingestion count
         result["items_ingested"] += len(batch_documents)
+        if syncstatus:
+            status = "in_progress"
+            progress = result["items_ingested"]
+            syncstatus.update_status(status, progress)
         logger.info(f"Batch of {len(batch_documents)} documents ingested successfully")
     except Exception as batch_err:
         logger.error(f"Error in batch ingestion: {batch_err}")
