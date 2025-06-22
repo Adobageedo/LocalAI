@@ -26,6 +26,7 @@ logger = log.bind(name="backend.services.ingestion.services.ingest_gdrive_docume
 from backend.services.auth.google_auth import get_drive_service
 from backend.services.ingestion.core.ingest_core import flush_batch
 from backend.services.storage.file_registry import FileRegistry
+from backend.services.db.models import SyncStatus
 
 def compute_drive_file_hash(file_metadata: Dict, file_content: Optional[bytes] = None) -> str:
     """
@@ -238,7 +239,8 @@ def batch_ingest_gdrive_documents(
     force_reingest: bool = False,
     verbose: bool = False,
     user_id: str = "",
-    batch_size: int = 10
+    batch_size: int = 10,
+    syncstatus: SyncStatus = None
 ) -> Dict[str, Any]:
     """
     Ingère les documents depuis Google Drive vers Qdrant par lots pour de meilleures performances.
@@ -359,7 +361,7 @@ def batch_ingest_gdrive_documents(
                 
                 # Traiter le lot si la taille maximale est atteinte
                 if len(batch_documents) >= batch_size:
-                    flush_batch(batch_documents, user_id, result, file_registry)
+                    flush_batch(batch_documents, user_id, result, file_registry, syncstatus)
                     result["batches"] += 1
                     logger.info(f"Lot #{result['batches']} traité. Total ingéré: {result['items_ingested']}")
                     
@@ -372,7 +374,7 @@ def batch_ingest_gdrive_documents(
         # Traiter le dernier lot s'il reste des documents
         if batch_documents:
             logger.info(f"Traitement du dernier lot de {len(batch_documents)} documents")
-            flush_batch(batch_documents, user_id, result, file_registry)
+            flush_batch(batch_documents, user_id, result, file_registry, syncstatus)
             result["batches"] += 1
             
         # Nettoyer les fichiers temporaires

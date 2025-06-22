@@ -25,7 +25,7 @@ from backend.core.logger import log
 from backend.services.ingestion.core.ingest_core import flush_batch
 from backend.services.storage.file_registry import FileRegistry
 from backend.services.ingestion.core.utils import generate_email_id
-
+from backend.services.db.models import SyncStatus
 # Utiliser le logger centralisé avec un nom spécifique pour ce module
 logger = log.bind(name="backend.services.ingestion.services.ingest_gmail_emails")
 
@@ -204,7 +204,8 @@ def batch_ingest_gmail_emails_to_qdrant(
     user_id: str = "",
     min_date: Optional[datetime.datetime] = None,
     return_count: bool = False,
-    batch_size: int = 20
+    batch_size: int = 20,
+    syncstatus: SyncStatus = None
 ) -> Dict[str, Any]:
     """
     Ingère les emails depuis Gmail vers Qdrant par lots.
@@ -390,7 +391,7 @@ def batch_ingest_gmail_emails_to_qdrant(
             # Traiter le lot quand il atteint la taille spécifiée
             if len(batch_documents) >= batch_size:
                 logger.info(f"Traitement d'un lot de {len(batch_documents)} documents")
-                flush_batch(batch_documents, user_id, result, file_registry)
+                flush_batch(batch_documents, user_id, result, file_registry, syncstatus)
                 result["batches"] += 1
 
         except Exception as process_err:
@@ -402,7 +403,7 @@ def batch_ingest_gmail_emails_to_qdrant(
         # Traiter les documents restants dans le lot
         if batch_documents:
             logger.info(f"Traitement du dernier lot de {len(batch_documents)} documents")
-            flush_batch(batch_documents, user_id, result, file_registry)
+            flush_batch(batch_documents, user_id, result, file_registry, syncstatus)
             result["batches"] += 1
             
         # Nettoyer les fichiers temporaires

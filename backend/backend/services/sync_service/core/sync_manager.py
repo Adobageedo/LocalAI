@@ -40,7 +40,7 @@ from backend.services.db.models import SyncStatus
 from backend.services.storage.file_registry import FileRegistry
 
 from backend.core.logger import log
-
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..'))
 # Setup logging
 logger = log.bind(name="backend.services.sync_service.core.sync_manager")
 
@@ -115,15 +115,15 @@ class SyncManager:
                 # Determine base path and pattern based on provider
                 if provider_name.lower() == 'gmail' or provider_name.lower() == 'gdrive':
                     token_dir = os.environ.get('GMAIL_TOKEN_PATH', 'data/auth/google_user_token/user_id.pickle')
-                    base_path = token_dir.replace("user_id.pickle", "")
+                    base_path = os.path.join(BASE_DIR, token_dir.replace("user_id.pickle", ""))
                     pattern = '*.pickle'
                 elif provider_name.lower() == 'outlook':
                     token_dir = os.environ.get('OUTLOOK_TOKEN_PATH', 'data/auth/microsoft_user_token/user_id.json')
-                    base_path = token_dir.replace("user_id.json", "")
+                    base_path = os.path.join(BASE_DIR, token_dir.replace("user_id.json", ""))
                     pattern = '*.json'
                 elif provider_name.lower() == 'personal-storage':
                     data_dir = os.environ.get('STORAGE_PATH', 'data/storage/user_user_id/')
-                    base_path = data_dir.replace("user_user_id/", "")
+                    base_path = os.path.join(BASE_DIR, data_dir.replace("user_user_id/", ""))
                     pattern = 'user_*'
                 else:
                     logger.warning(f"Provider non supporté: {provider_name}")
@@ -178,6 +178,7 @@ class SyncManager:
         # Synchronize each user's emails
         for user_id, providers in users.items():
             for provider_name in providers:
+                logger.info(f"Synchronizing {provider_name} for user {user_id}")
                 self.sync_provider(user_id, provider_name)
     
     def sync_provider(self, user_id: str, provider_name: str):
@@ -194,8 +195,9 @@ class SyncManager:
             return
         
         try:
+            limit=100#self.credits_manager.get_limit(user_id)
             # Create sync status record
-            syncstatus = SyncStatus(user_id=user_id, source_type=provider_name)
+            syncstatus = SyncStatus(user_id=user_id, source_type=provider_name, total_documents=limit)
             syncstatus.upsert_status(status="in_progress", progress=0.0)
             # Get date threshold for filtering old documents
             date_threshold = self.credits_manager.get_date_threshold(user_id)
@@ -276,7 +278,8 @@ class SyncManager:
                 limit=2,
                 force_reingest=force_reingest,
                 min_date=date_threshold,  # Pass the date threshold to the ingest function
-                return_count=True  # Request count of processed emails
+                return_count=True,  # Request count of processed emails
+                syncstatus=syncstatus
             )
             
             logger.info(f"Gmail sync completed for user {user_id}")
@@ -319,11 +322,12 @@ class SyncManager:
             ingest_outlook_emails_to_qdrant(
                 user_id=user_id,
                 query=query,
-                limit=2,
+                limit=limit,
                 save_attachments=save_attachments,
                 force_reingest=force_reingest,
                 min_date=date_threshold,
-                return_count=True
+                return_count=True,
+                syncstatus=syncstatus
             )
             logger.info(f"Outlook sync completed for user {user_id}")
         except Exception as e:
@@ -344,8 +348,8 @@ class SyncManager:
                 
                 force_reingest = self.config.get('sync', {}).get('outlook', {}).get('force_reingest', False)
 
-                storage_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'storage'))
-                
+                storage_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', 'data', 'storage'))
+    
                 # User-specific directory
                 user_dir = os.path.join(storage_path, "user_" + user_id)
                 
@@ -353,8 +357,9 @@ class SyncManager:
                 batch_ingest_user_documents(
                     user_id=user_id,
                     storage_path=user_dir,
-                    limit=2,
-                    force_reingest=force_reingest
+                    limit=limit,
+                    force_reingest=force_reingest,
+                    syncstatus=syncstatus
                 )
                 logger.info(f"Personal storage sync completed for user {user_id}")
             except Exception as e:
@@ -384,12 +389,13 @@ class SyncManager:
             # Call the Google Drive ingestion function
             result = batch_ingest_gdrive_documents(
                 query=query,
-                limit=2,
+                limit=limit,
                 folder_id=folder_id,
                 force_reingest=force_reingest,
                 verbose=verbose,
                 user_id=user_id,
-                batch_size=batch_size
+                batch_size=batch_size,
+                syncstatus=syncstatus
             )
             
             # Safely access result dictionary keys

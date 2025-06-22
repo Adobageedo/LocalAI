@@ -13,14 +13,14 @@ from typing import Optional, Dict, List, Any
 from backend.services.ingestion.core.ingest_core import flush_batch
 from backend.services.storage.file_registry import FileRegistry
 import hashlib
-
+from backend.services.db.models import SyncStatus
 from backend.core.logger import log
 
 # Utiliser le logger centralisé avec un nom spécifique pour ce module
 logger = log.bind(name="backend.services.ingestion.services.ingest_personal_documents")
 
 def batch_ingest_user_documents(user_id: str, storage_path: str = None, limit: int = 200, 
-                          force_reingest: bool = False, batch_size: int = 20) -> Dict[str, Any]:
+                          force_reingest: bool = False, batch_size: int = 20, syncstatus: SyncStatus = None) -> Dict[str, Any]:
     """
     Ingest all documents in the user's storage directory in batches for improved performance.
     
@@ -121,7 +121,7 @@ def batch_ingest_user_documents(user_id: str, storage_path: str = None, limit: i
             
             # Process batch when it reaches the batch size
             if len(batch_documents) >= batch_size:
-                flush_batch(batch_documents, user_id, result, file_registry)
+                flush_batch(batch_documents, user_id, result, file_registry, syncstatus)
                 result["batches"] += 1
                 
         except Exception as e:
@@ -132,7 +132,7 @@ def batch_ingest_user_documents(user_id: str, storage_path: str = None, limit: i
     
     # Process any remaining documents in the batch
     if batch_documents:
-        flush_batch(batch_documents, user_id, result, file_registry)
+        flush_batch(batch_documents, user_id, result, file_registry, syncstatus)
         result["batches"] += 1
     
     # Calculate elapsed time

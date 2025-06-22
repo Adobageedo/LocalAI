@@ -3,6 +3,8 @@ Module de gestion du registre des fichiers ingérés dans Qdrant.
 Permet de suivre les fichiers, leurs hashes, dates de modification et IDs.
 """
 import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
 import json
 import logging
 import hashlib
@@ -11,7 +13,9 @@ from datetime import datetime
 
 from backend.core.logger import log
 logger = log.bind(name="backend.services.storage.file_registry")
-
+backend_dir = os.path.abspath(os.path.join(__file__, '..', '..', '..', '..'))
+data_dir = os.path.join(backend_dir, 'data', 'file_registry')
+print(data_dir)
 class FileRegistry:
     """
     Classe permettant de gérer un registre des fichiers ingérés dans Qdrant

@@ -23,6 +23,8 @@ import CloseIcon from '@mui/icons-material/Close';
 import { useAuth } from '../../auth/AuthProvider';
 import { getConversations, deleteConversation } from '../../services/chatService';
 import gdriveService from '../../lib/gdrive';
+import { API_BASE_URL } from '../../config';
+import { authFetch } from '../../firebase/authFetch';
 
 // Icons
 import AddIcon from '@mui/icons-material/Add';
@@ -44,7 +46,7 @@ const Sidebar = ({ width = 240, open = true, onClose, collapsed = false, onToggl
   
   // État pour les statuts d'authentification
   const [googleConnected, setGoogleConnected] = useState(false);
-  const [microsoftConnected, setMicrosoftConnected] = useState(true);
+  const [microsoftConnected, setMicrosoftConnected] = useState(false);
   
   // État pour stocker les conversations récupérées
   const [conversations, setConversations] = useState([]);
@@ -246,11 +248,28 @@ const Sidebar = ({ width = 240, open = true, onClose, collapsed = false, onToggl
   // Authentification Microsoft
   const connectMicrosoft = async () => {
     try {
-      // Placeholder en attendant l'implémentation du service Microsoft
-      console.log('Tentative de connexion à Microsoft...');
-      alert('Fonctionnalité de connexion Microsoft à venir!');
+      // Générer l'URL de callback dynamiquement en fonction de l'environnement actuel
+      const protocol = window.location.protocol;
+      const host = window.location.host;
+      const callbackUrl = `${API_BASE_URL}/sources/outlook/callback`;
+      console.log('Using Outlook callback URL:', callbackUrl);
+      
+      // Appel à l'API backend pour obtenir l'URL d'authentification Microsoft
+      const response = await authFetch(`${API_BASE_URL}/sources/outlook/auth?callback_url=${encodeURIComponent(callbackUrl)}`);
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || response.statusText);
+      }
+      
+      // Ouvrir l'URL d'authentification dans une nouvelle fenêtre/onglet
+      if (data.auth_url) {
+        window.open(data.auth_url, '_blank');
+      } else {
+        console.error('URL d\'authentification Microsoft non disponible');
+      }
     } catch (error) {
-      console.error('Erreur lors de la connexion à Microsoft:', error);
+      console.error('Erreur lors de la récupération de l\'URL d\'authentification Microsoft:', error);
     }
   };
   

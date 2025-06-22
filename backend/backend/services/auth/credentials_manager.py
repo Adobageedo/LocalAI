@@ -3,6 +3,8 @@ Module centralisé pour gérer les identifiants d'authentification pour les diff
 """
 
 import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
 import glob
 import pickle
 import json
@@ -14,7 +16,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from typing import List
 
 logger = logging.getLogger("backend.services.auth.credentials_manager")
-
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 def load_google_token(user_id):
     """
     Charge un token Google OAuth2 depuis un fichier pickle.
@@ -27,7 +29,9 @@ def load_google_token(user_id):
     """
     try:
         from backend.core.config import GMAIL_TOKEN_PATH
+        
         token_path = GMAIL_TOKEN_PATH.replace("user_id", user_id)
+        token_path = os.path.join(BASE_DIR, token_path)
         logger.debug(f"Tentative de chargement du token Google pour {user_id} depuis {token_path}")
         
         if not os.path.exists(token_path):
@@ -57,6 +61,7 @@ def save_google_token(user_id, credentials):
     try:
         from backend.core.config import GMAIL_TOKEN_PATH
         token_path = GMAIL_TOKEN_PATH.replace("user_id", user_id)
+        token_path = os.path.join(BASE_DIR, token_path)
         logger.debug(f"Sauvegarde du token Google pour {user_id} dans {token_path}")
         
         # Créer le répertoire parent s'il n'existe pas
@@ -145,6 +150,7 @@ def load_microsoft_token(user_id):
     try:
         from backend.core.config import OUTLOOK_TOKEN_PATH
         token_path = OUTLOOK_TOKEN_PATH.replace("user_id", user_id)
+        token_path = os.path.join(BASE_DIR, token_path)
         logger.debug(f"Tentative de chargement du token Microsoft pour {user_id} depuis {token_path}")
         
         if not os.path.exists(token_path):
@@ -174,6 +180,7 @@ def save_microsoft_token(user_id, token_cache):
     try:
         from backend.core.config import OUTLOOK_TOKEN_PATH
         token_path = OUTLOOK_TOKEN_PATH.replace("user_id", user_id)
+        token_path = os.path.join(BASE_DIR, token_path)
         logger.debug(f"Sauvegarde du token Microsoft pour {user_id} dans {token_path}")
         
         # Créer le répertoire parent s'il n'existe pas
@@ -253,17 +260,17 @@ def get_authenticated_users_by_provider(provider: str) -> List[str]:
         if provider.lower() == 'gmail' or provider.lower() == 'gdrive':
             # On considère TOKEN_DIRECTORY/gmail/*.json comme structure
             token_dir = os.environ.get('GMAIL_TOKEN_PATH', 'token.pickle')
-            base_path = token_dir.replace("user_id.pickle", "")
+            base_path = os.path.join(BASE_DIR, token_dir.replace("user_id.pickle", ""))
             pattern = '*.pickle'
         elif provider.lower() == 'outlook':
             # On considère TOKEN_DIRECTORY/outlook/*.json comme structure
             token_dir = os.environ.get('OUTLOOK_TOKEN_PATH', 'outlook_token.json')
-            base_path = token_dir.replace("user_id.json", "")
+            base_path = os.path.join(BASE_DIR, token_dir.replace("user_id.json", ""))
             pattern = '*.json'
         elif provider.lower() == 'personal-storage':
             # On considère TOKEN_DIRECTORY/personal-storage/*.json comme structure
             data_dir = os.environ.get('STORAGE_PATH', 'data/auth/personal_storage_token/user_id.json')
-            base_path = data_dir.replace("user_id.json", "")
+            base_path = os.path.join(BASE_DIR, data_dir.replace("user_id.json", ""))
             pattern = '*.json'
         else:
             logger.error(f"Provider non supporté: {provider}")
@@ -289,3 +296,9 @@ def get_authenticated_users_by_provider(provider: str) -> List[str]:
         logger.error(f"Erreur lors de la recherche des utilisateurs {provider}: {str(e)}")
         return []
 
+def main():
+    users = load_google_token('gmail')
+    print(users)
+
+if __name__ == '__main__':
+    main()
