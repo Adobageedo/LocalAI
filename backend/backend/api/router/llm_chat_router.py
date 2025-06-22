@@ -4,6 +4,8 @@ from pydantic import BaseModel, UUID4, Field, EmailStr
 from uuid import UUID
 from datetime import datetime
 import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
 from backend.services.auth.middleware.auth import get_current_user
 from backend.services.rag.retrieve_rag_information_modular import get_rag_response_modular
 from backend.core.logger import log
@@ -71,7 +73,7 @@ class SyncStatusUpdate(BaseModel):
     error_details: Optional[str] = None
 
 class SyncStatusResponse(BaseModel):
-    id: str
+    id: UUID4
     user_id: str
     source_type: str
     status: str
@@ -155,24 +157,40 @@ async def get_conversation(conversation_id: UUID4, user=Depends(get_current_user
 
 @router.post("/conversations", response_model=Conversation, status_code=status.HTTP_201_CREATED)
 async def create_conversation(conversation: ConversationCreate, user=Depends(get_current_user)):
-    """Create a new conversation"""
     try:
-        # If user authentication is enabled, use the user_id
+        # Extract user_id from the authenticated user
         user_id = user.get("uid") if user else None
         
-        # Call the class method directly on the model class, not on an instance
-        # ConversationModel.create only needs user_id and name parameters
+        if not user_id:
+            logger.warning("Attempting to create conversation without user_id")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required to create conversations"
+            )
+            
+        logger.info(f"Creating conversation for user {user_id} with name: {conversation.name}")
+        
+        # Call the class method to create a new conversation
         new_conversation = ConversationModel.create(user_id=user_id, name=conversation.name)
         
         if not new_conversation:
-            raise ValueError("Failed to create conversation")
+            logger.error(f"Failed to create conversation for user {user_id}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Database error: Failed to create conversation"
+            )
             
+        logger.info(f"Successfully created conversation with ID: {new_conversation.id}")
         return new_conversation.to_dict()
+        
+    except HTTPException as he:
+        # Re-raise existing HTTP exceptions
+        raise he
     except Exception as e:
-        print(f"Error creating conversation: {e}")
+        logger.error(f"Unexpected error creating conversation: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error creating conversation: {str(e)}"
+            detail="Internal server error while creating conversation"
         )
 
 @router.put("/conversations/{conversation_id}", response_model=Conversation)
@@ -181,21 +199,50 @@ async def update_conversation(
 ):
     """Update a conversation name"""
     try:
-        now = datetime.now()
+        # Verify user authentication
+        user_id = user.get("uid") if user else None
+        if not user_id:
+            logger.warning("Attempting to update conversation without authentication")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required to update conversations"
+            )
         
+        # Retrieve conversation
         conversation_obj = ConversationModel.get_by_id(conversation_id)
-            
         if not conversation_obj:
+            logger.warning(f"Conversation {conversation_id} not found for update")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Conversation not found"
             )
             
-        conversation_obj.name = conversation.name
-        conversation_obj.updated_at = now
+        # Check if user owns this conversation (security check)
+        if conversation_obj.user_id != user_id:
+            logger.warning(f"User {user_id} attempted to update conversation {conversation_id} owned by {conversation_obj.user_id}")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to update this conversation"
+            )
+        
+        # Use the model's update method to persist changes to database
+        success = conversation_obj.update(name=conversation.name)
+        
+        if not success:
+            logger.error(f"Database error while updating conversation {conversation_id}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to update conversation"
+            )
+            
+        logger.info(f"Successfully updated conversation {conversation_id}")
         return conversation_obj.to_dict()
+        
+    except HTTPException as he:
+        # Re-raise HTTP exceptions
+        raise he
     except Exception as e:
-        print(f"Error updating conversation: {e}")
+        logger.error(f"Error updating conversation {conversation_id}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error updating conversation"
@@ -206,16 +253,10 @@ async def delete_conversation(conversation_id: UUID4, user=Depends(get_current_u
     """Delete a conversation"""
     try:
         # First, delete all messages in the conversation
-        if user:
-            ChatMessageModel.delete(conversation_id=conversation_id, user_id=user.get("uid"))
-        else:
-            ChatMessageModel.delete(conversation_id=conversation_id)
+        ChatMessageModel.delete(conversation_id=conversation_id)
         
         # Then, delete the conversation itself
-        if user:
-            deleted = ConversationModel.delete(conversation_id=conversation_id, user_id=user.get("uid"))
-        else:
-            deleted = ConversationModel.delete(conversation_id=conversation_id)
+        deleted = ConversationModel.delete(conversation_id=conversation_id)
             
         if not deleted:
             raise HTTPException(
@@ -234,39 +275,74 @@ async def delete_conversation(conversation_id: UUID4, user=Depends(get_current_u
 @router.get("/conversations/{conversation_id}/messages", response_model=List[Message])
 async def get_conversation_messages(conversation_id: str = None, user=Depends(get_current_user)):
     """Get all messages in a conversation"""
+    # Validate inputs
     if not conversation_id:
+        logger.warning("Attempted to fetch messages without conversation ID")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Conversation ID is required"
         )
+    
+    # Verify user authentication   
+    user_id = user.get("uid") if user else None
+    if not user_id:
+        logger.warning("Attempted to fetch messages without authentication")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required to view conversation messages"
+        )
         
-    print(f"Fetching messages for conversation {conversation_id}")
-    conversation_id = UUID(conversation_id)
     try:
-        # First check if the conversation exists
-        conversation = ConversationModel.get_by_id(conversation_id)
-
+        # Convert string ID to UUID
+        try:
+            conversation_uuid = UUID(conversation_id)
+            logger.info(f"Fetching messages for conversation {conversation_id}")
+        except ValueError:
+            logger.warning(f"Invalid conversation ID format: {conversation_id}")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid conversation ID format"
+            )
+        
+        # Check if the conversation exists
+        conversation = ConversationModel.get_by_id(conversation_uuid)
         if not conversation:
+            logger.warning(f"Conversation with ID {conversation_id} not found")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Conversation with ID {conversation_id} not found"
             )
+        
+        # Check if user owns this conversation
+        if conversation.user_id != user_id:
+            logger.warning(f"User {user_id} attempted to access conversation {conversation_id} owned by {conversation.user_id}")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="You don't have permission to access this conversation"
+            )
 
         # Get all messages for the conversation
-        messages = ChatMessageModel.get_by_conversation_id(conversation_id)
-        print(f"Found {len(messages) if messages else 0} messages for conversation {conversation_id}")
+        messages = ChatMessageModel.get_by_conversation_id(conversation_uuid)
+        message_count = len(messages) if messages else 0
+        logger.info(f"Retrieved {message_count} messages for conversation {conversation_id}")
+        
+        # Return messages as dictionaries
         return [message.to_dict() for message in messages]
         
+    except HTTPException as he:
+        # Re-raise HTTP exceptions
+        raise he
     except Exception as e:
-        print(f"Error fetching messages: {e}")
+        logger.error(f"Error fetching messages for conversation {conversation_id}: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error fetching messages: {str(e)}"
+            detail="Error retrieving conversation messages"
         )
 
 @router.post("/conversations/{conversation_id}/messages", response_model=Message, status_code=status.HTTP_201_CREATED)
 async def add_message(conversation_id: Optional[UUID4] = None, message: MessageCreate = None, user=Depends(get_current_user)):
     """Add a message to a conversation. If conversation_id is None, create a new conversation first."""
+    # Basic request validation
     if not message:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -274,82 +350,108 @@ async def add_message(conversation_id: Optional[UUID4] = None, message: MessageC
         )
         
     # Validate role - must match CHECK constraint in database
-    if message.role not in ['user', 'assistant', 'system']:
+    valid_roles = ['user', 'assistant', 'system']
+    if message.role not in valid_roles:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Invalid role '{message.role}'. Must be one of: 'user', 'assistant', 'system'"
+            detail=f"Invalid role '{message.role}'. Must be one of: {', '.join(valid_roles)}"
         )
         
     try:
-        now = datetime.now()
-        user_id = user.get("uid") if user else "TestNone" # Use a default test user if no user authenticated
+        # Get authenticated user or reject if not authenticated
+        user_id = user.get("uid") if user else None
+        if not user_id:
+            logger.warning("Attempting to add message without authentication")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required to add messages"
+            )
         
-        # Check if the user exists in database
-        user_exists = ConversationModel.get_by_user_id(user_id)
+        logger.info(f"Processing message creation for user {user_id}")
         
-        if not user_exists:
-            # User doesn't exist, create it
-            try:
-                new_user = ConversationModel.create(user_id=user_id, name="New User", created_at=now, updated_at=now)
-                print(f"Created test user with id {user_id}")
-            except Exception as e:
-                print(f"Error creating user: {e}")
-        
-        # If conversation_id is None or null string, create a new conversation
+        # If conversation_id is None or null string, create a new conversation first
         if not conversation_id:
-            new_conversation = ConversationModel.create(user_id=user_id, name="New Conversation", created_at=now, updated_at=now)
+            logger.info(f"No conversation_id provided, creating new conversation for user {user_id}")
+            new_conversation = ConversationModel.create(user_id=user_id, name="New Conversation")
+            
+            if not new_conversation:
+                logger.error(f"Failed to create new conversation for user {user_id}")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Failed to create new conversation"
+                )
+                
             conversation_id = new_conversation.id
-            print(f"Created new conversation with id {conversation_id}")
+            logger.info(f"Created new conversation with id {conversation_id}")
         else:
             # Check if the conversation exists
             conversation = ConversationModel.get_by_id(conversation_id)
             
             if not conversation:
+                logger.warning(f"Conversation with id {conversation_id} not found")
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail=f"Conversation with id {conversation_id} not found"
                 )
                 
-        print(f"Adding message to conversation {conversation_id} for user {user_id}")
-        # Process sources data - convert string sources to objects for consistency
+            # Security check - ensure user owns this conversation
+            if conversation.user_id != user_id:
+                logger.warning(f"User {user_id} attempted to add message to conversation {conversation_id} owned by {conversation.user_id}")
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You don't have permission to add messages to this conversation"
+                )
+                
+        # Process sources data - normalize to consistent format
         sources_data = None
         if message.sources:
             if isinstance(message.sources, list):
-                # Convert string sources to objects with 'source' field for consistency
+                # Normalize sources to dictionary format
                 processed_sources = []
                 for src in message.sources:
                     if isinstance(src, str):
                         processed_sources.append({"source": src})
-                    else:
-                        # Keep dict sources as they are
+                    elif isinstance(src, dict):
+                        # Ensure dict has source key
+                        if not 'source' in src:
+                            src['source'] = "Unknown source"
                         processed_sources.append(src)
+                    else:
+                        logger.warning(f"Ignoring invalid source type: {type(src)}")
+                        
                 sources_data = processed_sources
+                logger.debug(f"Processed {len(processed_sources)} sources")
         
-        # Insert the message (let PostgreSQL generate the id)
-        # Note: The timestamp is automatically set by the PostgreSQL database
+        logger.info(f"Adding message to conversation {conversation_id} for user {user_id}")
+        
+        # Create the message using the appropriate model method
         new_message = ChatMessageModel.create(
-            conversation_id=conversation_id, 
-            user_id=user_id, 
-            role=message.role, 
-            message=message.message, 
+            conversation_id=conversation_id,
+            user_id=user_id,
+            role=message.role,
+            message=message.message,
             sources=sources_data
         )
         
         if not new_message:
-            # This could happen if the conversation doesn't exist or other database issues
             error_msg = f"Failed to create message for conversation {conversation_id}"
-            print(error_msg)
+            logger.error(error_msg)
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=error_msg
             )
             
+        logger.info(f"Successfully added message {new_message.id} to conversation {conversation_id}")
         return new_message.to_dict()
+        
+    except HTTPException as he:
+        # Re-raise HTTP exceptions
+        raise he
     except Exception as e:
-        print(f"Error adding message: {e}")
+        logger.error(f"Error adding message: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error adding message: {str(e)}"
+            detail=f"Error adding message to conversation"
         )
 
 # Sync Status Management Endpoints
@@ -369,6 +471,7 @@ async def get_sync_statuses(source_type: Optional[str] = None, user=Depends(get_
         if source_type:
             # Fetch the latest sync status for the specified source type
             sync_status = SyncStatus.get_latest_by_user_and_source(user_id, source_type)
+            logger.info(f"Sync status for user {user_id} and source type {source_type}: {sync_status.to_dict()}")
             if not sync_status:
                 return []
             return [sync_status.to_dict()]
@@ -1018,3 +1121,8 @@ async def generate_conversation_title(data: dict, user=Depends(get_current_user)
         words = message.split()[:5]
         title = " ".join(words) + ("..." if len(words) >= 5 else "")
         return {"title": title}
+def main():
+    get_sync_statuses()
+if __name__ == "__main__":
+    main()
+    
