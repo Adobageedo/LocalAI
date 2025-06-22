@@ -17,7 +17,9 @@ import EditIcon from '@mui/icons-material/Edit';
 import LogoutIcon from '@mui/icons-material/Logout';
 import AccountCircleIcon from '@mui/icons-material/AccountCircle';
 import WarningIcon from '@mui/icons-material/Warning';
-import gdriveService from '../lib/gdrive';
+import HelpOutlineIcon from '@mui/icons-material/HelpOutline';
+import authProviders from '../lib/authProviders';
+import { ResetTourButton } from '../components/onboarding';
 
 const UserProfilePage = () => {
   const navigate = useNavigate();
@@ -35,22 +37,24 @@ const UserProfilePage = () => {
   
   // Check connection status on component load
   useEffect(() => {
-    const checkConnections = async () => {
-      // Check Google connection
-      try {
-        const googleStatus = await gdriveService.checkAuthStatus();
-        setGoogleConnected(googleStatus.authenticated);
-      } catch (error) {
-        console.error('Error checking Google connection:', error);
-      }
+    const checkProviderConnections = async () => {
+      if (!user) return;
       
-      // Check Microsoft connection (to be implemented with actual service)
-      // For now just using a placeholder
-      setMicrosoftConnected(false);
+      try {
+        // Check Google connection
+        const googleStatus = await authProviders.checkAuthStatus('google');
+        setGoogleConnected(googleStatus.authenticated);
+        
+        // Check Microsoft connection
+        const outlookStatus = await authProviders.checkAuthStatus('microsoft');
+        setMicrosoftConnected(outlookStatus.authenticated);
+      } catch (error) {
+        console.error('Error checking provider connections:', error);
+      }
     };
-    
-    checkConnections();
-  }, []);
+
+    checkProviderConnections();
+  }, [user]);
   
   // Handle form field changes
   const handleChange = (e) => {
@@ -93,7 +97,7 @@ const UserProfilePage = () => {
   // Connect to Google Drive
   const handleConnectGoogle = async () => {
     try {
-      await gdriveService.authenticate();
+      await authProviders.authenticateWithPopup('google');
       setGoogleConnected(true);
       setSuccessMessage('Connexion à Google établie avec succès');
       setTimeout(() => setSuccessMessage(''), 3000);
@@ -107,7 +111,7 @@ const UserProfilePage = () => {
   // Disconnect from Google Drive
   const handleDisconnectGoogle = async () => {
     try {
-      await gdriveService.signOut();
+      await authProviders.revokeAccess('google');
       setGoogleConnected(false);
       setSuccessMessage('Déconnexion de Google réussie');
       setTimeout(() => setSuccessMessage(''), 3000);
@@ -118,21 +122,34 @@ const UserProfilePage = () => {
     }
   };
   
-  // Connect to Microsoft (placeholder)
-  const handleConnectMicrosoft = () => {
-    // To be implemented with actual Microsoft service
-    setErrorMessage('La connexion Microsoft n\'est pas encore implémentée');
-    setTimeout(() => setErrorMessage(''), 3000);
+  // Connect to Microsoft Outlook
+  const handleConnectMicrosoft = async () => {
+    try {
+      await authProviders.authenticateWithPopup('microsoft');
+      setMicrosoftConnected(true);
+      setSuccessMessage('Connexion à Microsoft établie avec succès');
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (error) {
+      console.error('Microsoft connection error:', error);
+      setErrorMessage('Échec de la connexion à Microsoft');
+      setTimeout(() => setErrorMessage(''), 3000);
+    }
   };
-  
-  // Disconnect from Microsoft (placeholder)
-  const handleDisconnectMicrosoft = () => {
-    // To be implemented with actual Microsoft service
-    setMicrosoftConnected(false);
-    setSuccessMessage('Déconnexion de Microsoft réussie');
-    setTimeout(() => setSuccessMessage(''), 3000);
+
+  // Disconnect from Microsoft Outlook
+  const handleDisconnectMicrosoft = async () => {
+    try {
+      await authProviders.revokeAccess('microsoft');
+      setMicrosoftConnected(false);
+      setSuccessMessage('Déconnexion de Microsoft réussie');
+      setTimeout(() => setSuccessMessage(''), 3000);
+    } catch (error) {
+      console.error('Microsoft disconnection error:', error);
+      setErrorMessage('Échec de la déconnexion de Microsoft');
+      setTimeout(() => setErrorMessage(''), 3000);
+    }
   };
-  
+
   // Delete user data but keep account
   const handleDeleteData = async () => {
     setLoading(true);
@@ -443,7 +460,7 @@ const UserProfilePage = () => {
         )}
         
         {/* Connected Services */}
-        <Card sx={{ borderRadius: 3, mb: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }}>
+        <Card sx={{ borderRadius: 3, mb: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }} data-tour="integration-connections">
           <CardContent>
             <Typography variant="h6" sx={{ mb: 3, fontWeight: 500 }}>
               Services connectés
@@ -517,6 +534,32 @@ const UserProfilePage = () => {
                   </Button>
                 )}
               </Box>
+            </Box>
+          </CardContent>
+        </Card>
+        
+        {/* Application Preferences */}
+        <Card sx={{ borderRadius: 3, mb: 3, boxShadow: '0 4px 20px rgba(0,0,0,0.05)' }} data-tour="user-preferences">          
+          <CardContent>
+            <Typography variant="h6" sx={{ mb: 3, fontWeight: 500 }}>
+              Préférences d'application
+            </Typography>
+            
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: 1 }}>
+              <Box>
+                <Typography variant="subtitle1">Tour d'initiation</Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Redémarrer le tour guidé de l'application
+                </Typography>
+              </Box>
+              
+              <ResetTourButton 
+                variant="outlined" 
+                color="primary"
+                startIcon={<HelpOutlineIcon />}
+              >
+                Redémarrer le tour
+              </ResetTourButton>
             </Box>
           </CardContent>
         </Card>

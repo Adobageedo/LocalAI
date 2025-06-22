@@ -80,6 +80,7 @@ import {
 // Services
 import minioService from '../lib/minioService';
 import gdriveService from '../lib/gdrive';
+import authProviders from '../lib/authProviders';
 import { authFetch } from '../firebase/authFetch';
 import { API_BASE_URL } from '../config';
 
@@ -177,7 +178,7 @@ const DocumentExplorer = () => {
     
     // Vérifier l'authentification si Google Drive est sélectionné
     if (providers[newValue]?.id === 'gdrive') {
-      checkGoogleDriveAuthStatus();
+      authProviders.checkAuthStatus('google');
     }
     
     loadDirectoryContents();
@@ -209,53 +210,11 @@ const DocumentExplorer = () => {
   useEffect(() => {
     // Vérifier l'état d'authentification Google Drive au chargement
     if (providers.find(p => p.id === 'gdrive')) {
-      checkGoogleDriveAuthStatus();
+      authProviders.checkAuthStatus('google');
     }
     loadDirectoryContents();
   }, [activeProvider, currentPath]);
   
-  // Vérifier le statut d'authentification Google Drive
-  const checkGoogleDriveAuthStatus = async () => {
-    try {
-      setGdriveAuth(prev => ({ ...prev, checking: true, error: null }));
-      const authStatus = await gdriveService.checkAuthStatus();
-      console.log('Google Drive auth status:', authStatus);
-      
-      // Mettre à jour l'état des providers
-      setProviders(prevProviders => {
-        return prevProviders.map(provider => {
-          if (provider.id === 'gdrive') {
-            return {
-              ...provider,
-              connected: authStatus.authenticated,
-              error: authStatus.error || null
-            };
-          }
-          return provider;
-        });
-      });
-      
-      // Mettre à jour l'état d'authentification
-      setGdriveAuth({
-        isAuthenticated: authStatus.isAuthenticated,
-        checking: false,
-        user: authStatus.user || null,
-        error: authStatus.error || null
-      });
-      
-      return authStatus.isAuthenticated;
-    } catch (error) {
-      console.error('Error checking Google Drive auth status:', error);
-      setGdriveAuth({
-        isAuthenticated: false,
-        checking: false,
-        user: null,
-        error: error.message
-      });
-      return false;
-    }
-  };
-
   // Google Drive content loader
   const loadGoogleDriveContents = async (pathOverride = null) => {
     try {
@@ -263,7 +222,7 @@ const DocumentExplorer = () => {
       
       // Vérifier l'authentification
       if (!providers.find(p => p.id === 'gdrive')?.connected) {
-        const isAuthenticated = await checkGoogleDriveAuthStatus();
+        const isAuthenticated = await authProviders.checkAuthStatus('google');
         
         if (!isAuthenticated) {
           setAuthDialogOpen(true);
@@ -297,26 +256,6 @@ const DocumentExplorer = () => {
       setLoading(false);
     }
   };
-  
-  // Authenticate with Google Drive
-  const authenticateGoogleDrive = async () => {
-    try {
-      // Set documents as callback route after authentication
-      const callbackUrl = "http://localhost:8000/api/db/gdrive/oauth2_callback"//window.location.origin + '/documents';
-      console.log('Using callback URL:', callbackUrl);
-      
-      const result = await gdriveService.getAuthUrl(callbackUrl);
-      if (result.auth_url) {
-        window.location.href = result.auth_url;
-      } else {
-        showNotification('Failed to get authentication URL');
-      }
-    } catch (error) {
-      console.error('Error getting Google Drive auth URL:', error);
-      showNotification(`Authentication error: ${error.message}`);
-    }
-  };
-
   
   // Update breadcrumbs based on current path
   const updateBreadcrumbs = (path) => {
@@ -1007,11 +946,17 @@ const DocumentExplorer = () => {
         
         {/* Provider tabs */}
         <Tabs 
-          value={activeProvider}
+          value={activeProvider} 
           onChange={handleProviderChange}
-          aria-label="storage-provider-tabs"
-          sx={{ mb: 3 }}
-          TabIndicatorProps={{ sx: { backgroundColor: providers[activeProvider].color } }}
+          variant="fullWidth"
+          data-tour="storage-tabs"
+          sx={{
+            mb: 2,
+            '& .MuiTabs-indicator': {
+              backgroundColor: providers[activeProvider]?.color || '#1976d2',
+              height: 3
+            }
+          }}
         >
           {providers.map((provider, index) => (
             <Tab 
@@ -1243,7 +1188,6 @@ const DocumentExplorer = () => {
                 onRefresh={loadGoogleDriveContents}
                 onItemSelection={handleItemSelection}
                 onContextMenu={handleContextMenu}
-                onAuthenticate={authenticateGoogleDrive}
               />
             )}
             
@@ -1404,37 +1348,7 @@ const DocumentExplorer = () => {
               </DialogActions>
             </>
           )}
-        </Dialog>
-        
-        {/* Dialogue d'authentification Google Drive */}
-        <Dialog open={authDialogOpen} onClose={() => setAuthDialogOpen(false)}>
-          <DialogTitle>
-            <Box display="flex" alignItems="center">
-              <GoogleDriveIcon sx={{ mr: 1, color: '#4CAF50' }} />
-              Google Drive Authentication
-            </Box>
-          </DialogTitle>
-          <DialogContent>
-            <Typography variant="body1" paragraph>
-              You need to authenticate with Google Drive to access your files.
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              This will open a new window where you can log in to your Google account and authorize this application.
-            </Typography>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setAuthDialogOpen(false)}>Cancel</Button>
-            <Button 
-              onClick={authenticateGoogleDrive} 
-              variant="contained" 
-              startIcon={<GoogleDriveIcon />}
-              sx={{ backgroundColor: '#4CAF50' }}
-            >
-              Connect to Google Drive
-            </Button>
-          </DialogActions>
-        </Dialog>
-        
+        </Dialog>        
         {/* Snackbar for notifications */}
         <Snackbar
           open={snackbarOpen}

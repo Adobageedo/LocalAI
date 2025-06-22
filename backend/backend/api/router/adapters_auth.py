@@ -3,7 +3,7 @@ Router pour gérer le téléchargement des sources depuis Nextcloud.
 """
 
 import os
-import logging
+from backend.core.logger import log
 import requests
 import subprocess
 import json
@@ -12,38 +12,20 @@ from fastapi import APIRouter, HTTPException, Request, status, BackgroundTasks
 from fastapi.responses import StreamingResponse, JSONResponse, HTMLResponse
 from google_auth_oauthlib.flow import Flow
 import pathlib
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 import msal
-from rag_engine.vectorstore.vectorstore_manager import VectorStoreManager
-from auth.credentials_manager import (load_google_token, save_microsoft_token, save_google_token, load_microsoft_token,
-                               check_google_credentials, check_microsoft_credentials)
+from backend.services.auth.credentials_manager import (load_google_token, save_microsoft_token, save_google_token, load_microsoft_token,
+                               check_google_credentials, check_microsoft_credentials, delete_microsoft_token, delete_google_token)
 # Configuration
-from dotenv import load_dotenv
-load_dotenv()
-
-# Configuration Nextcloud
-NEXTCLOUD_URL = os.getenv("NEXTCLOUD_URL", "http://localhost:8080")
-NEXTCLOUD_USERNAME = os.getenv("NEXTCLOUD_USERNAME", "admin")
-NEXTCLOUD_PASSWORD = os.getenv("NEXTCLOUD_PASSWORD", "admin_password")
-
-# Configuration Gmail
-GMAIL_CLIENT_ID = os.getenv("GMAIL_CLIENT_ID", "")
-GMAIL_CLIENT_SECRET = os.getenv("GMAIL_CLIENT_SECRET", "")
-GMAIL_REDIRECT_URI = os.getenv("GMAIL_REDIRECT_URI", "http://localhost:5173")
-GMAIL_CREDENTIALS_PATH = os.getenv("GMAIL_CREDENTIALS_PATH", "credentials.json")
-GMAIL_TOKEN_PATH = os.getenv("GMAIL_TOKEN_PATH", "token.pickle")
-
-# Configuration Outlook
-OUTLOOK_CLIENT_ID = os.getenv("OUTLOOK_CLIENT_ID", "")
-OUTLOOK_TOKEN_PATH = os.getenv("OUTLOOK_TOKEN_PATH", "outlook_token.json")
+from backend.core.config import load_config,GMAIL_CLIENT_ID,GMAIL_CLIENT_SECRET,GMAIL_REDIRECT_URI,GMAIL_TOKEN_PATH,OUTLOOK_CLIENT_ID,OUTLOOK_TOKEN_PATH,GMAIL_AUTH_URI,GMAIL_TOKEN_URI
 
 # Initialisation du router et du logger
 # Note: Le préfixe /api est maintenant défini dans main.py
 router = APIRouter(tags=["sources"])
-logger = logging.getLogger(__name__)
+logger = log.bind(name="backend.api.adapters_auth")
 
 from fastapi import Request, HTTPException, status, Depends
-from middleware.auth import get_current_user
+from backend.services.auth.middleware.auth import get_current_user
 
 @router.get("/gmail/ingest_status")
 async def gmail_ingest_status(user=Depends(get_current_user)):
@@ -104,6 +86,28 @@ async def get_outlook_auth_status(user=Depends(get_current_user)):
         logger.error("[OUTLOOK AUTH STATUS] Error checking auth status: %s", str(e))
         return JSONResponse({"authenticated": False, "valid": False, "error": str(e)})
 
+@router.delete("/outlook/revoke_access")
+async def revoke_outlook_access(user=Depends(get_current_user)):
+    """Révoque l'accès à Microsoft Outlook en supprimant les credentials stockés"""
+    try:
+        user_id = user.get("uid") if user else "outlook"
+        logger.info(f"[OUTLOOK REVOKE] Revoking access for user {user_id}")
+        
+        # Supprimer le token Microsoft
+        result = delete_microsoft_token(user_id)
+        
+        if result:
+            return {"success": True, "message": "Accès à Microsoft Outlook révoqué avec succès"}
+        else:
+            return {"success": False, "message": "Aucun token trouvé ou erreur lors de la suppression"}
+            
+    except Exception as e:
+        logger.error(f"[OUTLOOK REVOKE] Error: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error revoking Microsoft Outlook access: {str(e)}"
+        )
+
 @router.get("/outlook/auth")
 async def get_outlook_auth_url(callback_url: str = None, user=Depends(get_current_user)):
     """Generate Outlook OAuth URL for frontend redirect with token cache support"""
@@ -112,19 +116,19 @@ async def get_outlook_auth_url(callback_url: str = None, user=Depends(get_curren
         logger.info(f"[OUTLOOK AUTH] Generating auth URL for user {user_id}")
         
         # Retrieve application credentials
-        client_id = os.getenv("OUTLOOK_CLIENT_ID", "")
+        client_id = OUTLOOK_CLIENT_ID
         
         if not client_id:
             return JSONResponse({"error": "Microsoft client configuration incomplete"}, status_code=500)
         
         # Define redirect URI (either use the provided one or default)
-        redirect_uri = callback_url or "http://localhost:5173/api/sources/outlook/callback"
+        redirect_uri = callback_url or "http://localhost:8000/api/sources/outlook/callback"
         
         # Définir les scopes demandés
         SCOPES = ['Mail.Read', 'User.Read']
         
         # Charger le cache de token si existant
-        from auth.credentials_manager import load_microsoft_token
+        from backend.services.auth.credentials_manager import load_microsoft_token
         cache_data = load_microsoft_token(user_id)
         token_cache = msal.SerializableTokenCache()
         
@@ -147,57 +151,6 @@ async def get_outlook_auth_url(callback_url: str = None, user=Depends(get_curren
         )
         
         logger.info(f"[OUTLOOK AUTH] Generated auth URL: {auth_url[:50]}...")
-        
-        return JSONResponse({
-            "auth_url": auth_url,
-            "user_id": user_id
-        })
-    except Exception as e:
-        logger.error(f"[OUTLOOK AUTH] Error generating auth URL: {str(e)}", exc_info=True)
-        return JSONResponse({"error": str(e)}, status_code=500)
-
-@router.get("/outlook/auth/test")
-async def get_outlook_auth_url_test(callback_url: str = None, user_id: str = "outlook"):
-    """Generate Outlook OAuth URL for frontend redirect (test endpoint without authentication)"""
-    try:
-        logger.info(f"[OUTLOOK AUTH TEST] Generating auth URL for user {user_id}")
-        
-        # Retrieve application credentials
-        client_id = os.getenv("OUTLOOK_CLIENT_ID", "")
-        
-        if not client_id:
-            return JSONResponse({"error": "Microsoft client configuration incomplete"}, status_code=500)
-        
-        # Define redirect URI (either use the provided one or default)
-        redirect_uri = callback_url or "http://localhost:5173/api/sources/outlook/callback"
-        
-        # Définir les scopes demandés
-        SCOPES = ['Mail.Read', 'User.Read']
-        
-        # Charger le cache de token si existant
-        from auth.credentials_manager import load_microsoft_token
-        cache_data = load_microsoft_token(user_id)
-        token_cache = msal.SerializableTokenCache()
-        
-        if cache_data:
-            token_cache.deserialize(cache_data)
-            
-        # Créer l'application avec le cache de token
-        app = msal.PublicClientApplication(
-            client_id=client_id,
-            authority="https://login.microsoftonline.com/common",
-            token_cache=token_cache
-        )
-        
-        # Generate auth URL
-        auth_url = app.get_authorization_request_url(
-            scopes=SCOPES,
-            redirect_uri=redirect_uri,
-            state=user_id,
-            prompt="select_account"
-        )
-        
-        logger.info(f"[OUTLOOK AUTH TEST] Generated auth URL: {auth_url[:50]}...")
         
         return JSONResponse({
             "auth_url": auth_url,
@@ -240,14 +193,14 @@ async def outlook_auth_callback(code: str = None, error: str = None, state: str 
         logger.info(f"[OUTLOOK CALLBACK] Received auth code for user {user_id}")
         
         # Récupérer les identifiants d'application
-        client_id = os.getenv("OUTLOOK_CLIENT_ID", "")
+        client_id = OUTLOOK_CLIENT_ID
         
         if not client_id:
             logger.error("[OUTLOOK CALLBACK] Microsoft credentials incomplete")
             return JSONResponse({"error": "Configuration Microsoft incomplète"}, status_code=500)
         
         # Charger le cache de token existant
-        from auth.credentials_manager import load_microsoft_token, save_microsoft_token
+        from backend.services.auth.credentials_manager import load_microsoft_token, save_microsoft_token
         cache_data = load_microsoft_token(user_id)
         token_cache = msal.SerializableTokenCache()
         
@@ -264,7 +217,7 @@ async def outlook_auth_callback(code: str = None, error: str = None, state: str 
         
         # URL de redirection utilisée lors de la demande d'autorisation
         # Utiliser l'URL frontend car c'est probablement ce qui est enregistré dans Azure
-        redirect_uri = "http://localhost:5173/api/sources/outlook/callback"
+        redirect_uri = "http://localhost:8000/api/sources/outlook/callback"
         
         # Échanger le code d'autorisation contre un token d'accès
         result = app.acquire_token_by_authorization_code(
@@ -295,12 +248,33 @@ async def outlook_auth_callback(code: str = None, error: str = None, state: str 
         logger.info(f"[OUTLOOK CALLBACK] Authentication successful for {username}")
         
         # Rediriger vers la page d'importation d'emails avec auto-ingestion
-        frontend_redirect = "http://localhost:5173/mail-import?auth=success&provider=outlook&auto_ingest=true"
-        return JSONResponse({
-            "status": "success",
-            "redirect_url": frontend_redirect,
-            "user": username
-        })
+        #frontend_redirect = "http://localhost:5173/mail-import?auth=success&provider=outlook&auto_ingest=true"
+        #return JSONResponse({
+        #    "status": "success",
+        #    "redirect_url": frontend_redirect,
+        #    "user": username
+        #})
+        
+
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head><title>Authentification réussie</title></head>
+        <body>
+            <script>
+            // Envoyer un message à la fenêtre parente
+            if (window.opener) {{
+                window.opener.postMessage("auth_success", "*");
+            }}
+            // Fermer la popup
+            window.close();
+            </script>
+            <p>Authentification réussie. Vous pouvez fermer cette fenêtre.</p>
+        </body>
+        </html>
+        """
+
+        return HTMLResponse(content=html_content)
         
     except Exception as e:
         logger.error(f"[OUTLOOK CALLBACK] Error processing callback: {str(e)}", exc_info=True)
@@ -323,8 +297,8 @@ async def get_gmail_auth_url(user=Depends(get_current_user)):
             "web": {
                 "client_id": GMAIL_CLIENT_ID,
                 "client_secret": GMAIL_CLIENT_SECRET,
-                "auth_uri": os.getenv("GMAIL_AUTH_URI", "https://accounts.google.com/o/oauth2/auth"),
-                "token_uri": os.getenv("GMAIL_TOKEN_URI", "https://oauth2.googleapis.com/token"),
+                "auth_uri": GMAIL_AUTH_URI,
+                "token_uri": GMAIL_TOKEN_URI,
             }
         },
         scopes=[
@@ -363,8 +337,8 @@ async def gmail_oauth2_callback(request: Request):
             "web": {
                 "client_id": GMAIL_CLIENT_ID,
                 "client_secret": GMAIL_CLIENT_SECRET,
-                "auth_uri": os.getenv("GMAIL_AUTH_URI", "https://accounts.google.com/o/oauth2/auth"),
-                "token_uri": os.getenv("GMAIL_TOKEN_URI", "https://oauth2.googleapis.com/token"),
+                "auth_uri": GMAIL_AUTH_URI,
+                "token_uri": GMAIL_TOKEN_URI,
             }
         },
         scopes=[
@@ -399,70 +373,6 @@ async def gmail_oauth2_callback(request: Request):
         </body></html>
     """)
 
-@router.get("/download")
-async def download_source(path: str,user=Depends(get_current_user)):
-    """
-    Télécharge un fichier source directement depuis Nextcloud.
-    Le chemin doit être un chemin complet tel que retourné par l'API de prompt.
-    """
-    logger.info(f"Téléchargement de la source: {path}")
-    
-    try:
-        # Vérifier si le chemin est un chemin Nextcloud
-        if "original_path" in path:
-            # Extraire le chemin original depuis les métadonnées
-            import json
-            metadata = json.loads(path)
-            if "original_path" in metadata:
-                path = metadata["original_path"]
-            else:
-                logger.error(f"Métadonnées invalides: {metadata}")
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Format de métadonnées invalide"
-                )
-        
-        # Normaliser le chemin
-        if not path.startswith("/"):
-            path = "/" + path
-        
-        # Utiliser les identifiants admin par défaut
-        username = NEXTCLOUD_USERNAME
-        password = NEXTCLOUD_PASSWORD
-        
-        # Récupérer le fichier depuis Nextcloud
-        response = requests.get(
-            f"{NEXTCLOUD_URL}/remote.php/dav/files/{username}{path}",
-            auth=(username, password),
-            stream=True
-        )
-        
-        if response.status_code != 200:
-            logger.error(f"Erreur Nextcloud: {response.status_code} - {response.text}")
-            raise HTTPException(
-                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Erreur lors du téléchargement du fichier depuis Nextcloud: {response.status_code}"
-            )
-        
-        # Déterminer le type de contenu
-        content_type = response.headers.get("Content-Type", "application/octet-stream")
-        
-        # Créer une réponse en streaming
-        return StreamingResponse(
-            response.iter_content(chunk_size=8192),
-            media_type=content_type,
-            headers={
-                "Content-Disposition": f"attachment; filename={os.path.basename(path)}"
-            }
-        )
-    
-    except Exception as e:
-        logger.error(f"Erreur lors du téléchargement de la source: {str(e)}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Erreur lors du téléchargement de la source: {str(e)}"
-        )
-
 
 class GmailIngestRequest(BaseModel):
     labels: List[str] = ["INBOX", "SENT"]
@@ -476,9 +386,9 @@ def run_gmail_ingestion(labels: List[str], limit: int, query: Optional[str], for
     logger.debug(f"[GMAIL INGEST] Starting Gmail ingestion with labels={labels}, limit={limit}, query={query}, force_reingest={force_reingest}, no_attachments={no_attachments}, user_id={user_id}")
     try:
         # Import direct de la fonction d'ingestion
-        from update_vdb.sources.ingest_gmail_emails import ingest_gmail_emails_to_qdrant
+        from backend.services.ingestion.services.ingest_google_emails import batch_ingest_gmail_emails_to_qdrant
                 
-        result = ingest_gmail_emails_to_qdrant(
+        result = batch_ingest_gmail_emails_to_qdrant(
             labels=labels,
             limit=limit,
             query=query,
@@ -498,7 +408,7 @@ async def ingest_gmail_emails(request: GmailIngestRequest, background_tasks: Bac
     """Ingère des emails depuis Gmail en utilisant l'authentification OAuth2"""
     try:
         # Vérifier si les identifiants OAuth2 sont configurés
-        if not os.path.exists(GMAIL_CREDENTIALS_PATH) and not (GMAIL_CLIENT_ID and GMAIL_CLIENT_SECRET):
+        if not (GMAIL_CLIENT_ID and GMAIL_CLIENT_SECRET):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Les identifiants OAuth2 pour Gmail ne sont pas configurés"
@@ -584,9 +494,9 @@ def run_outlook_ingestion(folders: List[str], limit: int, query: Optional[str], 
         return {"status": "error", "error": str(e)}
 
 
-from update_vdb.sources.ingest_outlook_emails import ingest_outlook_emails_to_qdrant
+from backend.services.ingestion.services.ingest_microsoft_emails import ingest_outlook_emails_to_qdrant
 
-from update_vdb.sources.file_registry import FileRegistry
+from backend.services.storage.file_registry import FileRegistry
 
 @router.get("/gmail/recent_emails")
 async def get_recent_gmail_emails(limit: int = 10, user=Depends(get_current_user)):
@@ -713,4 +623,87 @@ async def ingest_outlook_emails(request: OutlookIngestRequest, user=Depends(get_
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erreur lors de l'ingestion des emails Outlook: {str(e)}"
+        )
+# Import SyncManager
+from backend.services.sync_service.core.sync_manager import SyncManager
+
+class SyncRequest(BaseModel):
+    """Request model for starting a synchronization for a user"""
+    provider: Optional[str] = Field(None, description="Optional provider name to sync (gmail, outlook, gdrive, personal-storage). If not provided, all providers for the user will be synchronized.")
+    force_reingest: bool = Field(False, description="Whether to force reingestion of all documents")
+
+@router.post("/sync/start")
+async def sync_for_user(request: SyncRequest, user=Depends(get_current_user)):
+    """Start a one-time synchronization for the specified user and provider.
+    If no provider is specified, sync all configured providers for the user.
+    
+    This endpoint initiates an immediate synchronization operation without waiting for the scheduled sync.
+    """
+    try:
+        user_id = user.get("uid") if user else None
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required"
+            )
+        
+        # Load configuration
+        config = load_config()
+        
+        # Override force_reingest setting if specified in request
+        if request.force_reingest:
+            if "sync" not in config:
+                config["sync"] = {}
+            for provider in ["gmail", "outlook", "gdrive", "personal-storage"]:
+                if provider not in config["sync"]:
+                    config["sync"][provider] = {}
+                config["sync"][provider]["force_reingest"] = True
+        
+        # Initialize sync manager
+        sync_manager = SyncManager(config)
+        
+        result = {"user_id": user_id, "success": True, "details": {}}
+        
+        # If provider specified, sync only that provider
+        if request.provider:
+            valid_providers = ["gmail", "outlook", "gdrive", "personal-storage"]
+            if request.provider not in valid_providers:
+                return JSONResponse(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    content={"success": False, "error": f"Invalid provider. Must be one of {valid_providers}"}
+                )
+                
+            logger.info(f"Starting one-time sync for user {user_id} and provider {request.provider}")
+            try:
+                sync_manager.sync_provider(user_id, request.provider)
+                result["details"][request.provider] = {"status": "completed"}
+            except Exception as e:
+                error_msg = str(e)
+                result["details"][request.provider] = {"status": "error", "error": error_msg}
+                result["success"] = False
+        else:
+            # Sync all providers configured for this user
+            logger.info(f"Starting one-time sync for all providers of user {user_id}")
+            user_providers = sync_manager.get_authenticated_users().get(user_id, [])
+            
+            if not user_providers:
+                return JSONResponse(
+                    content={"success": False, "error": "No authenticated providers found for this user"}
+                )
+            
+            for provider in user_providers:
+                try:
+                    sync_manager.sync_provider(user_id, provider)
+                    result["details"][provider] = {"status": "completed"}
+                except Exception as e:
+                    error_msg = str(e)
+                    result["details"][provider] = {"status": "error", "error": error_msg}
+                    result["success"] = False
+        
+        return JSONResponse(content=result)
+    except Exception as e:
+        logger.error(f"Error starting sync: {str(e)}", exc_info=True)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"success": False, "error": str(e)}
         )

@@ -1,33 +1,22 @@
+import sys
+import os
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
 import firebase_admin
 from firebase_admin import credentials, auth
-from dotenv import load_dotenv
-import os
-load_dotenv()
+from backend.core.config import FIREBASE_TYPE, FIREBASE_PROJECT_ID, FIREBASE_PRIVATE_KEY_ID, FIREBASE_PRIVATE_KEY, FIREBASE_CLIENT_EMAIL, FIREBASE_CLIENT_ID, FIREBASE_AUTH_URI, FIREBASE_TOKEN_URI, FIREBASE_AUTH_PROVIDER_CERT_URL, FIREBASE_CLIENT_CERT_URL
 # Initialize Firebase Admin
-SERVICE_ACCOUNT_PATH = os.getenv("SERVICE_ACCOUNT_PATH")
 def initialize_firebase():
-    if os.path.exists(SERVICE_ACCOUNT_PATH):
-        with open(SERVICE_ACCOUNT_PATH, "r") as f:
-            try:
-                content = json.load(f)
-                if content:  # File is valid and not empty
-                    cred = credentials.Certificate(content)
-                    return firebase_admin.initialize_app(cred)
-            except json.JSONDecodeError:
-                print("Service account file is not a valid JSON. Falling back to .env")
-
-    print("Using .env Firebase configuration")
     firebase_config = {
-        "type": os.getenv("FIREBASE_TYPE"),
-        "project_id": os.getenv("FIREBASE_PROJECT_ID"),
-        "private_key_id": os.getenv("FIREBASE_PRIVATE_KEY_ID"),
-        "private_key": os.getenv("FIREBASE_PRIVATE_KEY").replace("\\n", "\n"),
-        "client_email": os.getenv("FIREBASE_CLIENT_EMAIL"),
-        "client_id": os.getenv("FIREBASE_CLIENT_ID"),
-        "auth_uri": os.getenv("FIREBASE_AUTH_URI"),
-        "token_uri": os.getenv("FIREBASE_TOKEN_URI"),
-        "auth_provider_x509_cert_url": os.getenv("FIREBASE_AUTH_PROVIDER_CERT_URL"),
-        "client_x509_cert_url": os.getenv("FIREBASE_CLIENT_CERT_URL"),
+        "type": FIREBASE_TYPE,
+        "project_id": FIREBASE_PROJECT_ID,
+        "private_key_id": FIREBASE_PRIVATE_KEY_ID,
+        "private_key": FIREBASE_PRIVATE_KEY.replace("\\n", "\n"),
+        "client_email": FIREBASE_CLIENT_EMAIL,
+        "client_id": FIREBASE_CLIENT_ID,
+        "auth_uri": FIREBASE_AUTH_URI,
+        "token_uri": FIREBASE_TOKEN_URI,
+        "auth_provider_x509_cert_url": FIREBASE_AUTH_PROVIDER_CERT_URL,
+        "client_x509_cert_url": FIREBASE_CLIENT_CERT_URL,
     }
 
     cred = credentials.Certificate(firebase_config)

@@ -4,22 +4,22 @@ from pydantic import BaseModel, UUID4, Field, EmailStr
 from uuid import UUID
 from datetime import datetime
 import os
-from middleware.auth import get_current_user
-from Agent_AI.retrieve_rag_information_modular import get_rag_response_modular
-import logging
+from backend.services.auth.middleware.auth import get_current_user
+from backend.services.rag.retrieve_rag_information_modular import get_rag_response_modular
+from backend.core.logger import log
 
 # Import the PostgresManager and models
-from db.postgres_manager import PostgresManager
-from db.models import User, Conversation as ConversationModel, ChatMessage as ChatMessageModel, SyncStatus
-from db.user_preferences import UserPreferences
-
-logger = logging.getLogger(__name__)
+from backend.services.db.postgres_manager import PostgresManager
+from backend.services.db.models import User, Conversation as ConversationModel, ChatMessage as ChatMessageModel, SyncStatus
+from backend.services.db.user_preferences import UserPreferences
+from backend.core.config import POSTGRES_DB, POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_HOST, POSTGRES_PORT
+logger = log.bind(name="backend.api.llm_chat_router")
 # Database connection parameters - kept for reference but not directly used
-DB_NAME = os.getenv("POSTGRES_DB", "localai_db")
-DB_USER = os.getenv("POSTGRES_USER", "localai")
-DB_PASSWORD = os.getenv("POSTGRES_PASSWORD", "localai_password")
-DB_HOST = os.getenv("POSTGRES_HOST", "localhost")
-DB_PORT = os.getenv("POSTGRES_PORT", "5432")
+DB_NAME = POSTGRES_DB
+DB_USER = POSTGRES_USER
+DB_PASSWORD = POSTGRES_PASSWORD
+DB_HOST = POSTGRES_HOST
+DB_PORT = POSTGRES_PORT
 
 # Models
 class PromptResponse(BaseModel):
@@ -33,6 +33,7 @@ class UserCreate(BaseModel):
     id: str
     email: EmailStr
     name: Optional[str] = None
+    phone: Optional[str] = None
 
 class UserUpdate(BaseModel):
     email: Optional[EmailStr] = None
@@ -156,17 +157,22 @@ async def get_conversation(conversation_id: UUID4, user=Depends(get_current_user
 async def create_conversation(conversation: ConversationCreate, user=Depends(get_current_user)):
     """Create a new conversation"""
     try:
-        now = datetime.now()
-        
         # If user authentication is enabled, use the user_id
         user_id = user.get("uid") if user else None
-        new_conversation = ConversationModel().create(conversation.name, user_id, now, now)
+        
+        # Call the class method directly on the model class, not on an instance
+        # ConversationModel.create only needs user_id and name parameters
+        new_conversation = ConversationModel.create(user_id=user_id, name=conversation.name)
+        
+        if not new_conversation:
+            raise ValueError("Failed to create conversation")
+            
         return new_conversation.to_dict()
     except Exception as e:
         print(f"Error creating conversation: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error creating conversation"
+            detail=f"Error creating conversation: {str(e)}"
         )
 
 @router.put("/conversations/{conversation_id}", response_model=Conversation)
@@ -320,7 +326,24 @@ async def add_message(conversation_id: Optional[UUID4] = None, message: MessageC
                 sources_data = processed_sources
         
         # Insert the message (let PostgreSQL generate the id)
-        new_message = ChatMessageModel.create(conversation_id=conversation_id, user_id=user_id, role=message.role, message=message.message, sources=sources_data, timestamp=now)
+        # Note: The timestamp is automatically set by the PostgreSQL database
+        new_message = ChatMessageModel.create(
+            conversation_id=conversation_id, 
+            user_id=user_id, 
+            role=message.role, 
+            message=message.message, 
+            sources=sources_data
+        )
+        
+        if not new_message:
+            # This could happen if the conversation doesn't exist or other database issues
+            error_msg = f"Failed to create message for conversation {conversation_id}"
+            print(error_msg)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=error_msg
+            )
+            
         return new_message.to_dict()
     except Exception as e:
         print(f"Error adding message: {e}")
@@ -966,7 +989,7 @@ async def generate_conversation_title(data: dict, user=Depends(get_current_user)
         llm_prompt = f"{TITLE_SYSTEM_MESSAGE}\n\nUser message: {message}\n\nTitle:"
         
         # Direct LLM invocation without RAG retrieval
-        from rag_engine.retrieval.llm_router import LLMRouter
+        from backend.services.rag.retrieval.llm_router import LLMRouter
         
         router = LLMRouter()
         llm = router.route(llm_prompt)

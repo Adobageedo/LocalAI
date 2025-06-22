@@ -148,6 +148,9 @@ export default function ChatInterface({
             multiline
             maxRows={4}
             onKeyDown={handleKeyDown}
+            inputProps={{
+              'data-tour': 'prompt-input'
+            }}
             sx={{ 
               '& .MuiOutlinedInput-root': { 
                 border: 'none',

@@ -15,59 +15,32 @@ from pydantic import BaseModel
 from typing import List, Optional
 #from backend.retrieve_rag_information_modular import get_rag_response_modular
 from backend.core.config import load_config
+from backend.core.logger import log
+from backend.services.rag.retrieve_rag_information_modular import get_rag_response_modular
 from backend.services.vectorstore.qdrant_manager import VectorStoreManager
 # Authentification supprimée
 
-# Configure logging for Docker
-logging.basicConfig(
-    level=logging.DEBUG,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout)
-    ]
-)
-logger = logging.getLogger("rag-backend")
-
-# Configuration des logs pour supprimer les messages de débogage des bibliothèques HTTP
-logging.getLogger("httpx").setLevel(logging.WARNING)
-logging.getLogger("httpcore").setLevel(logging.WARNING)
-logging.getLogger("httpcore.http11").setLevel(logging.WARNING)
-logging.getLogger("httpcore.connection").setLevel(logging.WARNING)
-logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
-logging.getLogger("openai._base_client").setLevel(logging.WARNING)
-logging.getLogger("unstructured.trace").setLevel(logging.WARNING)
-logging.getLogger("chardet.universaldetector").setLevel(logging.WARNING)
-logging.getLogger("chardet.charsetprober").setLevel(logging.WARNING)
-logging.getLogger("chardet").setLevel(logging.WARNING)
-logging.getLogger("cachecontrol.controller").setLevel(logging.WARNING)
-logging.getLogger("urllib3").setLevel(logging.WARNING)
-logging.getLogger("python_multipart.multipart").setLevel(logging.WARNING)
-logging.getLogger("msal").setLevel(logging.WARNING)
-logging.getLogger("google.auth").setLevel(logging.WARNING)
-logging.getLogger("googleapiclient").setLevel(logging.WARNING)
+logger = log.bind(name="backend.api.main")
 
 app = FastAPI()
 DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 
 # Import des routeurs
-from .router.openai_compat import router as openai_router
-from .router.ingest_router import router as ingest_router
+from .router.adapters_auth import router as adapters_auth_router
 from .router.file_management_router import router as file_management_router
 from .router.llm_chat_router import router as conversation_router
-from .router.test_router import router as test_router
 from .router.file_management_google import router as file_management_google_router
 
 # Configuration des préfixes API centralisée
-app.include_router(openai_router, prefix="/api")
-app.include_router(ingest_router, prefix="/api/sources")
+app.include_router(adapters_auth_router, prefix="/api/sources")
 app.include_router(file_management_router, prefix="/api/db")
 app.include_router(conversation_router, prefix="/api")  # conversation_router already has prefix='/api' in its definition
-app.include_router(test_router, prefix="/api")
 app.include_router(file_management_google_router, prefix="/api/db")
-# Ajouter le middleware de compression GZIP
+# Add middleware
+# 1. Compression for better network performance
 app.add_middleware(GZipMiddleware, minimum_size=1000)
 
-# Autoriser le frontend React local
+# 2. CORS for frontend communication
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -76,32 +49,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# --- MODELES ---
-class DocumentMeta(BaseModel):
-    doc_id: str
-    document_type: str
-    source_path: Optional[str] = None
-    attachment_name: Optional[str] = None
-    subject: Optional[str] = None
-    user: Optional[str] = None
-    date: Optional[str] = None
+# Health check endpoint at the application root
+@app.get("/")
+async def root():
+    """API root health check endpoint."""
+    return {
+        "status": "online",
+        "version": "1.0.0",
+        "timestamp": datetime.datetime.now().isoformat()
+    }
 
-class SourceUsed(BaseModel):
-    content: str
-    metadata: dict
+@app.get("/health")
+async def health_check():
+    """Simple health check endpoint."""
+    return {
+        "status": "healthy",
+        "api_version": "1.0.0",
+        "timestamp": datetime.datetime.now().isoformat()
+    }
 
-class PromptResponse(BaseModel):
-    answer: str
-    sources: List[str]
-
-
-from fastapi import Request, HTTPException, status, Depends
-from middleware.auth import get_current_user
-# --- ENDPOINTS ---
-
-from update_vdb.sources.document_ingest import fetch_and_sync_documents
-from update_vdb.sources.ingest_imap_emails import ingest_emails_to_qdrant
+# Import these only if they're used in the remaining endpoints in main.py
+from fastapi import Request, HTTPException, status, Depends, UploadFile, File, BackgroundTasks, Query
+from backend.services.auth.middleware.auth import get_current_user
 from pydantic import BaseModel
+from typing import Dict, Any
 
 @app.get("/api/documents/count-by-type")
 def count_documents_by_type(user=Depends(get_current_user)):
@@ -360,85 +331,6 @@ def list_documents(user=Depends(get_current_user),q: Optional[str] = Query(None)
         "page_size": page_size,
         "pages": pages,
         "source": "qdrant"
-    }
-
-from fastapi import UploadFile, File, Request, BackgroundTasks
-from typing import List
-import shutil
-import tempfile
-from update_vdb.sources.document_ingest import fetch_and_sync_documents
-
-@app.post("/api/documents")
-def upload_documents(user=Depends(get_current_user),files: List[UploadFile] = File(...), background_tasks: BackgroundTasks = None):
-    print(f"[DEBUG] Received {len(files)} files for import.", flush=True)
-    logger.info(f"RECEIVED: Received {len(files)} files for import.")
-    
-    # Créer un répertoire temporaire pour les fichiers
-    data_dir = DATA_DIR
-    os.makedirs(data_dir, exist_ok=True)
-    
-    # Stocker les noms de fichiers originaux
-    original_filenames = []
-    saved_files = []
-    
-    for file in files:
-        # Sauvegarder le nom original
-        original_filenames.append(file.filename)
-        
-        # Créer un chemin temporaire unique
-        dest_path = os.path.join(data_dir, file.filename)
-        base, ext = os.path.splitext(dest_path)
-        counter = 1
-        while os.path.exists(dest_path):
-            dest_path = f"{base}_{counter}{ext}"
-            counter += 1
-        
-        # Sauvegarder le fichier temporairement
-        with open(dest_path, "wb") as out:
-            shutil.copyfileobj(file.file, out)
-        saved_files.append(dest_path)
-    
-    def run_ingest():
-        try:
-            # Utiliser la bonne collection
-            collection = os.getenv("COLLECTION_NAME", "rag_documents1536")
-            logger.info(f"INGESTION: Starting ingestion for {len(saved_files)} files into collection {collection}")
-            
-            # Ingérer les documents
-            fetch_and_sync_documents(
-                method="local",
-                directory=data_dir,
-                collection_name=collection,
-                user="api_upload"
-            )
-            
-            # Nettoyer les fichiers temporaires
-            for temp_file in saved_files:
-                try:
-                    if os.path.exists(temp_file):
-                        os.remove(temp_file)
-                        logger.info(f"CLEANUP: Removed temporary file {temp_file}")
-                except Exception as cleanup_err:
-                    logger.error(f"CLEANUP ERROR: Failed to remove {temp_file}: {cleanup_err}")
-            
-            logger.info(f"INGESTION: Completed successfully for collection {collection}")
-            print(f"[DEBUG] Ingestion completed and temporary files cleaned up", flush=True)
-            
-        except Exception as e:
-            logger.error(f"INGESTION ERROR: Ingestion failed: {e}")
-            print(f"[DEBUG] Ingestion failed: {e}", flush=True)
-    
-    # Exécuter l'ingestion en arrière-plan ou immédiatement
-    if background_tasks is not None:
-        background_tasks.add_task(run_ingest)
-    else:
-        run_ingest()
-    
-    # Retourner les noms de fichiers originaux, pas les chemins temporaires
-    return {
-        "success": True, 
-        "files": original_filenames, 
-        "message": "Ingestion started in background. Files will be removed after processing."
     }
 
 @app.delete("/api/documents/{doc_id}")

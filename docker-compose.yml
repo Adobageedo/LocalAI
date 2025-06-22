@@ -43,18 +43,18 @@ services:
       - rag-network
 
   # RAG Backend API - FastAPI
-  rag-backend:
+  backend:
     build:
-      context: ./rag-backend
+      context: ./backend
       dockerfile: Dockerfile
-    container_name: rag-backend
+    container_name: backend
     # On expose seulement sur le réseau interne, Nginx fera le proxy
     ports:
       - "8000:8000"
-    env_file: ./rag-backend/.env
+    env_file: ./backend/backend/core/.env
     volumes:
-      - ./rag-backend:/app  # Pour le développement, permet de modifier les fichiers en direct
-      - ./rag-backend/data:/app/data  # Persistence des données (registre JSON)
+      - ./backend:/app  # Pour le développement, permet de modifier les fichiers en direct
+      - ./backend/data:/app/data  # Persistence des données (registre JSON)
       - /tmp:/tmp  
     depends_on:
       - qdrant
@@ -76,7 +76,7 @@ services:
       - ./nginx/logs:/var/log/nginx      # Logs
       - /var/www/chardouin.fr/html:/usr/share/nginx/html/chardouin.fr  # Site statique
     depends_on:
-      - rag-backend
+      - backend
     restart: unless-stopped
     networks:
       - rag-network

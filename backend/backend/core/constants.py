@@ -27,7 +27,8 @@ QDRANT_API_KEY = os.getenv("QDRANT_API_KEY", "")
 
 # Configuration OpenAI
 OPENAI_API_KEY=os.getenv("OPENAI_API_KEY", "")
-
+OLLAMA_BASE_URL=os.getenv("OLLAMA_BASE_URL", "")
+OLLAMA_MODEL=os.getenv("OLLAMA_MODEL", "")
 # Configuration Hugging Face
 HF_API_KEY=os.getenv("HF_API_KEY", "")
 HF_EMBEDDING_MODEL = os.getenv("HF_EMBEDDING_MODEL", "BAAI/bge-small-en-v1.5")

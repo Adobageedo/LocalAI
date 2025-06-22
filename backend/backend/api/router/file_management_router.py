@@ -1,6 +1,9 @@
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, status, Query
 from fastapi.responses import JSONResponse, StreamingResponse
 import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
+
 import io
 import shutil
 import tempfile
@@ -9,12 +12,14 @@ from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel
 from fastapi import Request, HTTPException, status, Depends, BackgroundTasks
-from middleware.auth import get_current_user
-from rag_engine.vectorstore.vectorstore_manager import VectorStoreManager
-
+from backend.services.auth.middleware.auth import get_current_user
+from backend.services.vectorstore.qdrant_manager import VectorStoreManager
+from backend.core.logger import log
+from backend.core.config import STORAGE_PATH
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+STORAGE_PATH = os.path.join(BASE_DIR, STORAGE_PATH)
 router = APIRouter()
-logger = logging.getLogger(__name__)
-STORAGE_PATH = os.path.abspath(os.environ.get("STORAGE_PATH", "data/storage/user_id"))
+logger = log.bind(name="backend.api.file_management_router")
 #  Models
 class FileItem(BaseModel):
     path: str

@@ -154,16 +154,14 @@ export default function ChatMessage({ message, isLatest }) {
     );
   };
 
-  return (
-    <Box
-      sx={{
-        display: 'flex',
-        flexDirection: isUser ? 'row-reverse' : 'row',
-        mb: 2,
-        width: '100%',
-        alignSelf: isUser ? 'flex-end' : 'flex-start',
-      }}
-    >
+  const messageContent = (
+    <Box sx={{
+      display: 'flex', 
+      flexDirection: isUser ? 'row-reverse' : 'row',
+      mb: 2,
+      px: 1
+    }}
+    data-tour={isUser ? 'user-message' : 'ai-response'}>
       <Box sx={{ display: 'flex', alignItems: 'center', mt: 1, opacity: 0.8 }}>
         {isUser ? (
           <>
