@@ -122,7 +122,7 @@ async def get_outlook_auth_url(callback_url: str = None, user=Depends(get_curren
             return JSONResponse({"error": "Microsoft client configuration incomplete"}, status_code=500)
         
         # Define redirect URI (either use the provided one or default)
-        redirect_uri = callback_url or "http://localhost:8000/api/sources/outlook/callback"
+        redirect_uri = callback_url or "https://chardouin.fr/api/sources/outlook/callback"
         
         # Définir les scopes demandés
         SCOPES = ['Mail.Read', 'User.Read']
@@ -217,7 +217,7 @@ async def outlook_auth_callback(code: str = None, error: str = None, state: str 
         
         # URL de redirection utilisée lors de la demande d'autorisation
         # Utiliser l'URL frontend car c'est probablement ce qui est enregistré dans Azure
-        redirect_uri = "http://localhost:8000/api/sources/outlook/callback"
+        redirect_uri = "https://chardouin.fr/api/sources/outlook/callback"
         
         # Échanger le code d'autorisation contre un token d'accès
         result = app.acquire_token_by_authorization_code(
