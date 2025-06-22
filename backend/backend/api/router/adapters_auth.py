@@ -640,7 +640,7 @@ async def sync_for_user(request: SyncRequest, user=Depends(get_current_user)):
     This endpoint initiates an immediate synchronization operation without waiting for the scheduled sync.
     """
     try:
-        user_id = user.get("uid") if user else None
+        user_id = user.get("uid")
         if not user_id:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -663,10 +663,9 @@ async def sync_for_user(request: SyncRequest, user=Depends(get_current_user)):
         sync_manager = SyncManager(config)
         
         result = {"user_id": user_id, "success": True, "details": {}}
-        
         # If provider specified, sync only that provider
         if request.provider:
-            valid_providers = ["gmail", "outlook", "gdrive", "personal-storage"]
+            valid_providers = ["gmail", "outlook", "gdrive", "personal-storage","microsoft"]
             if request.provider not in valid_providers:
                 return JSONResponse(
                     status_code=status.HTTP_400_BAD_REQUEST,
@@ -675,7 +674,10 @@ async def sync_for_user(request: SyncRequest, user=Depends(get_current_user)):
                 
             logger.info(f"Starting one-time sync for user {user_id} and provider {request.provider}")
             try:
-                sync_manager.sync_provider(user_id, request.provider)
+                if request.provider == "microsoft":
+                    sync_manager.sync_provider(user_id, "outlook")
+                else:
+                    sync_manager.sync_provider(user_id, request.provider)
                 result["details"][request.provider] = {"status": "completed"}
             except Exception as e:
                 error_msg = str(e)

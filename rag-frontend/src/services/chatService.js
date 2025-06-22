@@ -26,24 +26,13 @@ export async function getConversationMessages(conversationId) {
 // Create a new conversation
 export async function createConversation(name = 'New Conversation') {
     try {
-      // Only send the name parameter according to the backend's ConversationCreate model
-      // The user_id will be extracted from the auth token by the backend
       const response = await authFetch(`${API_BASE_URL}/conversations`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
-          name: name 
-        }),
+        body: JSON.stringify({ name }),
       });
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`Failed to create conversation: ${response.status} ${errorText}`);
-        throw new Error(`Failed to create conversation: ${response.status}`);
-      }
-      
       return await response.json();
     } catch (error) {
       console.error('Error creating conversation:', error);

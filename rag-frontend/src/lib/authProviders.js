@@ -172,7 +172,7 @@ const authProviders = {
       provider: provider,
       force_reingest: options.forceReingest || false
     };
-    
+    console.log(defaultOptions);
     try {
       const response = await authFetch(`${API_BASE_URL}/sources/sync/start`, {
         method: 'POST',

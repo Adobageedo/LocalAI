@@ -81,12 +81,30 @@ class PostgresManager:
         try:
             connection = self._pool.getconn()
             yield connection
+        except psycopg2.OperationalError as oe:
+            logger.error(f"Database operational error: {str(oe)}")
+            # Reset the connection pool if we detect a connection issue
+            self._setup_connection_pool()
+            raise
+        except psycopg2.ProgrammingError as pe:
+            # Handle specific programming errors
+            if "no results to fetch" in str(pe):
+                logger.warning(f"Programming error in database connection: {str(pe)}")
+                # This is not a critical error, just pass it along
+                pass
+            else:
+                logger.error(f"Database programming error: {str(pe)}")
+                raise
         except Exception as e:
-            logger.error(f"Database connection error: {str(e)}")
+            logger.error(f"Unexpected database connection error: {str(e)}")
             raise
         finally:
             if connection:
-                self._pool.putconn(connection)
+                try:
+                    self._pool.putconn(connection)
+                except Exception as e:
+                    logger.warning(f"Error returning connection to pool: {str(e)}")
+                    # Don't raise this error as it's in the finally block
     
     @contextmanager
     def get_cursor(self, cursor_factory=RealDictCursor):
@@ -97,28 +115,71 @@ class PostgresManager:
                 cursor = conn.cursor(cursor_factory=cursor_factory)
                 yield cursor
                 conn.commit()
-            except Exception as e:
+            except psycopg2.ProgrammingError as pe:
                 conn.rollback()
-                logger.error(f"Database query error: {str(e)}")
+                # Handle "no results to fetch" gracefully
+                if "no results to fetch" in str(pe):
+                    logger.warning(f"Programming error in cursor operation: {str(pe)}")
+                    # Not raising here, as this is often a benign error
+                    # when trying to fetch from an empty result set
+                    pass
+                else:
+                    logger.error(f"Database programming error: {str(pe)}")
+                    raise
+            except psycopg2.DatabaseError as de:
+                # Handle general database errors
+                conn.rollback()
+                logger.error(f"Database error in cursor operation: {str(de)}")
+                raise
+            except Exception as e:
+                # Handle unexpected errors
+                conn.rollback()
+                logger.error(f"Unexpected error in database cursor operation: {str(e)}")
                 raise
             finally:
                 if cursor:
-                    cursor.close()
+                    try:
+                        cursor.close()
+                    except Exception as e:
+                        logger.warning(f"Error closing cursor: {str(e)}")
+                        # Don't raise in finally block
     
     def execute_query(self, query, params=None, fetch_one=False):
         """Execute a database query and return results"""
         with self.get_cursor() as cursor:
             cursor.execute(query, params or ())
-            
-            # For INSERT, UPDATE, DELETE statements (that don't return results),
-            # don't try to fetch any results - just return None
-            if query.strip().upper().startswith(('INSERT', 'UPDATE', 'DELETE')):
-                return None
-                
-            # Only try to fetch results for SELECT-type queries
-            if fetch_one:
-                return cursor.fetchone()
-            return cursor.fetchall()
+
+            # Only fetch results if there's a RETURNING clause
+            if "RETURNING" in query.upper():
+                try:
+                    if fetch_one:
+                        result = cursor.fetchone()
+                        return result  # Could be None if no rows returned
+                    else:
+                        result = cursor.fetchall()
+                        return result  # Could be empty list if no rows returned
+                except psycopg2.ProgrammingError as pe:
+                    # Handle "no results to fetch" gracefully
+                    if "no results to fetch" in str(pe):
+                        logger.warning(f"No results returned for query with RETURNING clause")
+                        return None if fetch_one else []
+                    else:
+                        # Re-raise other programming errors
+                        raise
+
+            # For non-RETURNING queries (e.g., UPDATE without RETURNING)
+            try:
+                if fetch_one:
+                    return cursor.fetchone()
+                return cursor.fetchall()
+            except psycopg2.ProgrammingError as pe:
+                # Handle "no results to fetch" gracefully
+                if "no results to fetch" in str(pe):
+                    logger.warning(f"No results returned for query")
+                    return None if fetch_one else []
+                else:
+                    # Re-raise other programming errors
+                    raise
     
     def execute_many(self, query, params_list):
         """Execute a query with multiple parameter sets"""

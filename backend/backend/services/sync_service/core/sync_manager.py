@@ -231,10 +231,11 @@ class SyncManager:
                 registry = FileRegistry(user_id)  # Reload registry to see changes
                 final_docs = registry.count_user_documents()
                 # Deduct credits based on actual new documents added to the registry
+                syncstatus.update_status(status="completed", progress=1.0)
                 if final_docs > 0:
                     self.credits_manager.use_credits(user_id, final_docs)
                 # Update sync status
-                syncstatus.update_status(status="completed", progress=1.0)
+                
             except Exception as e:
                 logger.error(f"Error synchronizing {provider_name} for user {user_id}: {e}", exc_info=True)
                 syncstatus.update_status(status="failed")
@@ -302,7 +303,6 @@ class SyncManager:
             # Default parameters for Outlook sync
             folders = self.config.get('sync', {}).get('outlook', {}).get('folders', ["inbox", "sentitems"])
             limit = self.config.get('sync', {}).get('outlook', {}).get('limit_per_folder', 50)
-            
             # Format date for Outlook filtering if needed
             # Format the date correctly for Microsoft Graph API
             if date_threshold:
@@ -330,6 +330,7 @@ class SyncManager:
                 syncstatus=syncstatus
             )
             logger.info(f"Outlook sync completed for user {user_id}")
+            
         except Exception as e:
             logger.error(f"Failed to sync Outlook for user {user_id}: {e}", exc_info=True)
 
