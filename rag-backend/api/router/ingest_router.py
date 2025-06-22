@@ -11,6 +11,7 @@ from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Request, status, BackgroundTasks
 from fastapi.responses import StreamingResponse, JSONResponse, HTMLResponse
 from google_auth_oauthlib.flow import Flow
+from pydantic import BaseModel, Field
 import pathlib
 from pydantic import BaseModel
 import msal
@@ -587,6 +588,91 @@ def run_outlook_ingestion(folders: List[str], limit: int, query: Optional[str], 
 from update_vdb.sources.ingest_outlook_emails import ingest_outlook_emails_to_qdrant
 
 from update_vdb.sources.file_registry import FileRegistry
+
+# Import SyncManager
+from sync_service.core.sync_manager import SyncManager
+from rag_engine.config import load_config
+
+class SyncRequest(BaseModel):
+    """Request model for starting a synchronization for a user"""
+    provider: Optional[str] = Field(None, description="Optional provider name to sync (gmail, outlook, gdrive, personal-storage). If not provided, all providers for the user will be synchronized.")
+    force_reingest: bool = Field(False, description="Whether to force reingestion of all documents")
+
+@router.post("/sync/start")
+async def sync_for_user(request: SyncRequest, user=Depends(get_current_user)):
+    """Start a one-time synchronization for the specified user and provider.
+    If no provider is specified, sync all configured providers for the user.
+    
+    This endpoint initiates an immediate synchronization operation without waiting for the scheduled sync.
+    """
+    try:
+        user_id = user.get("uid") if user else None
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required"
+            )
+        
+        # Load configuration
+        config = load_config()
+        
+        # Override force_reingest setting if specified in request
+        if request.force_reingest:
+            if "sync" not in config:
+                config["sync"] = {}
+            for provider in ["gmail", "outlook", "gdrive", "personal-storage"]:
+                if provider not in config["sync"]:
+                    config["sync"][provider] = {}
+                config["sync"][provider]["force_reingest"] = True
+        
+        # Initialize sync manager
+        sync_manager = SyncManager(config)
+        
+        result = {"user_id": user_id, "success": True, "details": {}}
+        
+        # If provider specified, sync only that provider
+        if request.provider:
+            valid_providers = ["gmail", "outlook", "gdrive", "personal-storage"]
+            if request.provider not in valid_providers:
+                return JSONResponse(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    content={"success": False, "error": f"Invalid provider. Must be one of {valid_providers}"}
+                )
+                
+            logger.info(f"Starting one-time sync for user {user_id} and provider {request.provider}")
+            try:
+                sync_manager.sync_provider(user_id, request.provider)
+                result["details"][request.provider] = {"status": "completed"}
+            except Exception as e:
+                error_msg = str(e)
+                result["details"][request.provider] = {"status": "error", "error": error_msg}
+                result["success"] = False
+        else:
+            # Sync all providers configured for this user
+            logger.info(f"Starting one-time sync for all providers of user {user_id}")
+            user_providers = sync_manager.get_authenticated_users().get(user_id, [])
+            
+            if not user_providers:
+                return JSONResponse(
+                    content={"success": False, "error": "No authenticated providers found for this user"}
+                )
+            
+            for provider in user_providers:
+                try:
+                    sync_manager.sync_provider(user_id, provider)
+                    result["details"][provider] = {"status": "completed"}
+                except Exception as e:
+                    error_msg = str(e)
+                    result["details"][provider] = {"status": "error", "error": error_msg}
+                    result["success"] = False
+        
+        return JSONResponse(content=result)
+    except Exception as e:
+        logger.error(f"Error starting sync: {str(e)}", exc_info=True)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"success": False, "error": str(e)}
+        )
 
 @router.get("/gmail/recent_emails")
 async def get_recent_gmail_emails(limit: int = 10, user=Depends(get_current_user)):

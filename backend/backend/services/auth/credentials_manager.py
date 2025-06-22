@@ -296,6 +296,62 @@ def get_authenticated_users_by_provider(provider: str) -> List[str]:
         logger.error(f"Erreur lors de la recherche des utilisateurs {provider}: {str(e)}")
         return []
 
+def delete_google_token(user_id):
+    """
+    Supprime un token Google OAuth2 pour un utilisateur spécifique.
+    
+    Args:
+        user_id (str): Identifiant de l'utilisateur
+        
+    Returns:
+        bool: True si suppression réussie, False sinon
+    """
+    try:
+        from backend.core.config import GMAIL_TOKEN_PATH
+        
+        token_path = GMAIL_TOKEN_PATH.replace("user_id", user_id)
+        token_path = os.path.join(BASE_DIR, token_path)
+        logger.debug(f"Tentative de suppression du token Google pour {user_id} depuis {token_path}")
+        
+        if not os.path.exists(token_path):
+            logger.debug(f"Fichier de token non trouvé: {token_path}")
+            return False
+            
+        os.remove(token_path)
+        logger.debug(f"Token Google supprimé avec succès pour {user_id}")
+        return True
+    except Exception as e:
+        logger.error(f"Erreur lors de la suppression du token Google pour {user_id}: {str(e)}")
+        return False
+
+def delete_microsoft_token(user_id):
+    """
+    Supprime un token Microsoft OAuth2 pour un utilisateur spécifique.
+    
+    Args:
+        user_id (str): Identifiant de l'utilisateur
+        
+    Returns:
+        bool: True si suppression réussie, False sinon
+    """
+    try:
+        from backend.core.config import OUTLOOK_TOKEN_PATH
+        
+        token_path = OUTLOOK_TOKEN_PATH.replace("user_id", user_id)
+        token_path = os.path.join(BASE_DIR, token_path)
+        logger.debug(f"Tentative de suppression du token Microsoft pour {user_id} depuis {token_path}")
+        
+        if not os.path.exists(token_path):
+            logger.debug(f"Fichier de token non trouvé: {token_path}")
+            return False
+            
+        os.remove(token_path)
+        logger.debug(f"Token Microsoft supprimé avec succès pour {user_id}")
+        return True
+    except Exception as e:
+        logger.error(f"Erreur lors de la suppression du token Microsoft pour {user_id}: {str(e)}")
+        return False
+
 def main():
     users = load_google_token('gmail')
     print(users)

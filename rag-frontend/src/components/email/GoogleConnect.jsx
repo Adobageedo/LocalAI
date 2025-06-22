@@ -2,7 +2,7 @@ import React, { useEffect } from "react";
 
 // IMPORTANT: Replace this with your own Google OAuth Client ID from Google Cloud Console
 const CLIENT_ID = "506230950080-6relmmvf1q0netq0s7uf1edri25bdp42.apps.googleusercontent.com";
-const SCOPES = "https://www.googleapis.com/auth/drive.readonly";
+const SCOPES = "https://www.googleapis.com/auth/drive";
 
 export default function GoogleConnect({ onAuthSuccess }) {
   useEffect(() => {

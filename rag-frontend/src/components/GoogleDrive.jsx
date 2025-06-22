@@ -33,6 +33,7 @@ import GoogleDriveIcon from '@mui/icons-material/Storage'; // Using Storage as p
 
 // Utils
 import { formatFileSize, decodeFileName, getFileIcon } from '../utils/fileUtils';
+import authProviders from '../lib/authProviders';
 
 // Helper function to render file icons from the config returned by getFileIcon
 const renderFileIcon = (iconConfig) => {
@@ -123,7 +124,7 @@ const GoogleDrive = ({
         <Button
           variant="contained"
           startIcon={<GoogleDriveIcon />}
-          onClick={onAuthenticate}
+          onClick={authProviders.authenticateWithPopup('google')}
           sx={{ bgcolor: '#4CAF50', '&:hover': { bgcolor: '#388E3C' } }}
         >
           Connect Google Drive

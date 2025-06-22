@@ -24,8 +24,9 @@ const gdriveService = {
    * @param {string} callbackUrl URL de redirection après authentification
    * @returns {Promise<Object>} URL d'authentification
    */
-  getAuthUrl: async (callbackUrl) => {
+  getAuthUrl: async () => {
     try {
+      const callbackUrl = API_BASE_URL + "/db/gdrive/oauth2_callback";
       const response = await authFetch(`${API_BASE_URL}/db/gdrive/auth_url?callback=${encodeURIComponent(callbackUrl)}`);
       return await response.json();
     } catch (error) {
@@ -187,6 +188,37 @@ const gdriveService = {
       return await response.json();
     } catch (error) {
       console.error('Error copying Google Drive item:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Révoque l'accès à Google Drive en supprimant les tokens stockés
+   * @returns {Promise<Object>} Résultat de l'opération
+   */
+  revokeAccess: async () => {
+    try {
+      const response = await authFetch(`${API_BASE_URL}/db/gdrive/revoke_access`, {
+        method: 'DELETE',
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('Error revoking Google Drive access:', error);
+      throw error;
+    }
+  },
+  
+  /**
+   * Déconnexion de Google Drive
+   * @returns {Promise<void>}
+   */
+  signOut: async () => {
+    try {
+      // Call the revoke access endpoint first
+      await gdriveService.revokeAccess();
+      return true;
+    } catch (error) {
+      console.error('Error signing out from Google Drive:', error);
       throw error;
     }
   },

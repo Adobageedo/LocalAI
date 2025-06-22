@@ -138,19 +138,13 @@ export default function Register() {
         name: fullName,
         phone: countryCode + phone,
       };
-      
-      // Get a fresh ID token
-      const token = await getIdToken(true);
-      if (!token) {
-        throw new Error('Could not get authentication token. Please try logging in.');
-      }
-      
+      console.log('Creating user in database:', userData);
+
       // Now send the user data to your backend
       const response = await authFetch(`${API_BASE_URL}/users`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify(userData)
       });

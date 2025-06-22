@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { API_BASE_URL } from "../../config";
 import { authFetch } from '../../firebase/authFetch';
+import authProviders from "../../lib/authProviders";
 import { 
   Box, Typography, Button, Alert, CircularProgress, TextField, Chip,
   Checkbox, FormControlLabel, Grid, Paper, Stack
@@ -88,67 +89,29 @@ export function OutlookConnect() {
   }, []);
   
   // Vérifier le statut d'authentification Outlook
-  // Vérifier si on est sur la page de callback avec un code d'autorisation
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const code = urlParams.get('code');
-    const error = urlParams.get('error');
-    
-    if (code && window.location.pathname.includes('/api/sources/outlook/callback')) {
-      // Envoyer le code au backend
-      handleAuthorizationCode(code);
-    } else if (error) {
-      setAuthError(`Erreur d'authentification: ${error}`);
-    }
-  }, []);
-
-  const handleAuthorizationCode = async (code) => {
-    try {
-      setAuthLoading(true);
-      // Appeler directement le backend pour traiter le code
-      const response = await authFetch(`${API_BASE_URL}/sources/outlook/callback?code=${encodeURIComponent(code)}`);
-      const data = await response.json();
-      
-      if (response.ok && data.status === "success") {
-        setAuthMessage(`Authentification réussie pour ${data.user || 'utilisateur Outlook'}`); 
-        // Rediriger vers la page d'importation
-        window.location.href = '/mail-import?outlook_auth=success';
-      } else {
-        setAuthError(data.error || "Erreur lors de l'authentification");
-        // Rediriger vers la page d'importation avec erreur
-        window.location.href = '/mail-import?outlook_auth=error';
-      }
-    } catch (error) {
-      console.error('Erreur lors du traitement du code d\'autorisation:', error);
-      setAuthError("Erreur lors du traitement du code d'autorisation");
-      // Rediriger vers la page d'importation avec erreur
-      window.location.href = '/mail-import?outlook_auth=error';
-    } finally {
-      setAuthLoading(false);
-    }
-  };
-
   const checkAuthStatus = async () => {
     try {
       setAuthLoading(true);
-      const response = await authFetch(`${API_BASE_URL}/sources/outlook/auth_status`);
-      const data = await response.json();
+      const data = await authProviders.checkAuthStatus('microsoft');
       
       setIsAuthenticated(data.authenticated || false);
-      setAuthLoading(false);
       
-      if (!data.authenticated) {
+      if (data.authenticated) {
         setAuthStatus({
-          type: "warning",
-          message: "Vous devez vous authentifier à Outlook avant de pouvoir importer vos emails."
+          type: "success",
+          message: "Connecté à Microsoft Outlook"
         });
       }
+      
+      return data;
     } catch (error) {
-      console.error('Erreur lors de la vérification de l\'authentification Outlook:', error);
+      console.error('Erreur lors de la vérification du statut d\'authentification:', error);
+      setIsAuthenticated(false);
       setAuthStatus({
         type: "error",
-        message: "Impossible de vérifier le statut d'authentification Outlook."
+        message: "Erreur lors de la vérification du statut d'authentification"
       });
+    } finally {
       setAuthLoading(false);
     }
   };
@@ -159,31 +122,18 @@ export function OutlookConnect() {
       setAuthLoading(true);
       setAuthStatus(null);
       
-      // Générer l'URL de callback dynamiquement en fonction de l'environnement actuel
-      const protocol = window.location.protocol;
-      const host = window.location.host;
-      const callbackUrl = `${protocol}//${host}/api/sources/outlook/callback`;
+      // Utiliser la bibliothèque authProviders pour l'authentification
+      await authProviders.authenticateWithPopup('microsoft');
       
-      const response = await authFetch(`${API_BASE_URL}/sources/outlook/auth?callback_url=${encodeURIComponent(callbackUrl)}`);
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || response.statusText);
-      }
-      
-      if (data.auth_url) {
-        // Rediriger vers l'URL d'authentification Microsoft
-        window.location.href = data.auth_url;
-      } else {
-        throw new Error("L'URL d'authentification n'a pas été renvoyée");
-      }
-      
+      // Vérifier le statut d'authentification après la tentative
+      await checkAuthStatus();
     } catch (error) {
-      console.error('Erreur lors de l\'authentification Outlook:', error);
+      console.error('Erreur lors du démarrage de l\'authentification:', error);
       setAuthStatus({
         type: "error",
-        message: "Impossible d'initialiser l'authentification Outlook: " + error.message
+        message: error.message || "Erreur lors du démarrage de l'authentification"
       });
+    } finally {
       setAuthLoading(false);
     }
   };
@@ -193,25 +143,28 @@ export function OutlookConnect() {
       setIsLoading(true);
       setStatus(null);
       
-      const response = await authFetch(`${API_BASE_URL}/sources/ingest/outlook`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ folders, limit, query: query || undefined, force_reingest: forceReingest, no_attachments: noAttachments }),
-      });
+      const importOptions = {
+        folders,
+        limit,
+        query: query || undefined,
+        no_attachments: noAttachments
+      };
       
-      if (!response.ok) {
-        throw new Error(response.statusText);
-      }
+      // Utiliser la bibliothèque authProviders pour l'ingestion
+      await authProviders.startIngestion('outlook', {
+        forceReingest: forceReingest,
+        options: importOptions
+      });
       
       setStatus({
         type: "success",
         message: "Importation Outlook démarrée en arrière-plan"
       });
     } catch (error) {
-      console.error("Erreur lors de l'importation Outlook:", error);
+      console.error('Erreur lors de l\'importation Outlook:', error);
       setStatus({
         type: "error",
-        message: error.response?.data?.detail || "Erreur lors de l'importation Outlook"
+        message: error.message || "Erreur lors de l'importation Outlook"
       });
     } finally {
       setIsLoading(false);

@@ -5,7 +5,7 @@ et effectuer des opérations sur les fichiers stockés dans Google Drive.
 
 import os
 import io
-import logging
+from backend.core.logger import log
 import tempfile
 import os
 import shutil
@@ -23,30 +23,30 @@ from googleapiclient.http import MediaIoBaseDownload, MediaIoBaseUpload
 from google_auth_oauthlib.flow import Flow
 
 # Import Google Drive Service
-from api.services.google_drive_service import GoogleDriveService
+from backend.api.services.google_drive_service import GoogleDriveService
 
 # Middleware & Auth
-from middleware.auth import get_current_user
-from auth.credentials_manager import (
-    load_google_token, save_google_token, check_google_credentials
+from backend.services.auth.middleware.auth import get_current_user
+from backend.services.auth.credentials_manager import (
+    load_google_token, save_google_token, check_google_credentials, delete_google_token
 )
 
 # Configuration
-from dotenv import load_dotenv
-load_dotenv()
+from backend.core.config import load_config,GMAIL_CLIENT_ID,GMAIL_CLIENT_SECRET,GMAIL_REDIRECT_URI,GMAIL_TOKEN_PATH
+
 
 # Logger
 router = APIRouter(tags=["googledrive"])
-logger = logging.getLogger(__name__)
+logger = log.bind(name="backend.api.file_management_google")
 
 # Initialize services
 google_drive_service = GoogleDriveService()
 
 # Google API Configuration
-GOOGLE_CLIENT_ID = os.getenv("GMAIL_CLIENT_ID", "")
-GOOGLE_CLIENT_SECRET = os.getenv("GMAIL_CLIENT_SECRET", "")
-GOOGLE_REDIRECT_URI = os.getenv("GMAIL_REDIRECT_URI", "http://localhost:8000/api/db/gdrive/oauth2_callback")
-GOOGLE_TOKEN_PATH = os.getenv("GMAIL_TOKEN_PATH", "token.pickle")
+GOOGLE_CLIENT_ID = GMAIL_CLIENT_ID
+GOOGLE_CLIENT_SECRET = GMAIL_CLIENT_SECRET
+GOOGLE_REDIRECT_URI = GMAIL_REDIRECT_URI
+GOOGLE_TOKEN_PATH = GMAIL_TOKEN_PATH
 GOOGLE_SCOPES = [
     "https://www.googleapis.com/auth/gmail.readonly",
     "https://www.googleapis.com/auth/gmail.modify",
@@ -108,6 +108,28 @@ def get_drive_service(user_id: str):
 
 
 # Endpoints pour l'authentification
+
+@router.delete("/gdrive/revoke_access")
+async def revoke_gdrive_access(user=Depends(get_current_user)):
+    """Révoque l'accès à Google Drive en supprimant les credentials stockés"""
+    try:
+        user_id = user.get("uid") if user else "gdrive"
+        logger.info(f"[GDRIVE REVOKE] Revoking access for user {user_id}")
+        
+        # Supprimer le token Google
+        result = delete_google_token(user_id)
+        
+        if result:
+            return {"success": True, "message": "Accès à Google Drive révoqué avec succès"}
+        else:
+            return {"success": False, "message": "Aucun token trouvé ou erreur lors de la suppression"}
+            
+    except Exception as e:
+        logger.error(f"[GDRIVE REVOKE] Error: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error revoking Google Drive access: {str(e)}"
+        )
 @router.get("/gdrive/auth_status")
 async def get_gdrive_auth_status(user=Depends(get_current_user)):
     """Vérifie si l'utilisateur est authentifié à Google Drive"""
@@ -165,7 +187,7 @@ async def get_gdrive_auth_url(callback_url: str = None, user=Depends(get_current
             )
             
         state = f"user_id={user_id}"
-        
+        logger.info(f"[GDRIVE AUTH URL] Redirect URI: {redirect_uri} and scopes: {GOOGLE_SCOPES}")
         # Créer un flow OAuth2 pour Google Drive
         flow = Flow.from_client_config(
             {
@@ -209,7 +231,7 @@ async def gdrive_oauth2_callback(code: str = None, state: str = None, error: str
         if not code:
             logger.error("[GDRIVE CALLBACK] No authorization code received")
             return {"success": False, "error": "No authorization code received"}
-            
+        logger.info(f"[GDRIVE CALLBACK] Received auth code: {GOOGLE_SCOPES}")
         # Extraire l'ID utilisateur de l'état
         user_id = "gdrive"
         if state and "user_id=" in state:

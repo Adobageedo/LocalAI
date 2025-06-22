@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { authFetch } from '../../firebase/authFetch';
 import { API_BASE_URL } from "../../config";
 import { CircularProgress, Chip, TextField, Checkbox, FormControlLabel } from "@mui/material";
+import authProviders from "../../lib/authProviders";
 
 export function GmailConnect() {
   const [isLoading, setIsLoading] = useState(false);
@@ -14,75 +15,37 @@ export function GmailConnect() {
   const [newLabel, setNewLabel] = useState("");
   const [currentSubject, setCurrentSubject] = useState(null);
 
-  // Poll for ingest status while loading
-  React.useEffect(() => {
-    let interval;
-    if (isLoading) {
-      interval = setInterval(async () => {
-        try {
-          const res = await authFetch(`${API_BASE_URL}/sources/gmail/ingest_status`);
-          const data = await res.json();
-          if (data && data.subject) {
-            setCurrentSubject(data.subject);
-          } else {
-            setCurrentSubject(null);
-          }
-        } catch {
-          setCurrentSubject(null);
-        }
-      }, 2000);
-    } else {
-      setCurrentSubject(null);
-    }
-    return () => interval && clearInterval(interval);
-  }, [isLoading]);
-
   const handleImport = async () => {
-    // Step 1: Immediately open a popup (blank) — this avoids Safari blocking
-    const popup = window.open("", "GmailAuth", "width=500,height=650");
-
-    if (!popup) {
-      alert("Popup blocked! Please allow popups to continue Gmail authentication.");
-      return;
-    }
     try {
       setIsLoading(true);
       setStatus(null);
-      // Step 1: Check if authentication is needed
-      const authCheckRes = await authFetch(`${API_BASE_URL}/sources/gmail/auth_url`);
-      const authCheck = await authCheckRes.json();
-      if (authCheck.authenticated) {
-        // Already authenticated, start ingestion
-        popup.close();
-        await startIngestion();
-      } else if (authCheck.auth_url) {
-        // Not authenticated, open popup
-        popup.location.href = authCheck.auth_url;
-        // Listen for message from popup
-        const onMessage = async (event) => {
-          if (event.data === "gmail_auth_success") {
-            popup.close();
-            window.removeEventListener("message", onMessage);
-            await startIngestion();
-          }
-        };
-        window.addEventListener("message", onMessage);
-      } else {
-        setStatus("Erreur: Impossible de vérifier l'authentification Gmail.");
-        setIsLoading(false);
-      }
+      
+      // Use the unified authProviders library to handle authentication
+      await authProviders.authenticateWithPopup('google');
+      
+      // If authentication is successful, start ingestion
+      //await startIngestion();
     } catch (err) {
-      setStatus("Erreur lors de la vérification ou de l'import Gmail.");
+      console.error("Erreur d'authentification Gmail:", err);
+      setStatus({
+        type: "error",
+        message: "Erreur lors de la vérification ou de l'import Gmail: " + (err.message || err)
+      });
       setIsLoading(false);
     }
   };
 
   const startIngestion = async () => {
     try {
-      const response = await authFetch(`${API_BASE_URL}/sources/ingest/gmail`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ labels, limit, query: query || undefined, force_reingest: forceReingest, no_attachments: noAttachments }),
+      // Use the unified authProviders library to handle ingestion
+      await authProviders.startIngestion('gmail', {
+        forceReingest: forceReingest,
+        options: {
+          labels, 
+          limit, 
+          query: query || undefined,
+          no_attachments: noAttachments
+        }
       });
       
       setStatus({

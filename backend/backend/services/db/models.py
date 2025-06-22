@@ -236,28 +236,66 @@ class ChatMessage:
               role: str, message: str, 
               sources: Optional[List[Dict[str, Any]]] = None) -> 'ChatMessage':
         """Create a new chat message"""
-        db = PostgresManager()
-        query = """
-            INSERT INTO chat_messages (conversation_id, user_id, role, message, sources)
-            VALUES (%s, %s, %s, %s, %s)
-            RETURNING id, conversation_id, user_id, role, message, sources, timestamp
-        """
-        sources_json = json.dumps(sources) if sources else None
-        result = db.execute_query(
-            query, 
-            (str(conversation_id), user_id, role, message, sources_json),
-            fetch_one=True
-        )
-        
-        # Also update the updated_at timestamp of the conversation
-        update_query = """
-            UPDATE conversations
-            SET updated_at = NOW()
-            WHERE id = %s
-        """
-        db.execute_query(update_query, (str(conversation_id),))
-        
-        return cls(**result) if result else None
+        try:
+            db = PostgresManager()
+            
+            # Ensure conversation_id is a string
+            conv_id_str = str(conversation_id) if conversation_id else None
+            if not conv_id_str:
+                print(f"Error: Invalid conversation_id: {conversation_id}")
+                return None
+                
+            # Check if conversation exists
+            check_conv_query = "SELECT id FROM conversations WHERE id = %s"
+            conv_exists = db.execute_query(check_conv_query, (conv_id_str,), fetch_one=True)
+            if not conv_exists:
+                print(f"Error: Conversation with ID {conv_id_str} does not exist")
+                return None
+            
+            # Try to format sources to JSON
+            try:
+                sources_json = json.dumps(sources) if sources else None
+            except Exception as e:
+                print(f"Error serializing sources to JSON: {e}")
+                sources_json = None
+                
+            # Insert the message
+            query = """
+                INSERT INTO chat_messages (conversation_id, user_id, role, message, sources)
+                VALUES (%s, %s, %s, %s, %s)
+                RETURNING id, conversation_id, user_id, role, message, sources, timestamp
+            """
+            
+            print(f"Inserting message: conv_id={conv_id_str}, user_id={user_id}, role={role}, message_length={len(message) if message else 0}")
+            result = db.execute_query(
+                query, 
+                (conv_id_str, user_id, role, message, sources_json),
+                fetch_one=True
+            )
+            
+            if not result:
+                print("Error: INSERT query returned None")
+                return None
+                
+            # Also update the updated_at timestamp of the conversation
+            update_query = """
+                UPDATE conversations
+                SET updated_at = NOW()
+                WHERE id = %s
+            """
+            db.execute_query(update_query, (conv_id_str,))
+            
+            # Create and return the ChatMessage instance
+            try:
+                return cls(**result)
+            except Exception as e:
+                print(f"Error creating ChatMessage instance from result: {e}")
+                print(f"Result data: {result}")
+                return None
+                
+        except Exception as e:
+            print(f"Unexpected error in ChatMessage.create: {e}")
+            return None
     
     @classmethod
     def get_by_id(cls, message_id: Union[str, uuid.UUID]) -> Optional['ChatMessage']:

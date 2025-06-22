@@ -22,7 +22,7 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import CloseIcon from '@mui/icons-material/Close';
 import { useAuth } from '../../auth/AuthProvider';
 import { getConversations, deleteConversation } from '../../services/chatService';
-import gdriveService from '../../lib/gdrive';
+import authProviders from '../../lib/authProviders';
 import { API_BASE_URL } from '../../config';
 import { authFetch } from '../../firebase/authFetch';
 
@@ -79,14 +79,12 @@ const Sidebar = ({ width = 240, open = true, onClose, collapsed = false, onToggl
     const checkAuthStatus = async () => {
       try {
         // Vérifier le statut d'authentification Google
-        const googleStatus = await gdriveService.checkAuthStatus();
-        const isConnected = googleStatus.authenticated || false;
-        setGoogleConnected(isConnected);
-        // Vérifier le statut d'authentification Microsoft (à implémenter)
-        // Pour l'instant, on laisse à false par défaut
-        // Exemple de code à décommenter une fois le service Microsoft implémenté :
-        // const msStatus = await microsoftService.checkAuthStatus();
-        // setMicrosoftConnected(msStatus.isAuthenticated || false);
+        const googleStatus = await authProviders.checkAuthStatus('google');
+        setGoogleConnected(googleStatus.authenticated || false);
+        
+        // Vérifier le statut d'authentification Microsoft
+        const msStatus = await authProviders.checkAuthStatus('microsoft');
+        setMicrosoftConnected(msStatus.authenticated || false);
       } catch (error) {
         console.error('Erreur lors de la vérification du statut d\'authentification', error);
       }
@@ -229,47 +227,28 @@ const Sidebar = ({ width = 240, open = true, onClose, collapsed = false, onToggl
   // Authentification Google
   const connectGoogle = async () => {
     try {
-      // Utiliser le service Google Drive pour obtenir l'URL d'authentification
-      const callbackUrl = "http://localhost:8000/api/db/gdrive/oauth2_callback"//window.location.origin + '/auth/google/callback';
-      console.log('Using callback URL:', callbackUrl);
-      const result = await gdriveService.getAuthUrl(callbackUrl);
+      // Utiliser la bibliothèque unifiée pour l'authentification
+      await authProviders.authenticateWithPopup('gdrive');
       
-      // Ouvrir l'URL d'authentification dans une nouvelle fenêtre/onglet
-      if (result.auth_url) {
-        window.open(result.auth_url, '_blank');
-      } else {
-        console.error('URL d\'authentification Google non disponible');
-      }
+      // Rafraîchir le statut d'authentification
+      await checkAuthStatus();
     } catch (error) {
-      console.error('Erreur lors de la récupération de l\'URL d\'authentification Google:', error);
+      console.error("Erreur lors de l'authentification Google:", error);
+      alert("Erreur lors de l'authentification Google.");
     }
   };
   
   // Authentification Microsoft
   const connectMicrosoft = async () => {
     try {
-      // Générer l'URL de callback dynamiquement en fonction de l'environnement actuel
-      const protocol = window.location.protocol;
-      const host = window.location.host;
-      const callbackUrl = `${API_BASE_URL}/sources/outlook/callback`;
-      console.log('Using Outlook callback URL:', callbackUrl);
+      // Utiliser la bibliothèque unifiée pour l'authentification
+      await authProviders.authenticateWithPopup('outlook');
       
-      // Appel à l'API backend pour obtenir l'URL d'authentification Microsoft
-      const response = await authFetch(`${API_BASE_URL}/sources/outlook/auth?callback_url=${encodeURIComponent(callbackUrl)}`);
-      const data = await response.json();
-      
-      if (!response.ok) {
-        throw new Error(data.error || response.statusText);
-      }
-      
-      // Ouvrir l'URL d'authentification dans une nouvelle fenêtre/onglet
-      if (data.auth_url) {
-        window.open(data.auth_url, '_blank');
-      } else {
-        console.error('URL d\'authentification Microsoft non disponible');
-      }
+      // Rafraîchir le statut d'authentification
+      await checkAuthStatus();
     } catch (error) {
-      console.error('Erreur lors de la récupération de l\'URL d\'authentification Microsoft:', error);
+      console.error("Erreur lors de l'authentification Microsoft:", error);
+      alert("Erreur lors de l'authentification Microsoft.");
     }
   };
   
@@ -588,6 +567,7 @@ const Sidebar = ({ width = 240, open = true, onClose, collapsed = false, onToggl
             startIcon={!collapsed ? <FolderIcon /> : null}
             onClick={manageDocuments}
             fullWidth
+            data-tour="sidebar-documents"
             sx={{
               justifyContent: collapsed ? 'center' : 'flex-start',
               borderRadius: 1,
@@ -612,6 +592,7 @@ const Sidebar = ({ width = 240, open = true, onClose, collapsed = false, onToggl
             startIcon={!collapsed ? <EmailIcon /> : null}
             onClick={() => navigateTo('/mail-import')}
             fullWidth
+            data-tour="sidebar-mail"
             sx={{
               justifyContent: collapsed ? 'center' : 'flex-start',
               borderRadius: 1,
@@ -636,6 +617,7 @@ const Sidebar = ({ width = 240, open = true, onClose, collapsed = false, onToggl
             startIcon={!collapsed ? <SettingsIcon /> : null}
             onClick={openSettings}
             fullWidth
+            data-tour="sidebar-settings"
             sx={{
               justifyContent: collapsed ? 'center' : 'flex-start',
               borderRadius: 1,
