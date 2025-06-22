@@ -17,7 +17,7 @@ retrieval:
   vectorstore:
     path: ./data/vectorstore      # Path to vector store
     type: qdrant                  # qdrant, faiss, chroma, etc.
-    host: localhost
+    host: qdrant
     port: 6333
     collection: rag_documents1536
   filter_fallback: false           # Fallback to no-filter if filtered results are empty
