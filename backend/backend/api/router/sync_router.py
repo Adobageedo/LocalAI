@@ -3,7 +3,10 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from typing import Dict, Any
 
-from backend.core.auth import get_current_user
+import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
+from backend.services.auth.middleware.auth import get_current_user
 from backend.services.sync_service.scheduled_sync_service import get_sync_metrics
 from backend.services.db.models import SyncStatus
 
