@@ -303,7 +303,7 @@ export default function Chatbot() {
     <Layout>
       <Box sx={{ 
         display: 'flex',
-        height: 'calc(100vh - 64px)',
+        height: 'calc(100vh - 200px)',
         position: 'relative',
         overflow: 'hidden',
         bgcolor: '#FBFBFD', // Apple-style light background color
