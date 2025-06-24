@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
+    <title>Email Template Generator Commands</title>
+
+    <!-- Office JavaScript API -->
+    <script type="text/javascript" src="https://appsforoffice.microsoft.com/lib/1.1/hosted/office.js"></script>
+
+    <script type="text/javascript">
+        Office.onReady(function() {
+            // Office is ready
+        });
+
+        // Function used by the UI-less button
+        function action(event) {
+            // You can implement actions for UI-less buttons here
+            // For now, we'll just open the taskpane
+            Office.context.ui.displayDialogAsync(
+                'https://localhost:3000/taskpane.html?action=generate',
+                {height: 50, width: 30},
+                function (result) {
+                    if (result.status === Office.AsyncResultStatus.Failed) {
+                        console.error('Dialog failed to open: ' + result.error.message);
+                    }
+                }
+            );
+            
+            // Required to signal completion
+            event.completed();
+        }
+    </script>
+</head>
+<body>
+    <!-- Note: This file is only used to implement functions for UI-less buttons. -->
+</body>
+</html>

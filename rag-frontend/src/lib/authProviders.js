@@ -181,7 +181,9 @@ const authProviders = {
       if (!response.ok) {
         throw new Error(`Error revoking ${provider} access: ${response.statusText}`);
       }
-      
+      const cacheKey = `authStatus_${provider}`;
+      localStorage.removeItem(cacheKey);
+
       return await response.json();
     } catch (error) {
       console.error(`Error revoking ${provider} access:`, error);
