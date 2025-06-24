@@ -26,6 +26,8 @@ export default function ChatInterface({
   const messagesEndRef = useRef(null);
   const messageContainerRef = useRef(null);
   
+
+  
   // Scroll to bottom when messages change - no smooth animation
   useEffect(() => {
     if (messagesEndRef.current) {
@@ -65,8 +67,12 @@ export default function ChatInterface({
         ref={messageContainerRef}
         sx={{ 
           flex: 1, 
-          overflow: 'auto', 
-          p: 2, 
+          overflow: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
+          px: 2,
+          pt: 3,
+          pb: 1,
           backgroundColor: '#f5f5f7'
         }}
       >
@@ -78,11 +84,13 @@ export default function ChatInterface({
               alignItems: 'center', 
               justifyContent: 'center',
               textAlign: 'center',
-              height: '100%'
+              height: '100%',
+              marginTop: 'auto', // Push welcome message to vertical center
+              marginBottom: 'auto'
             }}
           >
             <Typography variant="h5" gutterBottom>
-              LocalAI Chat
+              Intelligent Chat
             </Typography>
             <Typography variant="body1" color="text.secondary" sx={{ maxWidth: '60%' }}>
               Ask questions about your documents.
