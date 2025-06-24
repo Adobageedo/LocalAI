@@ -38,9 +38,10 @@ def batch_ingest_user_documents(user_id: str, storage_path: str = None, limit: i
         # Default storage path
         storage_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'data', 'storage'))
     
-    # User-specific directory
-    user_dir = os.path.join(storage_path, "user_" + user_id)
-    
+        # User-specific directory
+        user_dir = os.path.join(storage_path, "user_" + user_id)
+    else:
+        user_dir = storage_path
     if not os.path.exists(user_dir):
         logger.warning(f"No storage directory found for user {user_id} at {user_dir}")
         return {

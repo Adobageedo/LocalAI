@@ -460,7 +460,6 @@ const DocumentExplorer = () => {
       for (const item of selectedItems) {
         // Use buildFullPath to get the correct path including the filename
         const fullPath = buildFullPath(item);
-        console.log(`Deleting item: ${fullPath}, is_directory: ${item.is_directory}`);
         await personal_storage_service.deleteItem(fullPath, item.is_directory);
       }
       showNotification(`${selectedItems.length} item(s) deleted successfully`);
@@ -719,7 +718,6 @@ const DocumentExplorer = () => {
       case 'download':
         if (selectedItems.length === 1 && !selectedItems[0].is_directory) {
           const fullPath = buildFullPath(selectedItems[0]);
-          console.log('Downloading from context menu with full path:', fullPath);
           personal_storage_service.downloadFile(fullPath);
         }
         break;
@@ -817,6 +815,7 @@ const DocumentExplorer = () => {
         uploadFileToMinio(file);
       }
     }
+    loadDirectoryContents();
   };
   
   // Process directory entry recursively
@@ -868,23 +867,26 @@ const DocumentExplorer = () => {
   };
 
 
-
+  const ded = async () => {
+    try {
+      showNotification('Starting Google Drive synchronization...');
+      await authProviders.startIngestion('gdrive');
+      showNotification('Google Drive synchronization started');
+    } catch (error) {
+      console.error('Google Drive sync error:', error);
+      showNotification('Failed to sync Google Drive: ' + error.message);
+    }
+  };
   // Handle sync for documents
   const handleSync = async () => {
     try {
       setLoading(true);
-      showNotification('Starting document synchronization...');
-
-      // Call the sync endpoint
-      await authFetch(`${API_BASE_URL}/sync/minio`, {
-        method: 'POST'
-      });
-      
-      showNotification('Documents synchronized successfully');
-      loadDirectoryContents();
+      showNotification('Starting synchronization...');
+      await authProviders.startIngestion('personal-storage');
+      showNotification('Synchronization started');
     } catch (error) {
-      console.error('Error syncing documents:', error);
-      showNotification(`Error during synchronization: ${error.message}`);
+      console.error('Personal Storage sync error:', error);
+      showNotification('Failed to sync Personal Storage: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -894,45 +896,6 @@ const DocumentExplorer = () => {
 
   // Buttons to render in the toolbar area
   const renderActionButtons = () => {
-    // Show file/folder management buttons
-    if (!selectedItems.length) {
-      return (
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          <Button
-            variant="contained"
-            startIcon={<UploadIcon />}
-            onClick={handleUpload}
-            disabled={loading}
-            size="small"
-          >
-            Upload Files
-          </Button>
-          
-          <Button
-            variant="contained"
-            startIcon={<CreateFolderIcon />}
-            onClick={handleCreateFolder}
-            disabled={loading}
-            size="small"
-          >
-            New Folder
-          </Button>
-          
-          <Button
-            variant="outlined"
-            startIcon={<RefreshIcon />}
-            onClick={() => loadDirectoryContents()}
-            disabled={loading}
-            size="small"
-          >
-            Refresh
-          </Button>
-          
-
-        </Box>
-      );
-    }
-
     return (
       <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
         <Button
@@ -986,7 +949,114 @@ const DocumentExplorer = () => {
           Document Explorer
         </Typography>
         
+        {/* Cloud provider connection status */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 2 }}>
+          {/* Google Drive connection section */}
+          <Box 
+            sx={{ 
+              display: 'flex', 
+              alignItems: 'center',
+              border: '1px solid #e0e0e0',
+              borderRadius: 1,
+              p: 0.5,
+              mr: 2,
+              bgcolor: googleDriveAuth.authenticated ? 'rgba(76, 175, 80, 0.1)' : 'transparent'
+            }}
+          >
+            <img 
+              src="/google-drive-icon.png" 
+              alt="Google Drive" 
+              style={{ width: 24, height: 24, marginRight: 8 }} 
+              onError={(e) => {
+                e.target.src = 'https://ssl.gstatic.com/images/branding/product/2x/drive_2020q4_48dp.png';
+                e.target.style.width = '24px';
+                e.target.style.height = '24px';
+              }}
+            />
+            
+            {googleDriveAuth.loading ? (
+              <CircularProgress size={20} />
+            ) : googleDriveAuth.authenticated ? (
+              <>
+                <Typography variant="body2" sx={{ mr: 1, color: 'success.main' }}>
+                  Connected
+                </Typography>
+                <Tooltip title="Sync Google Drive" arrow>
+                  <IconButton 
+                    size="small" 
+                    color="primary"
+                    onClick={handleGoogleDriveSync}
+                  >
+                    <CloudSyncIcon fontSize="small" />
+                  </IconButton>
+                </Tooltip>
+              </>
+            ) : (
+              <Button 
+                variant="outlined" 
+                size="small"
+                onClick={handleGoogleDriveAuth}
+                startIcon={<CloudIcon />}
+              >
+                Connect
+              </Button>
+            )}
+          </Box>
 
+          {/* OneDrive connection section */}
+          <Box 
+            sx={{ 
+              display: 'flex', 
+              alignItems: 'center',
+              border: '1px solid #e0e0e0',
+              borderRadius: 1,
+              p: 0.5,
+              mr: 2,
+              bgcolor: oneDriveAuth.authenticated ? 'rgba(0, 120, 212, 0.1)' : 'transparent'
+            }}
+          >
+            <img 
+              src="/onedrive-icon.png" 
+              alt="OneDrive" 
+              style={{ width: 24, height: 24, marginRight: 8 }} 
+              onError={(e) => {
+                e.target.src = 'https://upload.wikimedia.org/wikipedia/commons/3/3c/Microsoft_Office_OneDrive_%282019%E2%80%93present%29.svg';
+                e.target.style.width = '24px';
+                e.target.style.height = '24px';
+              }}
+            />
+            
+            {oneDriveAuth.loading ? (
+              <CircularProgress size={20} />
+            ) : oneDriveAuth.authenticated ? (
+              <>
+                <Typography variant="body2" sx={{ mr: 1, color: 'info.main' }}>
+                  Connected
+                </Typography>
+                <Tooltip title="Sync not implemented" arrow>
+                  <span>
+                    <IconButton 
+                      size="small" 
+                      color="primary"
+                      disabled={true}
+                    >
+                      <CloudSyncIcon fontSize="small" />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              </>
+            ) : (
+              <Button 
+                variant="outlined" 
+                size="small"
+                onClick={handleOneDriveAuth}
+                startIcon={<CloudIcon />}
+              >
+                Connect
+              </Button>
+            )}
+          </Box>
+        </Box>
         
         {/* Main content with Apple-inspired design */}
         <MacOSPaper 
@@ -1026,7 +1096,7 @@ const DocumentExplorer = () => {
                   </IconButton>
                   
                   <IconButton
-                    onClick={() => navigateToFolder({ name: 'Root', path: '/' })} 
+                    onClick={() => navigateToFolder('/')} 
                     aria-label="Go to root"
                     size="small"
                     sx={{ mx: 0.5 }}
@@ -1035,111 +1105,7 @@ const DocumentExplorer = () => {
                   </IconButton>
                 </Box>
                 
-                {/* Google Drive connection section */}
-                <Box 
-                  sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center',
-                    border: '1px solid #e0e0e0',
-                    borderRadius: 1,
-                    p: 0.5,
-                    mr: 2,
-                    bgcolor: googleDriveAuth.authenticated ? 'rgba(76, 175, 80, 0.1)' : 'transparent'
-                  }}
-                >
-                  <img 
-                    src="/google-drive-icon.png" 
-                    alt="Google Drive" 
-                    style={{ width: 24, height: 24, marginRight: 8 }} 
-                    onError={(e) => {
-                      e.target.src = 'https://ssl.gstatic.com/images/branding/product/2x/drive_2020q4_48dp.png';
-                      e.target.style.width = '24px';
-                      e.target.style.height = '24px';
-                    }}
-                  />
-                  
-                  {googleDriveAuth.loading ? (
-                    <CircularProgress size={20} />
-                  ) : googleDriveAuth.authenticated ? (
-                    <>
-                      <Typography variant="body2" sx={{ mr: 1, color: 'success.main' }}>
-                        Connected
-                      </Typography>
-                      <Tooltip title="Sync Google Drive" arrow>
-                        <IconButton 
-                          size="small" 
-                          color="primary"
-                          onClick={handleGoogleDriveSync}
-                        >
-                          <CloudSyncIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </>
-                  ) : (
-                    <Button 
-                      variant="outlined" 
-                      size="small"
-                      onClick={handleGoogleDriveAuth}
-                      startIcon={<CloudIcon />}
-                    >
-                      Connect
-                    </Button>
-                  )}
-                </Box>
-                
-                {/* OneDrive connection section */}
-                <Box 
-                  sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center',
-                    border: '1px solid #e0e0e0',
-                    borderRadius: 1,
-                    p: 0.5,
-                    mr: 2,
-                    bgcolor: oneDriveAuth.authenticated ? 'rgba(0, 120, 212, 0.1)' : 'transparent'
-                  }}
-                >
-                  <img 
-                    src="/onedrive-icon.png" 
-                    alt="OneDrive" 
-                    style={{ width: 24, height: 24, marginRight: 8 }} 
-                    onError={(e) => {
-                      e.target.src = 'https://upload.wikimedia.org/wikipedia/commons/3/3c/Microsoft_Office_OneDrive_%282019%E2%80%93present%29.svg';
-                      e.target.style.width = '24px';
-                      e.target.style.height = '24px';
-                    }}
-                  />
-                  
-                  {oneDriveAuth.loading ? (
-                    <CircularProgress size={20} />
-                  ) : oneDriveAuth.authenticated ? (
-                    <>
-                      <Typography variant="body2" sx={{ mr: 1, color: 'info.main' }}>
-                        Connected
-                      </Typography>
-                      <Tooltip title="Sync not implemented" arrow>
-                        <span>
-                          <IconButton 
-                            size="small" 
-                            color="primary"
-                            disabled={true}
-                          >
-                            <CloudSyncIcon fontSize="small" />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                    </>
-                  ) : (
-                    <Button 
-                      variant="outlined" 
-                      size="small"
-                      onClick={handleOneDriveAuth}
-                      startIcon={<CloudIcon />}
-                    >
-                      Connect
-                    </Button>
-                  )}
-                </Box>
+
                 
                 {/* Right actions section */}
                 <Box>
