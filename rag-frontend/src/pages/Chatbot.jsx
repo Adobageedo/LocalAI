@@ -57,43 +57,28 @@ export default function Chatbot() {
   // Ce useEffect se déclenchera à la fois lorsque les conversations sont chargées et lorsque l'ID change
   useEffect(() => {
     if (conversations.length === 0) {
-      console.log('Conversations not loaded yet, waiting...');
       return; // Attendre que les conversations soient chargées
     }
     
-    console.log('All conversations:', JSON.stringify(conversations.map(c => ({ id: c.id, title: c.title }))));
-    
     if (conversationId) {
-      console.log('Conversation ID from URL:', conversationId);
-      // Rechercher la conversation dans la liste des conversations chargées
-      // Utiliser String() pour garantir que la comparaison se fait entre chaînes
       const existingConversation = conversations.find(c => String(c.id) === String(conversationId));
       
       if (existingConversation) {
-        console.log('Found existing conversation:', existingConversation);
         setCurrentConversation(existingConversation);
-        // Pas besoin de charger les messages ici car useEffect suivant s'en chargera
       } else {
-        console.log('Conversation not found in loaded conversations. IDs in DB:', 
-          conversations.map(c => String(c.id)));
-        
-        // Optional: Recharger les conversations avant de conclure que l'ID n'existe pas
         fetchConversations().then(freshConversations => {
           if (Array.isArray(freshConversations)) {
             const freshMatch = freshConversations.find(c => String(c.id) === String(conversationId));
             if (freshMatch) {
-              console.log('Found conversation after refresh:', freshMatch);
               setCurrentConversation(freshMatch);
               return;
             }
           }
-          console.log('Conversation truly not found, redirecting to main chatbot');
           navigate('/chatbot');
         });
       }
     } else {
       // Si aucun ID n'est présent dans l'URL, créer une nouvelle conversation par défaut
-      console.log('No conversation ID in URL, creating a new one');
       const newDraftConversation = {
         id: null,
         title: "New Conversation",
@@ -137,12 +122,11 @@ export default function Chatbot() {
     
     setLoading(true);
     try {
-      console.log(`Fetching messages for conversation: ${conversationId}`);
       const data = await getConversationMessages(conversationId);
-      
       if (Array.isArray(data)) {
         // Transform message format if needed
         const formattedMessages = data.map(msg => ({
+
           id: msg.id,
           role: msg.role || 'user',
           content: msg.message || msg.content || '',
@@ -201,54 +185,50 @@ export default function Chatbot() {
       
       // If conversation is a draft or doesn't exist, create a real one in the backend
       if (!conversationId || currentConversation?.isDraft) {
-        console.log('[DEBUG] Current conversation state:', currentConversation);
-        
         // Generate an intelligent title using the first user message
         let title;
         try {
-          console.log('[DEBUG] Attempting to generate title from message:', content);
           // Try to get an AI-generated title
           title = await generateConversationTitle(content);
         } catch (error) {
           console.error('[DEBUG] Error generating title, using fallback:', error);
           // Fallback to using the first 20 characters
           title = content.substring(0, 20);
-          console.log('[DEBUG] Using fallback title:', title);
         }
         
-        console.log('[DEBUG] Creating conversation with title:', title);
         const newConv = await createNewConversation(title);
-        console.log('[DEBUG] New conversation created:', newConv);
-        
         conversationId = newConv.id;
-        setCurrentConversation({...newConv, isDraft: false});
+      }
+
+      // Run steps 1 and 2 simultaneously using Promise.all
+      const [, response] = await Promise.all([
+        // Step 1: Save the user message to the database
+        addMessage(conversationId, {
+          role: 'user',
+          message: content,
+        }),
         
+        // Step 2: Send the message to the LLM API and get response
+        sendPrompt({
+          question: content,
+          temperature: chatSettings.temperature,
+          model: chatSettings.model,
+          use_retrieval: chatSettings.useRetrieval,
+          include_profile_context: chatSettings.useUserContext,
+          conversation_history: updatedMessages.map(m => ({
+            role: m.role,
+            message: m.content
+          }))
+        })
+      ]);
+      
+      // Step 3: Only after both promises are resolved, update the conversation state and URL
+      if (currentConversation?.isDraft) {
+        setCurrentConversation({...currentConversation, id: conversationId, isDraft: false});
         // Silently update the URL with the new conversation ID without causing a reload
         // using replace: true to avoid adding a history entry
         navigate(`/chatbot/${conversationId}`, { replace: true });
-        
-        // For new conversations, we'll update the conversation list after the AI response
-        // This gives the animation time to show
       }
-
-      // Save the user message to the database
-      await addMessage(conversationId, {
-        role: 'user',
-        message: content,
-      });
-      
-      // Step 2: Send the message to the LLM API and get response
-      const response = await sendPrompt({
-        question: content,
-        temperature: chatSettings.temperature,
-        model: chatSettings.model,
-        use_retrieval: chatSettings.useRetrieval,
-        include_profile_context: chatSettings.useUserContext,
-        conversation_history: updatedMessages.map(m => ({
-          role: m.role,
-          message: m.content
-        }))
-      });
 
       // Step 3: Save the assistant response to the database
       await addMessage(conversationId, {

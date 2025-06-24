@@ -5,6 +5,8 @@ import { API_BASE_URL } from '../config';
  * Library unifiant l'authentification, la gestion des tokens et l'ingestion 
  * pour les différents fournisseurs (Google, Microsoft)
  */
+const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
+
 const authProviders = {
   /**
    * Vérifie le statut d'authentification d'un fournisseur
@@ -12,6 +14,26 @@ const authProviders = {
    * @returns {Promise<Object>} Statut d'authentification
    */
   checkAuthStatus: async (provider) => {
+    const cacheKey = `authStatus_${provider}`;
+    const cached = localStorage.getItem(cacheKey);
+  
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        const now = Date.now();
+        if (now - parsed.timestamp < CACHE_TTL) {
+          // Return cached data
+          return parsed.data;
+        } else {
+          // Expired: remove from storage
+          localStorage.removeItem(cacheKey);
+        }
+      } catch (err) {
+        console.warn('Error parsing auth status from localStorage', err);
+        localStorage.removeItem(cacheKey); // Clean up malformed cache
+      }
+    }
+        
     try {
       // Adapter le chemin d'API en fonction du fournisseur
       let endpoint;
@@ -26,7 +48,13 @@ const authProviders = {
         throw new Error(`Error checking ${provider} auth status: ${response.statusText}`);
       }
       
-      return await response.json();
+      const data = await response.json();
+      const now = Date.now();
+      localStorage.setItem(cacheKey, JSON.stringify({
+        data,
+        timestamp: now,
+      }));
+      return data;
     } catch (error) {
       console.error(`Error checking ${provider} auth status:`, error);
       return { authenticated: false, error: error.message };
@@ -198,6 +226,25 @@ const authProviders = {
    * @returns {Promise<Array>} Liste des emails
    */
   getRecentEmails: async (provider, limit = 10) => {
+    const cacheKey = `recentEmails_${provider}_${limit}`;
+    const cached = localStorage.getItem(cacheKey);
+  
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached);
+        const now = Date.now();
+  
+        if (now - parsed.timestamp < CACHE_TTL) {
+          return parsed.data;
+        } else {
+          localStorage.removeItem(cacheKey); // expired
+        }
+      } catch (err) {
+        console.warn('Error parsing cached recent emails', err);
+        localStorage.removeItem(cacheKey); // clean up malformed cache
+      }
+    }
+
     try {
       let endpoint;
       if (provider === 'google' || provider === 'gdrive' || provider === 'gmail') {
@@ -211,13 +258,20 @@ const authProviders = {
         throw new Error(`Error fetching ${provider} emails: ${response.statusText}`);
       }
       
-      return await response.json();
+      const data = await response.json();
+
+      localStorage.setItem(cacheKey, JSON.stringify({
+        data,
+        timestamp: Date.now()
+      }));
+  
+      return data;
     } catch (error) {
       console.error(`Error fetching ${provider} emails:`, error);
       return [];
     }
   },
-  
+
   /**
    * Vérifie si le fournisseur est Google Drive
    * @param {string} provider - Le fournisseur à vérifier

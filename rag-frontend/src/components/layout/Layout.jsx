@@ -148,7 +148,7 @@ export default function Layout({ children, sidebarOpen = true }) {
                   }} 
                 />
                 <Typography variant="h6" component="div" sx={{ fontWeight: 'bold' }}>
-                  LocalAI RAG
+                  LocalAI
                 </Typography>
               </Box>
             </Box>
@@ -191,11 +191,11 @@ export default function Layout({ children, sidebarOpen = true }) {
             }}
           >
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 1 }}>
-              <img src="/logo-small.png" alt="NewsflIx" height="24" style={{ opacity: 0.8 }} />
-              <span>&copy; {new Date().getFullYear()} NewsflIx RAG Platform</span>
+              <img src="/logo-small.png" alt="LocalAI" height="24" style={{ opacity: 0.8 }} />
+              <span>&copy; {new Date().getFullYear()} LocalAI</span>
             </Box>
             <Box sx={{ mt: 1, fontSize: '0.75rem', opacity: 0.7 }}>
-              <span>Intégrations : Nextcloud | IMAP Email | RAG AI</span>
+              <span>Intégrations : Google Drive | Gmail | Microsoft Outlook</span>
             </Box>
           </Box>
         </Fade>

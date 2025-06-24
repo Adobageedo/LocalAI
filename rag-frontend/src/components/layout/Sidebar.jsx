@@ -275,7 +275,7 @@ const Sidebar = ({ width = 240, open = true, onClose, collapsed = false, onToggl
       {/* En-tête du Sidebar avec bouton de collapse et fermeture pour mobile */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 1 }}>
         <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          {!collapsed && <Typography variant="subtitle1" fontWeight="bold">RAG Assistant</Typography>}
+          {!collapsed && <Typography variant="subtitle1" fontWeight="bold">LocalAI</Typography>}
         </Box>
         {onToggleCollapse && (
           <IconButton 
