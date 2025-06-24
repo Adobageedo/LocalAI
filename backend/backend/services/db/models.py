@@ -622,3 +622,54 @@ class SyncStatus:
             "created_at": self.created_at.isoformat() if self.created_at else None,
             "updated_at": self.updated_at.isoformat() if self.updated_at else None
         }
+    # Add to SyncStatus class in /backend/backend/services/db/models.py
+
+    @classmethod
+    def get_active_syncs(cls):
+        """Get all active sync operations"""
+        db = PostgresManager()
+        query = """
+            SELECT id, user_id, source_type, progress, status, error_details, 
+                created_at, updated_at, total_documents
+            FROM sync_status
+            WHERE status IN ('running', 'scheduled', 'initializing')
+            ORDER BY created_at DESC
+        """
+        results = db.execute_query(query, [])
+        
+        if not results:
+            return []
+            
+        return [cls(**result) for result in results]
+
+    @classmethod
+    def get_recent_syncs(cls, limit=10):
+        """Get recent sync operations"""
+        db = PostgresManager()
+        query = """
+            SELECT id, user_id, source_type, progress, status, error_details, 
+                created_at, updated_at, total_documents  
+            FROM sync_status
+            ORDER BY created_at DESC
+            LIMIT %s
+        """
+        results = db.execute_query(query, [limit])
+        
+        if not results:
+            return []
+            
+        return [cls(**result) for result in results]
+
+    def to_dict(self):
+        """Convert sync status to dictionary"""
+        return {
+            "id": self.id,
+            "user_id": self.user_id,
+            "source_type": self.source_type,
+            "progress": self.progress,
+            "status": self.status,
+            "error_details": self.error_details,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "total_documents": self.total_documents
+        }

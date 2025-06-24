@@ -80,7 +80,6 @@ services:
     restart: unless-stopped
     networks:
       - rag-network
-      
   # Note: Le service Certbot a été supprimé car il n'est pas nécessaire
   # en environnement de développement. Pour la production, vous pouvez :
   # 1. Installer Certbot directement sur l'hôte

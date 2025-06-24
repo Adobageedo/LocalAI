@@ -15,6 +15,7 @@ RUN apt-get update && \
         poppler-utils \
         tesseract-ocr \
         libtesseract-dev \
+        cron \
         && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements
@@ -30,5 +31,10 @@ COPY . .
 # Expose port for FastAPI (if used)
 EXPOSE 8000
 
-# Start the app with Gunicorn and Uvicorn worker, bind to $PORT (Heroku)
-CMD exec gunicorn --bind :${PORT:-8000} -k uvicorn.workers.UvicornWorker backend.api.main:app
+# Write cron job for sync service
+RUN echo "*/30 * * * * cd /app && python -m backend.backend.services.sync_service.scheduled_sync_service >> /app/data/sync_cron.log 2>&1" > /etc/cron.d/sync-cron \
+    && chmod 0644 /etc/cron.d/sync-cron \
+    && crontab /etc/cron.d/sync-cron
+
+# Start both cron and application
+CMD service cron start && exec gunicorn --bind :${PORT:-8000} -k uvicorn.workers.UvicornWorker backend.api.main:app
