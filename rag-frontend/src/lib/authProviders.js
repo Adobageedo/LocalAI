@@ -83,7 +83,8 @@ const authProviders = {
       if (!response.ok) {
         throw new Error(`Error getting ${provider} auth URL: ${response.statusText}`);
       }
-      
+      const cacheKey = `authStatus_${provider}`;
+      localStorage.removeItem(cacheKey);
       return await response.json();
     } catch (error) {
       console.error(`Error getting ${provider} auth URL:`, error);
@@ -211,7 +212,8 @@ const authProviders = {
       if (!response.ok) {
         throw new Error(`Failed to start ingestion for ${provider}: ${response.statusText}`);
       }
-      
+      const cacheKey = `recentEmails_${provider}_10`;
+      localStorage.removeItem(cacheKey);
       return await response.json();
     } catch (error) {
       console.error(`Error starting ingestion for ${provider}:`, error);
