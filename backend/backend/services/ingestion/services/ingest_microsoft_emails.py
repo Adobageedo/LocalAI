@@ -488,7 +488,7 @@ def main():
     parser.add_argument("--query", help="Requête de recherche Outlook (OData)")
     parser.add_argument("--force-reingest", action="store_true", help="Forcer la réingestion même si l'email existe déjà")
     parser.add_argument("--no-attachments", action="store_true", help="Ne pas sauvegarder les pièces jointes")
-    parser.add_argument("--user-id", default="TEST_NEW_ARCHITECTURE", help="Identifiant de l'utilisateur")
+    parser.add_argument("--user-id", default="hupTIQvuO4R3BxklIWs1AqbKDP13", help="Identifiant de l'utilisateur")
     parser.add_argument("--batch-size", type=int, default=10, help="Nombre de documents à traiter dans chaque lot")
     parser.add_argument("--min-date", help="Date minimale pour filtrer les emails (format YYYY-MM-DD)")
     
@@ -503,7 +503,7 @@ def main():
         except ValueError:
             logger.error(f"Format de date invalide: {args.min_date}. Utiliser le format YYYY-MM-DD")
             return 1
-    
+    print(args.force_reingest)
     # Exécuter l'ingestion
     result = ingest_outlook_emails_to_qdrant(
         folders=args.folders,

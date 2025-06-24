@@ -7,6 +7,7 @@ from backend.core.logger import log
 import requests
 import subprocess
 import json
+from datetime import datetime
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Request, status, BackgroundTasks
 from fastapi.responses import StreamingResponse, JSONResponse, HTMLResponse
@@ -510,7 +511,7 @@ async def get_recent_gmail_emails(limit: int = 10, user=Depends(get_current_user
             return JSONResponse({"emails": [], "error": error_msg})
         
         registry = FileRegistry(user_id)
-        gmail_files = registry.get_files_by_prefix("/Gmail/")
+        gmail_files = registry.get_files_by_prefix("/google_email/")
         
         emails = []
         for idx, file_path in enumerate(gmail_files[:limit]):
@@ -556,9 +557,8 @@ async def get_recent_outlook_emails(limit: int = 10, user=Depends(get_current_us
         if not creds_status["authenticated"] or not creds_status["valid"]:
             error_msg = creds_status.get("error", "User not authenticated to Outlook or credentials invalid")
             return JSONResponse({"emails": [], "error": error_msg})
-        
         registry = FileRegistry(user_id)
-        outlook_files = registry.get_files_by_prefix("/Outlook/")
+        outlook_files = registry.get_files_by_prefix("microsoft_email/")
         
         emails = []
         for idx, file_path in enumerate(outlook_files[:limit]):
@@ -589,7 +589,7 @@ async def get_recent_outlook_emails(limit: int = 10, user=Depends(get_current_us
             emails.append(email_data)
         emails.sort(key=lambda x: x.get("date", ""), reverse=True)
         emails = emails[:limit]
-        logger.debug(f"[OUTLOOK] Returning {len(emails)} emails after sorting and limiting.")
+        logger.warning(f"[OUTLOOK] Returning {len(emails)} emails after sorting and limiting.")
         return JSONResponse({"emails": emails})
     except Exception as e:
         logger.error(f"Error retrieving recent Outlook emails: {str(e)}", exc_info=True)
@@ -632,12 +632,69 @@ class SyncRequest(BaseModel):
     provider: Optional[str] = Field(None, description="Optional provider name to sync (gmail, outlook, gdrive, personal-storage). If not provided, all providers for the user will be synchronized.")
     force_reingest: bool = Field(False, description="Whether to force reingestion of all documents")
 
+from fastapi.background import BackgroundTasks
+import threading
+import uuid
+
+# Dictionary to store sync status information
+sync_status = {}
+
+def run_provider_sync(sync_id: str, user_id: str, provider: str, config: dict):
+    """Run synchronization for a specific provider in the background"""
+    try:
+        sync_manager = SyncManager(config)
+        if provider == "microsoft":
+            provider = "outlook"
+        elif provider == "google":
+            provider = "gmail"
+
+        logger.info(f"Background sync {sync_id}: Starting for user {user_id} and provider {provider}")
+        sync_status[sync_id]["status"] = "in_progress"
+        
+        sync_manager.sync_provider(user_id, provider)
+        
+        sync_status[sync_id]["status"] = "completed"
+        logger.info(f"Background sync {sync_id}: Completed for user {user_id} and provider {provider}")
+    except Exception as e:
+        error_msg = str(e)
+        sync_status[sync_id]["status"] = "error"
+        sync_status[sync_id]["error"] = error_msg
+        logger.error(f"Background sync {sync_id}: Error syncing {provider} for user {user_id}: {error_msg}")
+
+def run_all_providers_sync(sync_id: str, user_id: str, providers: list, config: dict):
+    """Run synchronization for all providers in the background"""
+    sync_status[sync_id]["details"] = {}
+    
+    for provider in providers:
+        try:
+            sync_status[sync_id]["details"][provider] = {"status": "in_progress"}
+            
+            sync_manager = SyncManager(config)
+            effective_provider = "outlook" if provider == "microsoft" else provider
+            
+            logger.info(f"Background sync {sync_id}: Starting for user {user_id} and provider {provider}")
+            
+            sync_manager.sync_provider(user_id, effective_provider)
+            
+            sync_status[sync_id]["details"][provider] = {"status": "completed"}
+            logger.info(f"Background sync {sync_id}: Completed for user {user_id} and provider {provider}")
+            
+        except Exception as e:
+            error_msg = str(e)
+            sync_status[sync_id]["details"][provider] = {"status": "error", "error": error_msg}
+            logger.error(f"Background sync {sync_id}: Error syncing {provider} for user {user_id}: {error_msg}")
+    
+    # Set overall status based on provider results
+    has_errors = any(details.get("status") == "error" for provider, details in sync_status[sync_id]["details"].items())
+    sync_status[sync_id]["status"] = "error" if has_errors else "completed"
+
 @router.post("/sync/start")
-async def sync_for_user(request: SyncRequest, user=Depends(get_current_user)):
-    """Start a one-time synchronization for the specified user and provider.
+async def sync_for_user(request: SyncRequest, background_tasks: BackgroundTasks, user=Depends(get_current_user)):
+    """Start a one-time synchronization for the specified user and provider in the background.
     If no provider is specified, sync all configured providers for the user.
     
-    This endpoint initiates an immediate synchronization operation without waiting for the scheduled sync.
+    This endpoint initiates an immediate background synchronization operation without waiting for completion.
+    It returns a sync_id that can be used to check the status of the synchronization.
     """
     try:
         user_id = user.get("uid")
@@ -647,45 +704,58 @@ async def sync_for_user(request: SyncRequest, user=Depends(get_current_user)):
                 detail="Authentication required"
             )
         
+        # Generate a unique sync ID
+        sync_id = str(uuid.uuid4())
+        
         # Load configuration
         config = load_config()
-        
+         
         # Override force_reingest setting if specified in request
         if request.force_reingest:
             if "sync" not in config:
                 config["sync"] = {}
-            for provider in ["gmail", "outlook", "gdrive", "personal-storage"]:
+            for provider in ["gmail", "outlook", "gdrive", "personal-storage","google"]:
                 if provider not in config["sync"]:
                     config["sync"][provider] = {}
-                config["sync"][provider]["force_reingest"] = True
+                config["sync"][provider]["force_reingest"] = False
         
-        # Initialize sync manager
+        # Initialize sync manager just to check authenticated users
         sync_manager = SyncManager(config)
         
-        result = {"user_id": user_id, "success": True, "details": {}}
+        # Initialize sync status record
+        sync_status[sync_id] = {
+            "user_id": user_id,
+            "status": "pending",  # pending, in_progress, completed, error
+            "started_at": datetime.now().isoformat()
+        }
+        
         # If provider specified, sync only that provider
         if request.provider:
-            valid_providers = ["gmail", "outlook", "gdrive", "personal-storage","microsoft"]
+            valid_providers = ["gmail", "outlook", "gdrive", "personal-storage", "microsoft","google"]
             if request.provider not in valid_providers:
                 return JSONResponse(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     content={"success": False, "error": f"Invalid provider. Must be one of {valid_providers}"}
                 )
-                
-            logger.info(f"Starting one-time sync for user {user_id} and provider {request.provider}")
-            try:
-                if request.provider == "microsoft":
-                    sync_manager.sync_provider(user_id, "outlook")
-                else:
-                    sync_manager.sync_provider(user_id, request.provider)
-                result["details"][request.provider] = {"status": "completed"}
-            except Exception as e:
-                error_msg = str(e)
-                result["details"][request.provider] = {"status": "error", "error": error_msg}
-                result["success"] = False
+
+            logger.info(f"Initiating background sync {sync_id} for user {user_id} and provider {request.provider}")
+            
+            # Start background thread for syncing
+            thread = threading.Thread(
+                target=run_provider_sync, 
+                args=(sync_id, user_id, request.provider, config)
+            )
+            thread.daemon = True
+            thread.start()
+            
+            return JSONResponse(content={
+                "success": True,
+                "message": f"Synchronization started in the background for provider: {request.provider}",
+                "sync_id": sync_id
+            })
         else:
             # Sync all providers configured for this user
-            logger.info(f"Starting one-time sync for all providers of user {user_id}")
+            logger.info(f"Initiating background sync {sync_id} for all providers of user {user_id}")
             user_providers = sync_manager.get_authenticated_users().get(user_id, [])
             
             if not user_providers:
@@ -693,18 +763,62 @@ async def sync_for_user(request: SyncRequest, user=Depends(get_current_user)):
                     content={"success": False, "error": "No authenticated providers found for this user"}
                 )
             
-            for provider in user_providers:
-                try:
-                    sync_manager.sync_provider(user_id, provider)
-                    result["details"][provider] = {"status": "completed"}
-                except Exception as e:
-                    error_msg = str(e)
-                    result["details"][provider] = {"status": "error", "error": error_msg}
-                    result["success"] = False
-        
-        return JSONResponse(content=result)
+            # Start background thread for syncing all providers
+            thread = threading.Thread(
+                target=run_all_providers_sync,
+                args=(sync_id, user_id, user_providers, config)
+            )
+            thread.daemon = True
+            thread.start()
+            
+            return JSONResponse(content={
+                "success": True, 
+                "message": "Synchronization started in the background for all providers", 
+                "sync_id": sync_id,
+                "providers": user_providers
+            })
     except Exception as e:
-        logger.error(f"Error starting sync: {str(e)}", exc_info=True)
+        logger.error(f"Error starting background sync: {str(e)}", exc_info=True)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"success": False, "error": str(e)}
+        )
+
+@router.get("/sync/status/{sync_id}")
+async def check_sync_status(sync_id: str, user=Depends(get_current_user)):
+    """Check the status of a background synchronization process"""
+    try:
+        user_id = user.get("uid")
+        if not user_id:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication required"
+            )
+        
+        if sync_id not in sync_status:
+            return JSONResponse(
+                status_code=status.HTTP_404_NOT_FOUND,
+                content={"success": False, "error": "Sync ID not found"}
+            )
+            
+        # Check if this sync belongs to the requesting user
+        if sync_status[sync_id]["user_id"] != user_id:
+            return JSONResponse(
+                status_code=status.HTTP_403_FORBIDDEN,
+                content={"success": False, "error": "You do not have permission to view this sync status"}
+            )
+            
+        # Add current time to response
+        status_response = dict(sync_status[sync_id])
+        status_response["checked_at"] = datetime.now().isoformat()
+        
+        return JSONResponse(content={
+            "success": True,
+            "sync_id": sync_id,
+            "status": status_response
+        })
+    except Exception as e:
+        logger.error(f"Error checking sync status: {str(e)}", exc_info=True)
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={"success": False, "error": str(e)}

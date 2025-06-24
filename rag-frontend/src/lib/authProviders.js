@@ -15,7 +15,7 @@ const authProviders = {
     try {
       // Adapter le chemin d'API en fonction du fournisseur
       let endpoint;
-      if (provider === 'google') {
+      if (provider === 'google' || provider === 'gdrive' || provider === 'gmail') {
         endpoint = 'db/gdrive/auth_status';
       } else {
         endpoint = `sources/outlook/auth_status`;
@@ -43,7 +43,7 @@ const authProviders = {
       // Adapter le chemin d'API en fonction du fournisseur
       let endpoint;
       
-      if (provider === 'google') {
+      if (provider === 'google' || provider === 'gdrive' || provider === 'gmail') {
         const callbackUrl = API_BASE_URL + "/db/gdrive/oauth2_callback";
         endpoint = `db/gdrive/auth_url?callback_url=${encodeURIComponent(callbackUrl)}`;
       } else {
@@ -140,7 +140,7 @@ const authProviders = {
     try {
       // Adapter le chemin d'API en fonction du fournisseur
       let endpoint;
-      if (provider === 'google') {
+      if (provider === 'google' || provider === 'gdrive' || provider === 'gmail') {
         endpoint = 'db/gdrive/revoke_access';
       } else {
         endpoint = `sources/outlook/revoke_access`;
@@ -200,13 +200,13 @@ const authProviders = {
   getRecentEmails: async (provider, limit = 10) => {
     try {
       let endpoint;
-      if (provider === 'google') {
-        endpoint = 'db/gdrive/recent_emails';
+      if (provider === 'google' || provider === 'gdrive' || provider === 'gmail') {
+        endpoint = 'sources/gmail/recent_emails';
       } else {
         endpoint = `sources/outlook/recent_emails`;
       }
       const response = await authFetch(`${API_BASE_URL}/${endpoint}?limit=${limit}`);
-      
+      console.log("response getRecentEmails", response);
       if (!response.ok) {
         throw new Error(`Error fetching ${provider} emails: ${response.statusText}`);
       }
@@ -224,7 +224,7 @@ const authProviders = {
    * @returns {boolean} True si le fournisseur est Google Drive
    */
   isGoogleProvider: (provider) => {
-    return ['gmail', 'gdrive'].includes(provider);
+    return ['gmail', 'gdrive', 'google'].includes(provider);
   },
   
   /**

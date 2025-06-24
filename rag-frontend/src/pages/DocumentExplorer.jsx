@@ -21,18 +21,14 @@ import {
   Tooltip,
   LinearProgress,
   Snackbar,
-  Tabs,
-  Tab,
-  Badge,
   Grid,
   ListItemIcon,
   ListItemText,
+  Badge
 } from '@mui/material';
 import { styled, alpha } from '@mui/material/styles';
 import { Layout } from '../components/layout';
-import PersonalDrive from '../components/PersonalDrive';
-import GoogleDrive from '../components/GoogleDrive';
-import { decodeFileName } from '../utils/fileUtils';
+import { decodeFileName, formatFileSize, getFileIcon } from '../utils/fileUtils';
 
 // Icons
 import {
@@ -72,17 +68,19 @@ import {
   DataObject as QdrantIcon,
   Cloud as CloudIcon,
   Storage as MinioIcon,
-  Google as GoogleDriveIcon,
-  Work as SharePointIcon,
-  Add as AddIcon
+  TableChart as TableChartIcon,
+  VideoFile as VideoFileIcon,
+  AudioFile as AudioFileIcon,
+  Add as AddIcon,
+  InsertDriveFile as InsertDriveFileIcon
 } from '@mui/icons-material';
 
 // Services
 import minioService from '../lib/minioService';
-import gdriveService from '../lib/gdrive';
-import authProviders from '../lib/authProviders';
 import { authFetch } from '../firebase/authFetch';
+import personal_storage_service from '../lib/personal_storage';
 import { API_BASE_URL } from '../config';
+import authProviders from '../lib/authProviders';
 
 // Utility functions have been moved to fileUtils.js
 
@@ -119,13 +117,33 @@ const FileItemContainer = styled(Paper)(({ theme, selected }) => ({
   }
 }));
 
+// Helper function to render file icons from the config returned by getFileIcon
+const renderFileIcon = (iconConfig) => {
+  const { icon, props } = iconConfig;
+  
+  switch (icon) {
+    case 'FolderIcon': return <FolderIcon {...props} />;
+    case 'FileIcon': return <FileIcon {...props} />;
+    case 'PdfIcon': return <PdfIcon {...props} />;
+    case 'DocumentIcon': return <DocumentIcon {...props} />;
+    case 'SpreadsheetIcon': return <TableChartIcon {...props} />;
+    case 'PresentationIcon': return <PresentationIcon {...props} />;
+    case 'ImageIcon': return <ImageIcon {...props} />;
+    case 'VideoIcon': return <VideoFileIcon {...props} />;
+    case 'AudioIcon': return <AudioFileIcon {...props} />;
+    case 'CodeIcon': return <CodeIcon {...props} />;
+    case 'TextIcon': return <TextIcon {...props} />;
+    case 'MarkdownIcon': return <MarkdownIcon {...props} />;
+    case 'ArchiveIcon': return <ArchiveIcon {...props} />;
+    default: return <InsertDriveFileIcon {...props} />;
+  }
+};
+
 // DocumentExplorer main component 
 const DocumentExplorer = () => {
-  // State management for providers
-  const [activeProvider, setActiveProvider] = useState(0);
+  // State management for personal storage
   const [providers, setProviders] = useState([
-    { id: 'minio', name: 'Personal Drive', icon: <MinioIcon />, color: '#1E88E5', connected: true },
-    { id: 'gdrive', name: 'Google Drive', icon: <GoogleDriveIcon />, color: '#4CAF50', connected: false }
+    { id: 'minio', name: 'Personal Drive', icon: <MinioIcon />, color: '#1E88E5', connected: true }
   ]);
 
   // Common state variables
@@ -150,18 +168,23 @@ const DocumentExplorer = () => {
   const [targetSelection, setTargetSelection] = useState(false);
   const [breadcrumbs, setBreadcrumbs] = useState([{ name: 'Root', path: '/' }]);
   
-  // Refs
+  // Cloud provider authentication states
+  const [googleDriveAuth, setGoogleDriveAuth] = useState({
+    authenticated: false,
+    loading: false
+  });
+  const [oneDriveAuth, setOneDriveAuth] = useState({
+    authenticated: false,
+    loading: false
+  });
+
+  // File upload references
   const fileInputRef = useRef(null);
   const folderInputRef = useRef(null);
+
+  // Refs
   
-  // États spécifiques à Google Drive
-  const [gdriveAuth, setGdriveAuth] = useState({ 
-    isAuthenticated: false, 
-    checking: true, 
-    user: null,
-    error: null
-  });
-  const [authDialogOpen, setAuthDialogOpen] = useState(false);
+
   
   // Display notification
   const showNotification = (message) => {
@@ -169,94 +192,103 @@ const DocumentExplorer = () => {
     setSnackbarOpen(true);
   };
 
-  // Basic event handlers
-  const handleProviderChange = (event, newValue) => {
-    setActiveProvider(newValue);
-    setCurrentPath('/');
-    setBreadcrumbs([{ name: 'Root', path: '/' }]);
-    setSelectedItems([]);
+
+
+  // Main function to load directory contents
+  const loadDirectoryContents = () => {
     
-    // Vérifier l'authentification si Google Drive est sélectionné
-    if (providers[newValue]?.id === 'gdrive') {
-      authProviders.checkAuthStatus('google');
-    }
+    setLoading(true);
+    setError(null);
+    setItems([]);
     
+    loadMinioContents();
+  };
+
+  // Effect hook to load directory contents on mount
+  useEffect(() => {
     loadDirectoryContents();
+    checkAuthStatuses();
+  }, []);
+  
+  // Check authentication status for Google Drive and OneDrive
+  const checkAuthStatuses = async () => {
+    try {
+      // Check Google Drive auth status
+      setGoogleDriveAuth(prev => ({ ...prev, loading: true }));
+      const gdriveStatus = await authProviders.checkAuthStatus('gdrive');
+      setGoogleDriveAuth({
+        authenticated: gdriveStatus.authenticated,
+        loading: false
+      });
+      
+      // Check OneDrive auth status
+      setOneDriveAuth(prev => ({ ...prev, loading: true }));
+      const onedriveStatus = await authProviders.checkAuthStatus('outlook');
+      setOneDriveAuth({
+        authenticated: onedriveStatus.authenticated,
+        loading: false
+      });
+    } catch (error) {
+      console.error('Error checking auth statuses:', error);
+      setGoogleDriveAuth(prev => ({ ...prev, loading: false }));
+      setOneDriveAuth(prev => ({ ...prev, loading: false }));
+    }
   };
   
-  // Main function to load directory contents based on active provider
-  const loadDirectoryContents = () => {
-    setLoading(true);
-    setSelectedItems([]);
-    setError(null);
-    
-    // Call appropriate loader based on active provider
-    const currentProvider = providers[activeProvider]?.id;
-    switch (currentProvider) {
-      case 'minio':
-        loadMinioContents();
-        break;
-      case 'gdrive':
-        loadGoogleDriveContents();
-        break;
-      default:
-        setLoading(false);
-        setError('Unknown provider');
-        break;
+  // Handle Google Drive authentication
+  const handleGoogleDriveAuth = async () => {
+    try {
+      setGoogleDriveAuth(prev => ({ ...prev, loading: true }));
+      await authProviders.authenticateWithPopup('gdrive');
+      await checkAuthStatuses();
+      showNotification('Google Drive connected successfully');
+    } catch (error) {
+      console.error('Google Drive authentication error:', error);
+      showNotification('Failed to connect Google Drive: ' + error.message);
+      setGoogleDriveAuth(prev => ({ ...prev, loading: false }));
+    }
+  };
+  
+  // Handle OneDrive authentication
+  const handleOneDriveAuth = async () => {
+    try {
+      setOneDriveAuth(prev => ({ ...prev, loading: true }));
+      await authProviders.authenticateWithPopup('outlook');
+      await checkAuthStatuses();
+      showNotification('OneDrive connected successfully');
+    } catch (error) {
+      console.error('OneDrive authentication error:', error);
+      showNotification('Failed to connect OneDrive: ' + error.message);
+      setOneDriveAuth(prev => ({ ...prev, loading: false }));
+    }
+  };
+  
+  // Handle Google Drive sync
+  const handleGoogleDriveSync = async () => {
+    try {
+      showNotification('Starting Google Drive synchronization...');
+      await authProviders.startIngestion('gdrive');
+      showNotification('Google Drive synchronization started');
+    } catch (error) {
+      console.error('Google Drive sync error:', error);
+      showNotification('Failed to sync Google Drive: ' + error.message);
     }
   };
 
-  // Initialize the component and check Google Drive auth status
-  useEffect(() => {
-    // Vérifier l'état d'authentification Google Drive au chargement
-    if (providers.find(p => p.id === 'gdrive')) {
-      authProviders.checkAuthStatus('google');
-    }
-    loadDirectoryContents();
-  }, [activeProvider, currentPath]);
-  
-  // Google Drive content loader
-  const loadGoogleDriveContents = async (pathOverride = null) => {
-    try {
-      setError(null);
-      
-      // Vérifier l'authentification
-      if (!providers.find(p => p.id === 'gdrive')?.connected) {
-        const isAuthenticated = await authProviders.checkAuthStatus('google');
-        
-        if (!isAuthenticated) {
-          setAuthDialogOpen(true);
-          setItems([]);
-          setLoading(false);
-          return;
-        }
-      }
-      
-      const pathToUse = pathOverride !== null ? pathOverride : currentPath;
-      console.log('Loading Google Drive contents for path:', pathToUse);
-      const items = await gdriveService.listFiles(pathToUse);
-      
-      // Sort items: directories first, then files alphabetically
-      const sortedItems = [...items].sort((a, b) => {
-        if (a.is_directory && !b.is_directory) return -1;
-        if (!a.is_directory && b.is_directory) return 1;
-        return a.name.localeCompare(b.name);
-      });
-      
-      setItems(sortedItems);
-      
-      // Update breadcrumbs
-      updateBreadcrumbs(pathToUse);
-      
-    } catch (error) {
-      console.error('Error loading Google Drive contents:', error);
-      setError(`Failed to load files: ${error.message}`);
-      setItems([]);
-    } finally {
-      setLoading(false);
+  // Handle file upload button click
+  const handleUpload = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
     }
   };
   
+  // Handle folder upload button click
+  const handleFolderUpload = () => {
+    if (folderInputRef.current) {
+      folderInputRef.current.click();
+    }
+  };
+
   // Update breadcrumbs based on current path
   const updateBreadcrumbs = (path) => {
     const parts = path.split('/').filter(Boolean);
@@ -270,15 +302,13 @@ const DocumentExplorer = () => {
     
     setBreadcrumbs(crumbs);
   };
-  
+
   // MinIO content loader
   const loadMinioContents = async (pathOverride = null) => {
     try {
       setError(null);
       const pathToUse = pathOverride !== null ? pathOverride : currentPath;
-      console.log('Loading MinIO contents for path:', pathToUse);
-      const response = await minioService.listFiles(pathToUse);
-      console.log('MinIO response:', response);
+      const response = await personal_storage_service.listFiles(pathToUse);
       if (response && response.items) {
         // Sort items: directories first, then files alphabetically
         const sortedItems = [...response.items].sort((a, b) => {
@@ -298,6 +328,8 @@ const DocumentExplorer = () => {
       setLoading(false);
     }
   };
+
+
 
   // Navigate to a specific folder
   const navigateToFolder = (item) => {
@@ -321,22 +353,10 @@ const DocumentExplorer = () => {
       }
     }
     
-    console.log('Navigating to folder, constructed path:', fullPath);
     setCurrentPath(fullPath);
     
-    // Pass the path directly to avoid async state issues
-    const currentProvider = providers[activeProvider]?.id;
-    switch (currentProvider) {
-      case 'minio':
-        loadMinioContents(fullPath);
-        break;
-      case 'gdrive':
-        loadGoogleDriveContents(fullPath);
-        break;
-      default:
-        loadDirectoryContents();
-        break;
-    }
+    // Load personal storage contents directly
+    loadMinioContents(fullPath);
   };
 
   // Navigate up one level
@@ -373,11 +393,8 @@ const DocumentExplorer = () => {
       setIsUploading(true);
       setUploadProgress(0);
       
-      // Log the upload path to help with debugging
-      console.log('Uploading file to path:', uploadPath);
-      
       // Call the service method
-      await minioService.uploadFile(file, uploadPath);
+      await personal_storage_service.uploadFile(file, uploadPath);
       
       setUploadProgress(100);
       showNotification(`${file.name} uploaded successfully`);
@@ -390,62 +407,7 @@ const DocumentExplorer = () => {
     }
   };
 
-  // Handle file upload
-  const handleUpload = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
-  };
-
-  // Process selected files for upload
-  const handleFileInputChange = (e) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-    
-    Array.from(files).forEach(file => {
-      uploadFileToMinio(file);
-    });
-    
-    // Reset the file input
-    e.target.value = null;
-  };
-
-  // Handle folder upload
-  const handleFolderUpload = () => {
-    if (folderInputRef.current) {
-      folderInputRef.current.click();
-    }
-  };
-
-  // Process selected folder for upload
-  const handleFolderInputChange = async (e) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-    
-    // Group files by directory structure
-    const filesByDirectory = {};
-    const basePath = currentPath === '/' ? '' : currentPath;
-    
-    Array.from(files).forEach(file => {
-      // Get the relative path from webkitRelativePath
-      const relativePath = file.webkitRelativePath;
-      const pathParts = relativePath.split('/');
-      
-      // Create directories if needed
-      for (let i = 0; i < pathParts.length - 1; i++) {
-        const dirPath = basePath + '/' + pathParts.slice(0, i + 1).join('/');
-        filesByDirectory[dirPath] = filesByDirectory[dirPath] || [];
-      }
-      
-      // Add file to its directory
-      const filePath = basePath + '/' + relativePath;
-      uploadFileToMinio(file, filePath);
-    });
-    // Reload the directory contents
-    loadDirectoryContents();
-    // Reset the folder input
-    e.target.value = null;
-  };
+  // Drag-and-drop file handling is already implemented in handleDrop
 
   // Create a new folder
   const handleCreateFolder = () => {
@@ -466,7 +428,7 @@ const DocumentExplorer = () => {
         ? dirName 
         : `${currentPath}${dirName}`;
       
-      await minioService.createFolder(dirPath);
+      await personal_storage_service.createFolder(dirPath);
       showNotification(`Folder ${dirName} created successfully`);
       loadDirectoryContents();
     } catch (error) {
@@ -499,7 +461,7 @@ const DocumentExplorer = () => {
         // Use buildFullPath to get the correct path including the filename
         const fullPath = buildFullPath(item);
         console.log(`Deleting item: ${fullPath}, is_directory: ${item.is_directory}`);
-        await minioService.deleteItem(fullPath, item.is_directory);
+        await personal_storage_service.deleteItem(fullPath, item.is_directory);
       }
       showNotification(`${selectedItems.length} item(s) deleted successfully`);
       setSelectedItems([]);
@@ -544,7 +506,7 @@ const DocumentExplorer = () => {
         ? `/${newName}${item.is_directory ? '/' : ''}`
         : `/${pathParts.join('/')}/${newName}${item.is_directory ? '/' : ''}`;
       
-      await minioService.moveItem(oldPath, newPath);
+      await personal_storage_service.moveItem(oldPath, newPath);
       showNotification(`Renamed to ${newName} successfully`);
       setSelectedItems([]);
       loadDirectoryContents();
@@ -558,7 +520,6 @@ const DocumentExplorer = () => {
 
   // Handle selection of an item
   const handleItemSelection = (item, event) => {
-    console.log('Item clicked:', item);
     
     // Déterminer si shift est pressé pour la sélection étendue
     const shiftKey = event.shiftKey;
@@ -566,7 +527,6 @@ const DocumentExplorer = () => {
     
     // Pour les répertoires sans touche de modification, naviguer dans le répertoire
     if (item.is_directory && !ctrlOrMeta && !shiftKey) {
-      console.log('Navigating to directory:', item.name);
       navigateToFolder(item);
       return;
     }
@@ -608,14 +568,12 @@ const DocumentExplorer = () => {
       
       // Si c'est un dossier et double-clic, naviguer dedans
       if (item.is_directory && event.detail === 2) {
-        console.log('Double-click on directory, navigating:', item.name);
         navigateToFolder(item);
       } 
       // Si c'est un fichier et double-clic, télécharger
       else if (!item.is_directory && event.detail === 2) {
         const fullPath = buildFullPath(item);
-        console.log('Double-click on file, downloading with full path:', fullPath);
-        minioService.downloadFile(fullPath);
+        personal_storage_service.downloadFile(fullPath);
       }
     }
   };
@@ -724,9 +682,9 @@ const DocumentExplorer = () => {
       // Effectuer l'opération de copie ou de déplacement
       try {
         if (clipboardOperation === 'copy') {
-          await minioService.copyItem(sourceFullPath, targetPath);
+          await personal_storage_service.copyItem(sourceFullPath, targetPath);
         } else if (clipboardOperation === 'move') {
-          await minioService.moveItem(sourceFullPath, targetPath);
+          await personal_storage_service.moveItem(sourceFullPath, targetPath);
         }
         operations.push(true);
       } catch (error) {
@@ -762,7 +720,7 @@ const DocumentExplorer = () => {
         if (selectedItems.length === 1 && !selectedItems[0].is_directory) {
           const fullPath = buildFullPath(selectedItems[0]);
           console.log('Downloading from context menu with full path:', fullPath);
-          minioService.downloadFile(fullPath);
+          personal_storage_service.downloadFile(fullPath);
         }
         break;
       case 'rename':
@@ -830,9 +788,6 @@ const DocumentExplorer = () => {
       clearTimeout(window.dragLeaveDebounce);
     }
     
-    // Determine which provider to upload to
-    const currentProvider = providers[activeProvider].id;
-    
     // Detect if we're dropping a folder (using webkitGetAsEntry API)
     if (e.dataTransfer.items && e.dataTransfer.items[0].webkitGetAsEntry) {
       const entries = [];
@@ -846,23 +801,12 @@ const DocumentExplorer = () => {
       // Process entries (files and directories)
       for (const entry of entries) {
         if (entry.isDirectory) {
-          // Handle directory (differs by provider)
-          if (currentProvider === 'minio') {
-            await processDirectoryEntry(entry, currentPath);
-          } else if (currentProvider === 'gdrive' && providers[activeProvider].connected) {
-            // If Google Drive is authenticated, handle there
-            showNotification('Folder upload to Google Drive is coming soon!');
-            // Placeholder for Google Drive folder upload logic
-            // await processGDriveDirectoryEntry(entry, currentGoogleDrivePath);
-          }
+          // Handle directory
+          await processDirectoryEntry(entry, currentPath);
         } else {
-          // Handle file upload based on provider
+          // Handle file upload
           entry.file(file => {
-            if (currentProvider === 'minio') {
-              uploadFileToMinio(file);
-            } else if (currentProvider === 'gdrive' && providers[activeProvider].connected) {
-              uploadFileToGoogleDrive(file);
-            }
+            uploadFileToMinio(file);
           });
         }
       }
@@ -870,12 +814,7 @@ const DocumentExplorer = () => {
       // Fallback for browsers that don't support webkitGetAsEntry
       for (let i = 0; i < e.dataTransfer.files.length; i++) {
         const file = e.dataTransfer.files[i];
-        
-        if (currentProvider === 'minio') {
-          uploadFileToMinio(file);
-        } else if (currentProvider === 'gdrive' && providers[activeProvider].connected) {
-          uploadFileToGoogleDrive(file);
-        }
+        uploadFileToMinio(file);
       }
     }
   };
@@ -888,7 +827,7 @@ const DocumentExplorer = () => {
       : `${currentPath}/${directoryEntry.name}`;
     
     try {
-      await minioService.createFolder(dirPath);
+      await personal_storage_service.createFolder(dirPath);
       
       // Read directory contents
       const reader = directoryEntry.createReader();
@@ -928,62 +867,136 @@ const DocumentExplorer = () => {
     }
   };
 
-  // SharePoint placeholder loader
-  const loadSharePointContents = async () => {
-    setItems([]);
-    setError(null);
-    setLoading(false);
+
+
+  // Handle sync for documents
+  const handleSync = async () => {
+    try {
+      setLoading(true);
+      showNotification('Starting document synchronization...');
+
+      // Call the sync endpoint
+      await authFetch(`${API_BASE_URL}/sync/minio`, {
+        method: 'POST'
+      });
+      
+      showNotification('Documents synchronized successfully');
+      loadDirectoryContents();
+    } catch (error) {
+      console.error('Error syncing documents:', error);
+      showNotification(`Error during synchronization: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Google Drive placeholder loader
+  
+
+  // Buttons to render in the toolbar area
+  const renderActionButtons = () => {
+    // Show file/folder management buttons
+    if (!selectedItems.length) {
+      return (
+        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          <Button
+            variant="contained"
+            startIcon={<UploadIcon />}
+            onClick={handleUpload}
+            disabled={loading}
+            size="small"
+          >
+            Upload Files
+          </Button>
+          
+          <Button
+            variant="contained"
+            startIcon={<CreateFolderIcon />}
+            onClick={handleCreateFolder}
+            disabled={loading}
+            size="small"
+          >
+            New Folder
+          </Button>
+          
+          <Button
+            variant="outlined"
+            startIcon={<RefreshIcon />}
+            onClick={() => loadDirectoryContents()}
+            disabled={loading}
+            size="small"
+          >
+            Refresh
+          </Button>
+          
+
+        </Box>
+      );
+    }
+
+    return (
+      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+        <Button
+          variant="contained"
+          startIcon={<UploadIcon />}
+          onClick={handleUpload}
+          disabled={loading}
+          size="small"
+        >
+          Upload Files
+        </Button>
+        
+        <Button
+          variant="contained"
+          startIcon={<CreateFolderIcon />}
+          onClick={handleCreateFolder}
+          disabled={loading}
+          size="small"
+        >
+          New Folder
+        </Button>
+        
+        <Button
+          variant="outlined"
+          startIcon={<RefreshIcon />}
+          onClick={() => loadDirectoryContents()}
+          disabled={loading}
+          size="small"
+        >
+          Refresh
+        </Button>
+        
+        <Button
+          variant="outlined"
+          color="secondary"
+          startIcon={<CloudSyncIcon />}
+          onClick={handleSync}
+          disabled={loading}
+          size="small"
+        >
+          Sync Now
+        </Button>
+      </Box>
+    );
+  };
 
   return (
     <Layout>
       <Container maxWidth="xl" sx={{ mt: 4, mb: 4 }}>
-        <Typography variant="h4" gutterBottom sx={{ fontWeight: 300 }}>
+        <Typography variant="h5" gutterBottom>
           Document Explorer
         </Typography>
         
-        {/* Provider tabs */}
-        <Tabs 
-          value={activeProvider} 
-          onChange={handleProviderChange}
-          variant="fullWidth"
-          data-tour="storage-tabs"
-          sx={{
-            mb: 2,
-            '& .MuiTabs-indicator': {
-              backgroundColor: providers[activeProvider]?.color || '#1976d2',
-              height: 3
-            }
-          }}
-        >
-          {providers.map((provider, index) => (
-            <Tab 
-              key={provider.id}
-              label={provider.name} 
-              icon={provider.icon} 
-              iconPosition="start"
-              sx={{ 
-                minHeight: 48,
-                color: activeProvider === index ? provider.color : 'inherit',
-                '&.Mui-selected': {
-                  color: provider.color,
-                },
-              }}
-            />
-          ))}
-        </Tabs>
+
         
         {/* Main content with Apple-inspired design */}
         <MacOSPaper 
-          elevation={0} 
-          sx={{ 
-            p: 0, 
-            overflow: 'hidden',
-            height: 'calc(100vh - 200px)',
+          elevation={1}
+          sx={{
+            p: 0,
+            minHeight: '70vh',
+            borderRadius: 2,
             display: 'flex',
-            flexDirection: 'column'
+            flexDirection: 'column',
           }}
           onDragEnter={handleDragEnter}
           onDragOver={handleDragOver}
@@ -998,114 +1011,142 @@ const DocumentExplorer = () => {
             display: 'flex',
             alignItems: 'center'
           }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+              {/* Left navigation and cloud provider section */}
               <Box sx={{ display: 'flex', alignItems: 'center' }}>
-              <IconButton onClick={navigateToRoot} color="primary">
-                <HomeIcon />
-              </IconButton>
-              <Breadcrumbs aria-label="breadcrumb" separator="/" sx={{ ml: 1 }}>
-                {currentPath.split('/').filter(Boolean).length === 0 ? (
-                    <Typography color="text.primary">Home</Typography>
-                  ) : (
-                    <MuiLink
-                      component="button"
-                      variant="body1"
-                      onClick={() => navigateToRoot()}
-                      sx={{ cursor: 'pointer', color: 'primary.main', '&:hover': { textDecoration: 'underline' } }}
-                    >
-                      Home
-                    </MuiLink>
-                  )}
+                {/* Navigation buttons */}
+                <Box sx={{ display: 'flex', alignItems: 'center', mr: 2 }}>
+                  <IconButton
+                    onClick={navigateUp}
+                    disabled={currentPath === '/'}
+                    aria-label="Go to parent folder"
+                    size="small"
+                  >
+                    <BackIcon />
+                  </IconButton>
                   
-                  {currentPath.split('/').filter(Boolean).map((part, i, arr) => {
-                    const path = '/' + arr.slice(0, i + 1).join('/');
-                    return i === arr.length - 1 ? (
-                      <Typography key={path} color="text.primary">
-                        {decodeFileName(part)}
-                      </Typography>
-                    ) : (
-                      <MuiLink
-                        key={path}
-                        component="button"
-                        variant="body1"
-                        onClick={() => navigateToFolder(path)}
-                        sx={{ cursor: 'pointer', color: 'primary.main', '&:hover': { textDecoration: 'underline' } }}
-                      >
-                        {decodeFileName(part)}
-                      </MuiLink>
-                    );
-                  })}
-                </Breadcrumbs>
-            </Box>
-          
-            <Box sx={{ display: 'flex' }}>
-              {/* Display action buttons only for MinIO (connected provider) */}
-              {providers[activeProvider].connected && (
-                <>
-                  <Tooltip title="Refresh">
-                    <IconButton color="primary" onClick={loadMinioContents} size="small" sx={{ mr: 1 }}>
-                      <RefreshIcon />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Create Folder">
-                    <IconButton color="primary" onClick={() => setDialogType('createFolder') || setDialogOpen(true)} size="small" sx={{ mr: 1 }}>
-                      <CreateFolderIcon />
-                    </IconButton>
-                  </Tooltip>
-                  <Tooltip title="Upload File">
-                    <IconButton color="primary" onClick={() => fileInputRef.current.click()} size="small" sx={{ mr: 1 }}>
-                      <UploadIcon />
-                    </IconButton>
-                  </Tooltip>
-                  {showPasteButton && (
-                    <Tooltip title={`Paste ${clipboardItems.length} item(s) (${clipboardOperation === 'copy' ? 'Copy' : 'Move'})`}>
-                      <IconButton 
-                        color="primary" 
-                        onClick={handlePaste}
-                        sx={{ bgcolor: 'rgba(25, 118, 210, 0.08)' }}
-                      >
-                        <ContentCopyIcon />
-                        <Badge
-                          badgeContent={clipboardItems.length}
-                          color="primary"
-                          sx={{ position: 'absolute', top: -5, right: -5 }}
-                        />
-                      </IconButton>
-                    </Tooltip>
-                  )}
-                  <Tooltip title="Upload Folder">
-                    <IconButton color="primary" onClick={handleFolderUpload} size="small" sx={{ mr: 1 }}>
-                      <CloudUploadIcon />
-                    </IconButton>
-                  </Tooltip>
+                  <IconButton
+                    onClick={() => navigateToFolder({ name: 'Root', path: '/' })} 
+                    aria-label="Go to root"
+                    size="small"
+                    sx={{ mx: 0.5 }}
+                  >
+                    <HomeIcon />
+                  </IconButton>
+                </Box>
+                
+                {/* Google Drive connection section */}
+                <Box 
+                  sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center',
+                    border: '1px solid #e0e0e0',
+                    borderRadius: 1,
+                    p: 0.5,
+                    mr: 2,
+                    bgcolor: googleDriveAuth.authenticated ? 'rgba(76, 175, 80, 0.1)' : 'transparent'
+                  }}
+                >
+                  <img 
+                    src="/google-drive-icon.png" 
+                    alt="Google Drive" 
+                    style={{ width: 24, height: 24, marginRight: 8 }} 
+                    onError={(e) => {
+                      e.target.src = 'https://ssl.gstatic.com/images/branding/product/2x/drive_2020q4_48dp.png';
+                      e.target.style.width = '24px';
+                      e.target.style.height = '24px';
+                    }}
+                  />
                   
-                  <Tooltip title="Create Folder">
-                    <IconButton color="primary" onClick={handleCreateFolder} size="small" sx={{ mr: 1 }}>
-                      <CreateFolderIcon />
-                    </IconButton>
-                  </Tooltip>
-                  
-                  {selectedItems.length > 0 && (
+                  {googleDriveAuth.loading ? (
+                    <CircularProgress size={20} />
+                  ) : googleDriveAuth.authenticated ? (
                     <>
-                      <Tooltip title="Delete Selected">
-                        <IconButton color="error" onClick={handleDelete} size="small" sx={{ mr: 1 }}>
-                          <DeleteIcon />
+                      <Typography variant="body2" sx={{ mr: 1, color: 'success.main' }}>
+                        Connected
+                      </Typography>
+                      <Tooltip title="Sync Google Drive" arrow>
+                        <IconButton 
+                          size="small" 
+                          color="primary"
+                          onClick={handleGoogleDriveSync}
+                        >
+                          <CloudSyncIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
-                      
-                      {selectedItems.length === 1 && (
-                        <Tooltip title="Rename">
-                          <IconButton color="primary" onClick={handleRename} size="small" sx={{ mr: 1 }}>
-                            <RenameIcon />
-                          </IconButton>
-                        </Tooltip>
-                      )}
                     </>
+                  ) : (
+                    <Button 
+                      variant="outlined" 
+                      size="small"
+                      onClick={handleGoogleDriveAuth}
+                      startIcon={<CloudIcon />}
+                    >
+                      Connect
+                    </Button>
                   )}
-                </>
-              )}
+                </Box>
+                
+                {/* OneDrive connection section */}
+                <Box 
+                  sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center',
+                    border: '1px solid #e0e0e0',
+                    borderRadius: 1,
+                    p: 0.5,
+                    mr: 2,
+                    bgcolor: oneDriveAuth.authenticated ? 'rgba(0, 120, 212, 0.1)' : 'transparent'
+                  }}
+                >
+                  <img 
+                    src="/onedrive-icon.png" 
+                    alt="OneDrive" 
+                    style={{ width: 24, height: 24, marginRight: 8 }} 
+                    onError={(e) => {
+                      e.target.src = 'https://upload.wikimedia.org/wikipedia/commons/3/3c/Microsoft_Office_OneDrive_%282019%E2%80%93present%29.svg';
+                      e.target.style.width = '24px';
+                      e.target.style.height = '24px';
+                    }}
+                  />
+                  
+                  {oneDriveAuth.loading ? (
+                    <CircularProgress size={20} />
+                  ) : oneDriveAuth.authenticated ? (
+                    <>
+                      <Typography variant="body2" sx={{ mr: 1, color: 'info.main' }}>
+                        Connected
+                      </Typography>
+                      <Tooltip title="Sync not implemented" arrow>
+                        <span>
+                          <IconButton 
+                            size="small" 
+                            color="primary"
+                            disabled={true}
+                          >
+                            <CloudSyncIcon fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    </>
+                  ) : (
+                    <Button 
+                      variant="outlined" 
+                      size="small"
+                      onClick={handleOneDriveAuth}
+                      startIcon={<CloudIcon />}
+                    >
+                      Connect
+                    </Button>
+                  )}
+                </Box>
+                
+                {/* Right actions section */}
+                <Box>
+                  {renderActionButtons()}
+                </Box>
+              </Box>
             </Box>
-          </Box>
           </Box>
           {/* Main content area */}
           <Box 
@@ -1142,95 +1183,208 @@ const DocumentExplorer = () => {
               </Box>
             )}
             
-            {/* Empty state for MinIO is now handled in the PersonalDrive component */}
+            {/* Loading indicator */}
+            {loading && (
+              <LinearProgress sx={{ position: 'absolute', top: 0, left: 0, right: 0 }} />
+            )}
             
-            {/* Placeholder for SharePoint (not connected) */}
-            {providers[activeProvider].id === 'sharepoint' && !providers[activeProvider].connected && (
+            {/* Error message */}
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {error}
+              </Alert>
+            )}
+            
+            {/* Upload progress */}
+            {isUploading && (
+              <Box sx={{ width: '100%', mb: 2 }}>
+                <LinearProgress variant="determinate" value={uploadProgress} />
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                  Uploading... {uploadProgress}%
+                </Typography>
+              </Box>
+            )}
+            
+            {/* Clipboard operations notice */}
+            {showPasteButton && clipboardItems.length > 0 && (
+              <Box 
+                sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'space-between',
+                  mb: 2, 
+                  p: 1.5, 
+                  bgcolor: 'info.light', 
+                  color: 'info.contrastText',
+                  borderRadius: 1
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Badge badgeContent={clipboardItems.length} color="primary" sx={{ mr: 2 }}>
+                    {clipboardOperation === 'copy' ? <ContentCopyIcon /> : <DriveFileMoveIcon />}
+                  </Badge>
+                  <Typography variant="body2">
+                    {clipboardOperation === 'copy' ? 'Items ready to copy' : 'Items ready to move'}
+                  </Typography>
+                </Box>
+                <Button
+                  variant="contained"
+                  size="small"
+                  onClick={handlePaste}
+                  startIcon={<CheckedIcon />}
+                >
+                  Paste Here
+                </Button>
+              </Box>
+            )}
+            
+            {/* Empty state - no files or folders */}
+            {!loading && !error && items.length === 0 && (
               <Box 
                 sx={{
                   display: 'flex',
                   flexDirection: 'column',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  height: '80%',
+                  height: '70vh',
                   p: 3,
                   textAlign: 'center'
                 }}
               >
-                <SharePointIcon sx={{ fontSize: 64, color: '#0078D4', mb: 2, opacity: 0.8 }} />
+                <MinioIcon sx={{ fontSize: 64, color: '#1E88E5', mb: 2, opacity: 0.7 }} />
                 <Typography variant="h6" gutterBottom>
-                  Connect your SharePoint account
+                  No files or folders yet
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                  Access your SharePoint documents and collaborate with your team
+                  Drag and drop files here or use the upload buttons above
                 </Typography>
                 
-                <Button
-                  variant="contained"
-                  startIcon={<SharePointIcon />}
-                  sx={{ bgcolor: '#0078D4', '&:hover': { bgcolor: '#106EBE' } }}
-                >
-                  Connect SharePoint
-                </Button>
+                <Box sx={{ display: 'flex', gap: 2 }}>
+                  <Button
+                    variant="contained"
+                    startIcon={<UploadIcon />}
+                    onClick={handleUpload}
+                  >
+                    Upload Files
+                  </Button>
+                  
+                  <Button
+                    variant="outlined"
+                    startIcon={<CreateFolderIcon />}
+                    onClick={handleCreateFolder}
+                  >
+                    Create Folder
+                  </Button>
+                </Box>
               </Box>
             )}
             
-            {/* Google Drive Component */}
-            {providers[activeProvider].id === 'gdrive' && (
-              <GoogleDrive
-                items={items}
-                selectedItems={selectedItems}
-                loading={loading}
-                error={error}
-                currentPath={currentPath}
-                isConnected={providers[activeProvider].connected}
-                onNavigateToFolder={navigateToFolder}
-                onRefresh={loadGoogleDriveContents}
-                onItemSelection={handleItemSelection}
-                onContextMenu={handleContextMenu}
-              />
+            {/* File/Folder grid */}
+            {items.length > 0 && (
+              <Grid container spacing={2}>
+                {items.map((item) => {
+                  const isSelected = selectedItems.some(selected => selected.path === item.path && selected.name === item.name);
+                  // Create a more unique key by combining path and name
+                  const itemKey = `${item.path}_${item.name}`;
+                  
+                  return (
+                    <Grid item xs={12} sm={6} md={4} lg={3} xl={2} key={itemKey}>
+                      <FileItemContainer 
+                        selected={isSelected}
+                        onClick={(e) => handleItemSelection(item, e)}
+                        onContextMenu={(e) => handleContextMenu(e, item)}
+                      >
+                        <Box sx={{ p: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%' }}>
+                          {renderFileIcon(getFileIcon(item, 40))}
+                          <Typography 
+                            variant="body2" 
+                            align="center" 
+                            sx={{ 
+                              mt: 1, 
+                              width: '100%',
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              fontWeight: isSelected ? 500 : 400
+                            }}
+                          >
+                            {decodeFileName(item.name)}
+                          </Typography>
+                          
+                          {!item.is_directory && item.size !== undefined && (
+                            <Typography variant="caption" color="text.secondary">
+                              {formatFileSize(item.size)}
+                            </Typography>
+                          )}
+                        </Box>
+                      </FileItemContainer>
+                    </Grid>
+                  );
+                })}
+              </Grid>
             )}
             
-            {/* Personal Drive Component (replacing MinIO section) */}
-            {providers[activeProvider].id === 'minio' && (
-              <PersonalDrive
-                items={items}
-                selectedItems={selectedItems}
-                loading={loading}
-                error={error}
-                currentPath={currentPath}
-                isUploading={isUploading}
-                uploadProgress={uploadProgress}
-                showPasteButton={showPasteButton}
-                clipboardItems={clipboardItems}
-                clipboardOperation={clipboardOperation}
-                isDragging={isDragging}
-                onNavigateToFolder={navigateToFolder}
-                onRefresh={loadMinioContents}
-                onCreateFolder={handleCreateFolder}
-                onUploadFile={(files) => {
-                  Array.from(files).forEach(file => uploadFileToMinio(file));
+            {/* Drag overlay */}
+            {isDragging && (
+              <Box
+                sx={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  bgcolor: 'rgba(25, 118, 210, 0.1)',
+                  border: '2px dashed #1976d2',
+                  borderRadius: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  zIndex: 999,
                 }}
-                onUploadFolder={(files) => {
+              >
+                <CloudUploadIcon sx={{ fontSize: 48, color: '#1976d2', mb: 2 }} />
+                <Typography variant="h6" color="primary">
+                  Drop files here to upload
+                </Typography>
+              </Box>
+            )}
+            
+            {/* Hidden file input for uploads */}
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={(e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                  Array.from(e.target.files).forEach(file => uploadFileToMinio(file));
+                  e.target.value = null;
+                }
+              }}
+              style={{ display: 'none' }}
+              multiple
+            />
+            
+            {/* Hidden folder input for folder uploads */}
+            <input
+              type="file"
+              ref={folderInputRef}
+              onChange={(e) => {
+                if (e.target.files && e.target.files.length > 0) {
                   const basePath = currentPath === '/' ? '' : currentPath;
-                  Array.from(files).forEach(file => {
+                  Array.from(e.target.files).forEach(file => {
                     const relativePath = file.webkitRelativePath;
                     const filePath = basePath + '/' + relativePath;
                     uploadFileToMinio(file, filePath);
                   });
-                }}
-                onPaste={handlePaste}
-                onItemSelection={handleItemSelection}
-                onContextMenu={handleContextMenu}
-              />
-            )}
-            
-            {/* Drag overlay is now handled in the PersonalDrive component */}
+                  e.target.value = null;
+                }
+              }}
+              style={{ display: 'none' }}
+              directory=""
+              webkitdirectory=""
+            />
           </Box>
-        </MacOSPaper>
-        
-        {/* Hidden file inputs for uploads are now handled in the PersonalDrive component */}
-        
+        </MacOSPaper>        
         {/* Context menu */}
         <Menu
           open={Boolean(contextMenu)}

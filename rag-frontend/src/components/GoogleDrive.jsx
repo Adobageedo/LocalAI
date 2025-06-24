@@ -101,6 +101,12 @@ const GoogleDrive = ({
 
   // If not connected, show authentication UI
   if (!isConnected) {
+    // Handle authentication - either use provided callback or default to authProviders
+    const handleAuthentication = () => {
+      authProviders.authenticateWithPopup('gdrive')
+        .catch(err => console.error('Authentication error:', err));
+    };
+
     return (
       <Box 
         sx={{
@@ -123,11 +129,19 @@ const GoogleDrive = ({
         
         <Button
           variant="contained"
-          startIcon={<GoogleDriveIcon />}
-          onClick={authProviders.authenticateWithPopup('google')}
-          sx={{ bgcolor: '#4CAF50', '&:hover': { bgcolor: '#388E3C' } }}
+          startIcon={<GoogleIcon />}
+          onClick={handleAuthentication}
+          sx={{ 
+            bgcolor: '#4CAF50', 
+            '&:hover': { bgcolor: '#388E3C' },
+            px: 4,
+            py: 1.2,
+            borderRadius: 2,
+            boxShadow: '0 2px 10px rgba(76, 175, 80, 0.3)',
+            fontSize: '1rem'
+          }}
         >
-          Connect Google Drive
+          Connect to Google
         </Button>
       </Box>
     );

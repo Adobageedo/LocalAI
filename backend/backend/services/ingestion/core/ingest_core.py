@@ -91,7 +91,7 @@ def batch_ingest_documents(batch_documents, user, collection=None, file_registry
         metadata = document["metadata"]
         original_path = metadata.get("path")
         stat = os.stat(tmp_path)
-        doc_id = compute_doc_id(original_path, stat)
+        doc_id = metadata.get("doc_id") or compute_doc_id(original_path, stat)
         metadata["doc_id"] = doc_id
 
         if file_registry.file_exists(original_path) and not file_registry.has_changed(original_path, doc_id):
