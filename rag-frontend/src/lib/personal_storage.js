@@ -1,7 +1,7 @@
 import { authFetch } from '../firebase/authFetch';
 import { API_BASE_URL } from '../config';
 
-const minio_service = {
+const personal_storage_service = {
   /**
    * Liste tous les fichiers et dossiers sous forme d'arborescence complète
    * @returns {Promise<Object>} - Structure d'arborescence complète des fichiers et dossiers
@@ -229,4 +229,4 @@ const minio_service = {
   }
 };
 
-export default minio_service;
+export default personal_storage_service;

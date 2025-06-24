@@ -70,12 +70,10 @@ const SyncStatusBar = () => {
     try {
       const response = await authFetch(`${API_BASE_URL}/sync/status`);
       const data = await response.json();  // <-- important !
-      console.log("data", data);
       const statusData = Array.isArray(data) ? data : (data.data || []);
       const activeStatuses = statusData.filter(
         status => status.status === 'pending' || status.status === 'in_progress'
       );
-      console.log("activeStatuses", activeStatuses);
       setSyncStatuses(activeStatuses);
       setVisible(activeStatuses.length > 0);
     } catch (error) {

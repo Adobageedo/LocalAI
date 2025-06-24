@@ -8,14 +8,14 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.
 import glob
 import pickle
 import json
-import logging
+from backend.core.logger import log
 from pathlib import Path
 from google.oauth2.credentials import Credentials
 from google.auth.transport.requests import Request
 from google_auth_oauthlib.flow import InstalledAppFlow
 from typing import List
 
-logger = logging.getLogger("backend.services.auth.credentials_manager")
+logger = log.bind(name="backend.services.auth.credentials_manager")
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
 def load_google_token(user_id):
     """
@@ -225,15 +225,8 @@ def check_microsoft_credentials(user_id):
         
         # Vérifier le contenu du token pour la validité
         # Cette vérification est simplifiée et devrait être adaptée selon la structure exacte du token
-        if "access_token" in token_cache:
+        if "Account" in token_cache:
             result["valid"] = True
-            
-            # Extraire des informations sur le compte si disponibles
-            if "account" in token_cache:
-                result["account_info"] = {
-                    "username": token_cache.get("account", {}).get("username", "Unknown"),
-                    "home_account_id": token_cache.get("account", {}).get("home_account_id", "Unknown")
-                }
         else:
             result["error"] = "Invalid token format or expired token"
         

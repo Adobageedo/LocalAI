@@ -32,3 +32,4 @@ rag-backend/data/*
 *config.js
 *.json
 **/data/
+rag-frontend/src/config.js

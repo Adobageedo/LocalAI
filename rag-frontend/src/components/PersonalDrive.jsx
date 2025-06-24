@@ -159,46 +159,6 @@ const PersonalDrive = ({
         </Box>
       )}
       
-      {/* Main toolbar */}
-      <Box sx={{ display: 'flex' }}>
-        <Tooltip title="Refresh">
-          <IconButton color="primary" onClick={onRefresh} size="small" sx={{ mr: 1 }}>
-            <RefreshIcon />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title="Create Folder">
-          <IconButton color="primary" onClick={onCreateFolder} size="small" sx={{ mr: 1 }}>
-            <CreateFolderIcon />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title="Upload File">
-          <IconButton color="primary" onClick={handleUpload} size="small" sx={{ mr: 1 }}>
-            <UploadIcon />
-          </IconButton>
-        </Tooltip>
-        {showPasteButton && (
-          <Tooltip title={`Paste ${clipboardItems.length} item(s) (${clipboardOperation === 'copy' ? 'Copy' : 'Move'})`}>
-            <IconButton 
-              color="primary" 
-              onClick={onPaste}
-              sx={{ bgcolor: 'rgba(25, 118, 210, 0.08)' }}
-            >
-              <ContentCopyIcon />
-              <Badge
-                badgeContent={clipboardItems.length}
-                color="primary"
-                sx={{ position: 'absolute', top: -5, right: -5 }}
-              />
-            </IconButton>
-          </Tooltip>
-        )}
-        <Tooltip title="Upload Folder">
-          <IconButton color="primary" onClick={handleFolderUpload} size="small" sx={{ mr: 1 }}>
-            <CloudUploadIcon />
-          </IconButton>
-        </Tooltip>
-      </Box>
-      
       {/* Empty state for Personal Drive */}
       {items.length === 0 && !loading && !error && (
         <Box 
