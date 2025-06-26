@@ -13,6 +13,7 @@ from backend.services.db.email_manager import EmailManager
 from backend.services.rag.retrieve_rag_information_modular import get_rag_response_modular
 from backend.core.logger import log
 from backend.core.config import CONFIG
+from backend.services.email.gmail_actions import GmailActions
 
 # Setup logger
 logger = log.bind(name="backend.services.email.agent")
@@ -123,7 +124,7 @@ SUBJECT: {email.get('subject', '')}
         prompt = self._create_email_response_prompt(email, formatted_history)
         
         # Generate response with RAG if requested
-        rag_response = None
+        response = None
         if use_rag:
             try:
                 rag_result = get_rag_response_modular(
@@ -134,29 +135,33 @@ SUBJECT: {email.get('subject', '')}
                     use_retrieval=True,
                     conversation_history=formatted_history
                 )
-                rag_response = rag_result.get("answer", "")
+                response = rag_result.get("answer", "")
             except Exception as e:
-                logger.error(f"Error generating RAG response: {e}")
-                rag_response = f"[Error generating RAG-enhanced response: {str(e)}]"
+                logger.error(f"Error generating RAG response: {str(e)}")
+                response = f"[Error generating RAG-enhanced response: {str(e)}]"
+        else:
+            try:
+                standard_result = get_rag_response_modular(
+                    question=prompt,
+                    temperature=temperature,
+                    use_retrieval=False,
+                    conversation_history=formatted_history
+                )
+                response = standard_result.get("answer", "")
+            except Exception as e:
+                logger.error(f"Error generating standard response: {str(e)}")
+                response = f"[Error generating standard response: {str(e)}]"
         
-        # Generate standard response (without RAG)
-        standard_response = None
-        try:
-            standard_result = get_rag_response_modular(
-                question=prompt,
-                temperature=temperature,
-                use_retrieval=False,
-                conversation_history=formatted_history
-            )
-            standard_response = standard_result.get("answer", "")
-        except Exception as e:
-            logger.error(f"Error generating standard response: {e}")
-            standard_response = f"[Error generating standard response: {str(e)}]"
+        # Extract components from the response
+        components = self.extract_email_components(response)
         
-        # Return both responses
+        # Return both responses and components
         return {
-            "standard_response": standard_response,
-            "rag_response": rag_response if use_rag else None
+            "response": response,
+            "subject": components.get("subject", f"Re: {email.get('subject', '')}"),
+            "body": components.get("body", ""),
+            "recipients": [email.get("sender", "")],  # Reply to sender by default
+            "cc": []  # No CC by default for replies
         }
     
     def _create_email_response_prompt(self, email: Dict[str, Any], conversation_history: str = "") -> str:
@@ -247,7 +252,7 @@ Your response should be formatted as a complete email ready to send, including a
 """
         
         # Generate response with RAG if requested
-        rag_response = None
+        response = None
         if use_rag:
             try:
                 rag_result = get_rag_response_modular(
@@ -257,28 +262,25 @@ Your response should be formatted as a complete email ready to send, including a
                     temperature=temperature,
                     use_retrieval=True
                 )
-                rag_response = rag_result.get("answer", "")
+                response = rag_result.get("answer", "")
             except Exception as e:
                 logger.error(f"Error generating RAG response: {e}")
-                rag_response = f"[Error generating RAG-enhanced email: {str(e)}]"
-        
-        # Generate standard response (without RAG)
-        standard_response = None
-        try:
-            standard_result = get_rag_response_modular(
-                question=email_prompt,
-                temperature=temperature,
-                use_retrieval=False
-            )
-            standard_response = standard_result.get("answer", "")
-        except Exception as e:
-            logger.error(f"Error generating standard response: {e}")
-            standard_response = f"[Error generating standard email: {str(e)}]"
+                response = f"[Error generating RAG-enhanced email: {str(e)}]"
+        else:
+            try:
+                standard_result = get_rag_response_modular(
+                    question=email_prompt,
+                    temperature=temperature,
+                    use_retrieval=False
+                )
+                response = standard_result.get("answer", "")
+            except Exception as e:
+                logger.error(f"Error generating standard response: {e}")
+                response = f"[Error generating standard email: {str(e)}]"
         
         # Return both responses and recipient info
         return {
-            "standard_response": standard_response,
-            "rag_response": rag_response if use_rag else None,
+            "response": response,
             "recipients": recipients or [],
             "cc": cc or []
         }
@@ -314,3 +316,275 @@ Your response should be formatted as a complete email ready to send, including a
                     result["body"] = ""
         
         return result
+
+    async def reply_to_email(
+        self,
+        email_id: str,
+        content: str,
+        provider: str,
+        thread_id: Optional[str] = None,
+        subject: Optional[str] = None,
+        recipients: Optional[List[str]] = None,
+        cc: Optional[List[str]] = None,
+        user_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Reply to an email thread with generated content.
+        
+        Args:
+            email_id: ID of the email to reply to
+            content: Content of the reply
+            thread_id: Optional thread/conversation ID (will be extracted from email if not provided)
+            subject: Subject line (defaults to "Re: original subject")
+            recipients: List of recipients (defaults to original sender)
+            cc: List of CC recipients
+            user_id: User ID for the sender
+            
+        Returns:
+            Dict with details of the sent reply
+        """
+        try:
+            # Get the original email if needed to extract info
+            original_email = None
+                                
+            if not subject and original_email:
+                original_subject = original_email.get("subject", "")
+                subject = f"Re: {original_subject}" if not original_subject.startswith("Re:") else original_subject
+                
+            if not recipients and original_email:
+                recipients = [original_email.get("sender")]
+                
+            if not cc:
+                cc = []
+                
+            # Prepare reply data
+            reply_data = {
+                "conversation_id": thread_id,
+                "in_reply_to": email_id,
+                "subject": subject,
+                "body": content,
+                "recipients": recipients,
+                "cc": cc,
+                "sent_date": datetime.now().isoformat(),
+                "folder": "sent",
+                "source_type": "api_generated"
+            }
+            
+            if user_id:
+                reply_data["user_id"] = user_id
+            
+            if provider=="google_email":
+                gmail_actions = GmailActions(user_id)
+                email_id = await gmail_actions.reply_to_email(email_id, content, provider, thread_id, subject, recipients, cc, user_id)
+                # Store the reply in database
+                #message_id = await self.email_manager.save_email(reply_data)
+            
+            logger.info(f"Reply to email {email_id} created with message ID {message_id}")
+            
+            return {
+                "success": True,
+                "message_id": message_id,
+                "thread_id": thread_id
+            }
+            
+        except Exception as e:
+            logger.error(f"Error sending reply to email {email_id}: {str(e)}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    async def forward_email(
+        self,
+        email_id: str,
+        recipients: List[str],
+        subject: Optional[str] = None,
+        additional_comment: Optional[str] = None,
+        user_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Forward an email to new recipients.
+        
+        Args:
+            email_id: ID of the email to forward
+            recipients: List of recipient email addresses
+            subject: Optional new subject (defaults to "Fwd: original subject")
+            additional_comment: Optional comment to add before the forwarded content
+            user_id: User ID for the sender
+            
+        Returns:
+            Dict with details of the forwarded email
+        """
+        try:
+            # Get the original email
+            original_email = await self.email_manager.get_email_by_id(email_id, user_id)
+            if not original_email:
+                raise ValueError(f"Could not find original email with ID {email_id}")
+                
+            # Prepare subject
+            original_subject = original_email.get("subject", "")
+            if not subject:
+                subject = f"Fwd: {original_subject}" if not original_subject.startswith("Fwd:") else original_subject
+            
+            # Prepare forwarded content
+            original_body = original_email.get("body", "")
+            original_sender = original_email.get("sender", "unknown")
+            original_date = original_email.get("sent_date", "unknown date")
+            
+            # Format the forwarded content
+            forwarded_content = f"""
+{additional_comment if additional_comment else ""}
+
+---------- Forwarded message ---------
+From: {original_sender}
+Date: {original_date}
+Subject: {original_subject}
+
+{original_body}
+"""
+            
+            # Prepare forward data
+            forward_data = {
+                "subject": subject,
+                "body": forwarded_content,
+                "recipients": recipients,
+                "cc": [],
+                "sent_date": datetime.now().isoformat(),
+                "folder": "sent",
+                "source_type": "api_generated",
+                "forwarded_from": email_id
+            }
+            
+            if user_id:
+                forward_data["user_id"] = user_id
+                
+            # Store the forwarded email in database
+            message_id = await self.email_manager.save_email(forward_data)
+            
+            # Here in a real implementation, you would also send the email via API
+            # For example: await self._send_via_api(forward_data) 
+                
+            logger.info(f"Email {email_id} forwarded with message ID {message_id}")
+            
+            return {
+                "success": True,
+                "message_id": message_id
+            }
+            
+        except Exception as e:
+            logger.error(f"Error forwarding email {email_id}: {str(e)}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    async def update_email_flags(
+        self,
+        email_id: str,
+        flag_important: Optional[bool] = None,
+        mark_read: Optional[bool] = None,
+        user_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Update flags for an email (important, read status).
+        
+        Args:
+            email_id: ID of the email to update
+            flag_important: Whether to flag the email as important
+            mark_read: Whether to mark the email as read
+            user_id: User ID for the email owner
+            
+        Returns:
+            Dict with update status
+        """
+        try:
+            # Get the original email
+            original_email = await self.email_manager.get_email_by_id(email_id, user_id)
+            if not original_email:
+                raise ValueError(f"Could not find email with ID {email_id}")
+            
+            # Prepare update data
+            update_data = {}
+            
+            # Update metadata with flags
+            metadata = original_email.get("metadata", {}) or {}
+            
+            if flag_important is not None:
+                metadata["important"] = flag_important
+                logger.info(f"Email {email_id} {'flagged as important' if flag_important else 'unflagged'}")
+                
+            if mark_read is not None:
+                metadata["read"] = mark_read
+                logger.info(f"Email {email_id} {'marked as read' if mark_read else 'marked as unread'}")
+                
+            # Only update if there are changes
+            if metadata != original_email.get("metadata", {}):
+                update_data["metadata"] = metadata
+                
+                # Update the email in the database
+                await self.email_manager.update_email(email_id, update_data, user_id)
+                
+                # Here in a real implementation, you would also update via API if needed
+                # For example: await self._update_flags_via_api(email_id, metadata)
+                
+            return {
+                "success": True,
+                "email_id": email_id,
+                "flags_updated": True if update_data else False
+            }
+            
+        except Exception as e:
+            logger.error(f"Error updating flags for email {email_id}: {str(e)}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    async def move_email(
+        self,
+        email_id: str,
+        destination_folder: str,
+        user_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Move an email to a different folder (archive, trash, etc).
+        
+        Args:
+            email_id: ID of the email to move
+            destination_folder: Target folder name
+            user_id: User ID for the email owner
+            
+        Returns:
+            Dict with move status
+        """
+        try:
+            # Get the original email
+            original_email = await self.email_manager.get_email_by_id(email_id, user_id)
+            if not original_email:
+                raise ValueError(f"Could not find email with ID {email_id}")
+                
+            # Update the folder
+            update_data = {
+                "folder": destination_folder
+            }
+            
+            # Update the email in the database
+            await self.email_manager.update_email(email_id, update_data, user_id)
+            
+            # Here in a real implementation, you would also move via API if needed
+            # For example: await self._move_via_api(email_id, destination_folder)
+            
+            logger.info(f"Email {email_id} moved to folder '{destination_folder}'")
+            
+            return {
+                "success": True,
+                "email_id": email_id,
+                "destination_folder": destination_folder
+            }
+            
+        except Exception as e:
+            logger.error(f"Error moving email {email_id} to folder {destination_folder}: {str(e)}")
+            return {
+                "success": False,
+                "error": str(e)
+            }

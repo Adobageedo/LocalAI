@@ -1,8 +1,10 @@
 import os
 from backend.core.config import load_config
 from backend.services.rag.retrieval.retrieval import retrieve_documents_advanced
-from backend.services.rag.retrieval.llm_router import LLMRouter
+from backend.services.rag.retrieval.llm_router import LLM
+from backend.core.logger import log
 
+logger = log.bind(name="backend.services.rag.retrieve_rag_information_modular")
 
 def get_rag_response_modular(question: str, metadata_filter=None, top_k=None, user_id=None, temperature=0.7, use_retrieval=True, conversation_history=None) -> dict:
     """
@@ -31,7 +33,7 @@ def get_rag_response_modular(question: str, metadata_filter=None, top_k=None, us
         use_hyde=use_hyde,
         collection=collection
     )
-    print(f"Number of retrieved documents: {len(docs)}")
+    logger.info(f"Number of retrieved documents: {len(docs)}")
 
     import os
     def get_chunk_source(doc):
@@ -48,10 +50,9 @@ def get_rag_response_modular(question: str, metadata_filter=None, top_k=None, us
         "{context}\n\nQuestion: {question}\nAnswer:"
     )
     full_prompt = prompt_template.format(context=context, question=question, conversation_history=conversation_history)
-    print(context)
     # Route to LLM
-    router = LLMRouter()
-    llm = router.route(question)
+    router = LLM()
+    llm = router.rag_llm(question)
     try:
         result = llm.invoke(full_prompt)
         answer = result.content.strip() if hasattr(result, "content") else str(result).strip()

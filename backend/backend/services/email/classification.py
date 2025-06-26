@@ -160,8 +160,6 @@ For the ACTION field, use the following guidelines:
 - "new_email": A new email should be composed (not a direct reply)
 - "no_action": No action needed at this time
 - "flag_important": The email should be flagged for later attention
-- "archive": The email can be archived
-- "delete": The email can be deleted
 
 For the PRIORITY field:
 - "high": Urgent, should be handled immediately
@@ -276,4 +274,195 @@ class EmailAutoProcessor:
             result["urgent_attention_required"] = True
             
         # Return processing results
+        return result
+    async def process_email_action(
+        self,
+        user_id: str,
+        provider: str,
+        email_content: Dict[str, Any],
+        classification: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Processes an email action based on classification results.
+        
+        This method executes the appropriate action (reply, forward, archive, etc.)
+        based on the classification provided.
+        
+        Args:
+            user_id: The ID of the user who owns the email
+            email_content: The full email content
+            classification: The classification result containing action, priority, etc.
+            
+        Returns:
+            Dict containing information about the action taken
+        """
+        from backend.core.logger import log
+        from backend.services.email.mail_agent import EmailAgent
+        
+        logger = log.bind(name="backend.services.email.auto_processor")
+        
+        action = classification.get("action")
+        priority = classification.get("priority")
+        reasoning = classification.get("reasoning", "")
+        suggested_response = classification.get("suggested_response", "")
+        
+        result = {
+            "action": action,
+            "success": False,
+            "details": "",
+            "priority": priority
+        }
+        
+        try:
+            # Initialize email agent for API actions if needed
+            email_agent = EmailAgent(user_id=user_id)
+            
+            if action == "reply":
+                logger.info(f"Auto-replying to email {email_content.get('id')} for user {user_id}")
+                
+                # Generate response content
+                response_body = suggested_response
+                if not response_body:
+                    response_body = "Auto-generated response based on classification."
+                
+                # Send reply
+                reply_result = await email_agent.reply_to_email(
+                    email_id=email_content.get("id"),
+                    content=response_body,
+                    thread_id=email_content.get("thread_id") or email_content.get("conversation_id"),
+                    subject=f"Re: {email_content.get('subject', '')}",
+                    recipients=[email_content.get("sender")],
+                    provider=provider
+                )
+                
+                result["success"] = True
+                result["details"] = "Auto-reply sent successfully"
+                result["message_id"] = reply_result.get("message_id")
+                
+            elif action == "forward":
+                logger.info(f"Auto-forwarding email {email_content.get('id')} for user {user_id}")
+                
+                # Determine recipients from suggested_response if available
+                # This assumes the suggested_response contains recipient info
+                forward_recipients = []
+                if suggested_response and "@" in suggested_response:
+                    # Extract email addresses from suggested response
+                    import re
+                    emails = re.findall(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', suggested_response)
+                    if emails:
+                        forward_recipients = emails
+                
+                if not forward_recipients:
+                    result["success"] = False
+                    result["details"] = "No forward recipients identified"
+                    return result
+                    
+                forward_message = f"Forwarded message:\n\n{reasoning}\n\n"
+                forward_message += email_content.get("body", "")
+                
+                # Forward email
+                forward_result = await email_agent.forward_email(
+                    email_id=email_content.get("id"),
+                    additional_comment=reasoning,
+                    recipients=forward_recipients,
+                    subject=f"Fwd: {email_content.get('subject', '')}",
+                    provider=provider
+                )
+                
+                result["success"] = True
+                result["details"] = f"Forwarded to {', '.join(forward_recipients)}"
+                result["message_id"] = forward_result.get("message_id")
+                
+            elif action == "new_email":
+                logger.info(f"Creating new email based on classification for user {user_id}")
+                
+                # Extract potential recipients from suggested_response
+                import re
+                recipients = []
+                if suggested_response and "@" in suggested_response:
+                    emails = re.findall(r'[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}', suggested_response)
+                    if emails:
+                        recipients = emails
+                
+                subject = ""
+                if ":" in suggested_response:
+                    subject_part = suggested_response.split(":", 1)[0].strip()
+                    if len(subject_part) < 100:  # Reasonable subject length
+                        subject = subject_part
+                        
+                if not subject:
+                    # Try to generate a subject based on the email content
+                    subject = "Follow-up: " + email_content.get("subject", "")
+                
+                if recipients:
+                    # Send new email
+                    new_email_result = await email_agent.generate_new_email(
+                        subject=subject,
+                        content=suggested_response,
+                        recipients=recipients,
+                        provider=provider
+                    )
+                    
+                    result["success"] = True
+                    result["details"] = f"New email sent to {', '.join(recipients)}"
+                    result["message_id"] = new_email_result.get("message_id")
+                else:
+                    result["success"] = False
+                    result["details"] = "No recipients identified for new email"
+                
+            elif action == "flag_important":
+                logger.info(f"Flagging email {email_content.get('id')} as important")
+                
+                # Flag the email as important
+                await email_agent.update_email_flags(
+                    email_id=email_content.get("id"),
+                    flag_important=True,
+                    provider=provider
+                )
+                
+                result["success"] = True
+                result["details"] = "Email flagged as important"
+                
+            elif action == "archive":
+                logger.info(f"Archiving email {email_content.get('id')}")
+                
+                # Archive the email
+                await email_agent.move_email(
+                    email_id=email_content.get("id"),
+                    destination_folder="archive",
+                    provider=provider
+                )
+                
+                result["success"] = True
+                result["details"] = "Email archived"
+                
+            elif action == "delete":
+                logger.info(f"Moving email {email_content.get('id')} to trash")
+                
+                # Move to trash (soft delete)
+                await email_agent.move_email(
+                    email_id=email_content.get("id"),
+                    destination_folder="trash",
+                    provider=provider
+                )
+                
+                result["success"] = True
+                result["details"] = "Email moved to trash"
+                
+            elif action == "no_action":
+                # No action taken, but still mark as successful processing
+                logger.info(f"No action required for email {email_content.get('id')}")
+                result["success"] = True
+                result["details"] = "No action required based on classification"
+                
+            else:
+                logger.warning(f"Unknown action type: {action}")
+                result["success"] = False
+                result["details"] = f"Unknown action type: {action}"
+                
+        except Exception as e:
+            logger.error(f"Error executing email action: {str(e)}")
+            result["success"] = False
+            result["details"] = f"Error: {str(e)}"
+        
         return result

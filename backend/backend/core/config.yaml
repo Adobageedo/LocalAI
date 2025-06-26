@@ -35,6 +35,7 @@ llm:
   max_tokens: 512
   api_base: https://api.openai.com/v1
   timeout: 30                     # seconds
+  available_models: ["gpt-4.1", "gpt-4.1-nano", "gpt-4.1-mini"]
   system_prompt: |
     Tu es un assistant qui répond à la question en t'appuyant uniquement sur les passages ci-dessous. Pour chaque passage utilisé, indique le numéro de la source entre crochets [Source X]. Si aucune information pertinente n'est trouvée dans les passages, indique-le.\n
 
