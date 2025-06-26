@@ -4,7 +4,7 @@ from backend.services.embeddings.embedding_service import EmbeddingService
 from backend.services.vectorstore.qdrant_manager import VectorStoreManager
 from langchain_qdrant import QdrantVectorStore
 from langchain.schema import Document
-from backend.services.rag.retrieval.llm_router import LLMRouter
+from backend.services.rag.retrieval.llm_router import LLM
 from backend.core.config import load_config
 import os
 
@@ -87,8 +87,8 @@ class Retriever(BaseRetriever):
         """
         Given a user prompt, generate a hypothetical answer (HYDE) using the LLM.
         """
-        router = LLMRouter()
-        llm = router.route(prompt)
+        router = LLM()
+        llm = router.rag_llm(prompt)
         hyde_instruction = (
             "Given the following query, generate a plausible and detailed answer as if you were an expert on the topic. "
             "This answer will be used to create a hypothetical embedding for improved retrieval.\n"
@@ -111,8 +111,8 @@ class Retriever(BaseRetriever):
         """
         Use the LLM to split a complex prompt into subquestions.
         """
-        router = LLMRouter()
-        llm = router.route(prompt)
+        router = LLM()
+        llm = router.rag_llm(prompt)
         system_prompt = (
             "Tu es un assistant qui reçoit une question complexe ou un prompt utilisateur. "
             "Découpe ce prompt en sous-questions simples et indépendantes, utiles pour la recherche documentaire. "
@@ -134,8 +134,8 @@ class Retriever(BaseRetriever):
         Rerank documents according to their relevance to the prompt using the LLM as a cross-encoder.
         Returns the top_k unique documents by doc_id.
         """
-        router = LLMRouter()
-        llm = router.route(prompt)
+        router = LLM()
+        llm = router.rag_llm(prompt)
         scored_docs = []
         for d in docs:
             scoring_prompt = (

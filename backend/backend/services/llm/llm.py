@@ -1,56 +1,65 @@
-import os
-from backend.services.rag.retrieval.base import BaseRetriever
-from backend.core.config import load_config,OPENAI_API_KEY,OLLAMA_BASE_URL,OLLAMA_MODEL
-from langchain_openai import ChatOpenAI
-from langchain_community.llms import Ollama
-from backend.core.logger import log
+"""
+LLM Client Module
+Provides a unified interface for interacting with different LLM providers.
+"""
 
-logger = log.bind(name="backend.services.rag.llm_router")
+import os
+import asyncio
+from typing import List, Dict, Any, Optional, Union
+
+from backend.core.logger import log
+from backend.core.config import load_config
+from backend.services.rag.retrieval.llm_router import LLMRouter
+
+logger = log.bind(name="backend.services.llm.llm")
 
 class LLM:
-    def __init__(self, model: Optional[str] = None, temperature: Optional[float] = None, max_tokens: Optional[int] = None):
+    """
+    A unified interface for interacting with Language Models.
+    This class wraps different LLM implementations (OpenAI, Ollama) and provides
+    a consistent API for generating text, chat completions, and embeddings.
+    """
+    AVAILABLE_MODELS = {"gpt-4.1", "nano", "mini"}
+    def __init__(
+        self, 
+        model: Optional[str] = None,
+        temperature: Optional[float] = None,
+        max_tokens: Optional[int] = None
+    ):
+        """
+        Initialize the LLM wrapper.
+        
+        Args:
+            model: Optional model name to override default from config
+            temperature: Optional temperature setting to override default from config
+            max_tokens: Optional max_tokens setting to override default
+        """
         self.config = load_config()
-        self.llm_cfg = self.config.get("llm", {})
-
-        self.model = model or self.llm_cfg.get("model", "gpt-4.1-mini")
-        self.temperature = temperature if temperature is not None else self.llm_cfg.get("temperature", 0.2)
-        self.max_tokens = max_tokens or self.llm_cfg.get("max_tokens", 1000)
-
-        self.provider = self.llm_cfg.get("provider", "openai")
-        self.api_base = self.llm_cfg.get("api_base", "https://api.openai.com/v1")
-        self.timeout = self.llm_cfg.get("timeout", 30)
-
-        self.llm = None  # Lazy instantiation
-
-        logger.info(f"LLM initialized with model={self.model}, provider={self.provider}, temperature={self.temperature}")
-
-    def _create_llm_instance(self):
-        if self.provider == "openai" and OPENAI_API_KEY:
-            return ChatOpenAI(
-                openai_api_key=OPENAI_API_KEY,
-                model=self.model,
-                temperature=self.temperature,
-                base_url=self.api_base,
-                timeout=self.timeout,
-            )
-        elif self.provider == "ollama":
-            return Ollama(
-                base_url=OLLAMA_BASE_URL,
-                model=self.model or OLLAMA_MODEL,
-            )
+        self.llm_config = self.config.get("llm", {})
+        
+        # Override configs with parameters if provided
+        self.model = model or self.llm_config.get("model", "gpt-4.1-mini")
+        self.temperature = temperature if temperature is not None else self.llm_config.get("temperature", 0.2)
+        self.max_tokens = max_tokens or self.llm_config.get("max_tokens", 1000)
+        
+        # Get the provider for this instance
+        self.router = LLMRouter()
+        self.llm = None  # Will be instantiated on first use
+        
+        logger.info(f"LLM initialized with model={self.model}, temperature={self.temperature}")
+    def route(self, model_name: str):
+        if model_name == "gpt-4.1":
+            return GPTClient(model="gpt-4.1")
+        elif model_name == "nano":
+            return OllamaClient(model="nano")  # or another backend
+        elif model_name == "mini":
+            return OllamaClient(model="mini")
         else:
-            raise ValueError(f"Unsupported LLM provider: {self.provider}")
-
-    def rag_llm(self, query: str):
-        """
-        Route the query to the appropriate LLM instance based on config and environment.
-        For now, returns the default LLM (OpenAI or Ollama).
-        """
-        return self._create_llm_instance()
+            raise ValueError(f"Unknown LLM model: {model_name}")
     def _ensure_llm_instance(self):
         """Ensure we have an LLM instance, creating one if needed"""
         if self.llm is None:
-            self.llm = self._create_llm_instance()
+            self.llm = self.router.route("")  # Empty query, we just need the instance
             logger.debug(f"LLM instance created: {type(self.llm).__name__}")
         return self.llm
     
@@ -141,3 +150,34 @@ class LLM:
         except Exception as e:
             logger.error(f"Error streaming chat completion: {str(e)}")
             raise
+
+
+# Example usage
+async def example():
+    llm = LLM(temperature=0.7)
+    
+    # Simple text generation
+    response = await llm.generate("Explain quantum computing in simple terms.")
+    print(f"Generated response: {response}")
+    
+    # Chat completion
+    messages = [
+        {"role": "user", "content": "Hello, who are you?"},
+    ]
+    response = await llm.chat(
+        messages, 
+        system_prompt="You are a helpful AI assistant."
+    )
+    print(f"Chat response: {response}")
+    
+    # Streaming chat completion
+    messages = [
+        {"role": "user", "content": "Write a short poem about AI."}
+    ]
+    print("Streaming response: ", end="")
+    async for token in llm.stream_chat(messages):
+        print(token, end="", flush=True)
+    print()
+
+if __name__ == "__main__":
+    asyncio.run(example())

@@ -1092,10 +1092,10 @@ async def generate_conversation_title(data: dict, user=Depends(get_current_user)
         llm_prompt = f"{TITLE_SYSTEM_MESSAGE}\n\nUser message: {message}\n\nTitle:"
         
         # Direct LLM invocation without RAG retrieval
-        from backend.services.rag.retrieval.llm_router import LLMRouter
+        from backend.services.rag.retrieval.llm_router import LLM
         
-        router = LLMRouter()
-        llm = router.route(llm_prompt)
+        router = LLM()
+        llm = router.rag_llm(llm_prompt)
         
         try:
             # Call the LLM directly
