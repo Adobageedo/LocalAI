@@ -47,7 +47,7 @@ class EmailMetadata:
     """Classe représentant les métadonnées d'un email."""
     def __init__(self, doc_id=None, user=None, message_id=None, subject=None, sender=None, 
                  receiver=None, cc=None, bcc=None, date=None, folders=None, source=None,
-                 content_type=None, has_attachments=False, parent_email_id=None):
+                 content_type=None, has_attachments=False, parent_email_id=None, conversation_id=None):
         self.doc_id = doc_id
         self.user = user
         self.message_id = message_id
@@ -57,11 +57,12 @@ class EmailMetadata:
         self.cc = cc
         self.bcc = bcc
         self.date = date
-        self.folders = folders or []
+        self.folders = folders
         self.source = source
         self.content_type = content_type
         self.has_attachments = has_attachments
         self.parent_email_id = parent_email_id
+        self.conversation_id = conversation_id
         
 class Email:
     """Classe représentant un email complet."""

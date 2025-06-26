@@ -28,13 +28,13 @@ from backend.services.auth.microsoft_auth import get_outlook_token
 from backend.services.ingestion.core.model import Email, EmailAttachment, EmailContent, EmailMetadata
 from backend.services.ingestion.core.utils import generate_email_id
 from backend.services.db.models import SyncStatus
-
+from backend.services.db.email_manager import EmailManager
 # Utiliser le logger centralisé avec un nom spécifique pour ce module
 logger = log.bind(name="backend.services.ingestion.services.ingest_outlook_emails")
 # Définir la portée de l'accès à Outlook/Microsoft Graph
 GRAPH_API_ENDPOINT = 'https://graph.microsoft.com/v1.0'
 
-def parse_outlook_message(message: Dict, access_token: str, user: str) -> Optional[Email]:
+def parse_outlook_message(message: Dict, access_token: str, user: str, folder: str) -> Optional[Email]:
     """
     Parse un message Outlook en un objet Email.
     
@@ -60,7 +60,9 @@ def parse_outlook_message(message: Dict, access_token: str, user: str) -> Option
             receiver="; ".join([r.get('emailAddress', {}).get('address', '') for r in message.get('toRecipients', [])]),
             cc="; ".join([r.get('emailAddress', {}).get('address', '') for r in message.get('ccRecipients', [])]),
             date=message.get('receivedDateTime', None),
-            source="outlook"
+            source="microsoft_email",
+            conversation_id=message.get('conversationId', None),
+            folders=folder
         )
         
         # Récupérer le contenu du message
@@ -175,7 +177,7 @@ def fetch_outlook_emails(
                 
                 # Parser chaque message
                 for message in messages:
-                    email = parse_outlook_message(message, access_token, user)
+                    email = parse_outlook_message(message, access_token, user, folder)
                     if email:
                         emails.append(email)
                         
@@ -296,11 +298,15 @@ def ingest_outlook_emails_to_qdrant(
         "duration": 0,
         "batches": 0
     }
+
+    if syncstatus is None:
+        syncstatus = SyncStatus(user_id=user_id, source_type="microsoft_email", total_documents=limit)
+        syncstatus.upsert_status(status="in_progress", progress=0.0)
     
     # Initialize FileRegistry for this user
     file_registry = FileRegistry(user_id)
     logger.info(f"File registry loaded for user {user_id}: {len(file_registry.registry)} entries")
-    
+    email_manager = EmailManager()
     # Initialize batch for documents
     batch_documents = []
     
@@ -358,15 +364,19 @@ def ingest_outlook_emails_to_qdrant(
                 email.metadata.doc_id = email_id
                 
                 # Vérifier si l'email existe déjà dans le registre
-                source_path = f"microsoft_email/{user_id}/{email_id}"
+                source_path = f"/microsoft_email/{user_id}/{email.metadata.conversation_id}/{email_id}"
                 
                 # Créer un fichier temporaire avec le contenu de l'email
                 with tempfile.NamedTemporaryFile(mode='w+', suffix='.eml', delete=False) as temp_file:
                     # Écrire le contenu de l'email dans le fichier temporaire
                     temp_file.write(email.content.body_text or email.content.body_html or "")
                     filepath = temp_file.name
-                
                 # Préparer les métadonnées
+                if email.metadata.folders=="inbox":
+                    folder="inbox"
+                elif email.metadata.folders=="sentitems":
+                    folder="sent"
+
                 metadata = {
                     "doc_id": email_id,
                     "path": source_path,
@@ -382,7 +392,10 @@ def ingest_outlook_emails_to_qdrant(
                     "has_attachments": email.metadata.has_attachments,
                     "content_type": email.metadata.content_type or "text/plain",
                     "ingestion_date": datetime.datetime.now().isoformat(),
-                    "ingestion_type": "microsoft_email"
+                    "ingestion_type": "microsoft_email",
+                    "body_text": email.content.body_text,
+                    "conversation_id": email.metadata.conversation_id,
+                    "folder": folder
                 }
                 
                 # Ajouter le document au batch
@@ -394,7 +407,6 @@ def ingest_outlook_emails_to_qdrant(
                 # Log progress every 5 emails
                 if email_idx % 5 == 0:
                     logger.info(f"[{email_idx+1}/{len(emails)}] Préparation des emails pour ingestion")
-                
                 # Traitement des pièces jointes
                 if save_attachments and email.attachments and temp_dir:
                     attachment_paths = save_attachments(email, temp_dir)
@@ -405,11 +417,10 @@ def ingest_outlook_emails_to_qdrant(
                         
                         # Générer un ID unique pour la pièce jointe
                         attachment_id = hashlib.md5(f"{email_id}_{attachment_name}_{idx}".encode('utf-8')).hexdigest()
-                        
                         # Métadonnées pour la pièce jointe
                         attachment_metadata = {
                             "doc_id": attachment_id,
-                            "path": f"microsoft_email/{user_id}/attachments/{email_id}/{attachment_name}",
+                            "path": f"/microsoft_email/{user_id}/{email.metadata.conversation_id}/attachments/{attachment_name}",
                             "user": user_id,
                             "filename": attachment_name,
                             "message_id": email.metadata.message_id,
@@ -420,7 +431,9 @@ def ingest_outlook_emails_to_qdrant(
                             "receiver": email.metadata.receiver,
                             "content_type": "attachment",
                             "ingestion_date": datetime.datetime.now().isoformat(),
-                            "ingestion_type": "microsoft_email_attachment"
+                            "ingestion_type": "microsoft_email_attachment",
+                            "conversation_id": email.metadata.conversation_id,
+                            "folder": folder
                         }
                         
                         # Ajouter la pièce jointe au batch
@@ -430,7 +443,23 @@ def ingest_outlook_emails_to_qdrant(
                         })
                         
                         result["ingested_attachments"] += 1
-                
+                # After preparing metadata, save to the email database
+                try:
+                    email_manager.save_email(
+                        user_id=user_id,
+                        email_id=email_id,
+                        sender=email.metadata.sender,
+                        recipients=[email.metadata.receiver],  # Convert to list if needed
+                        subject=email.metadata.subject or '',
+                        body=email.content.body_text or '',
+                        #html_body=email.content.body_html or '',
+                        sent_date=email.metadata.date,
+                        source_type="microsoft_email",
+                        conversation_id=email.metadata.conversation_id,
+                        folder=folder
+                    )
+                except Exception as e:
+                    logger.error(f"Error saving email to database: {e}")
                 # Procéder par lots de batch_size documents
                 if len(batch_documents) >= batch_size:
                     flush_batch(batch_documents, user_id, result, file_registry, syncstatus)

@@ -16,28 +16,52 @@
     <!-- Fluent UI -->
     <link rel="stylesheet" href="https://static2.sharepointonline.com/files/fabric/office-ui-fabric-core/11.0.0/css/fabric.min.css"/>
     
+    <!-- Fluent UI Icons -->
+    <link rel="stylesheet" href="https://static2.sharepointonline.com/files/fabric/assets/icons/fabric-icons-inline.css"/>
+    
     <!-- Custom styles -->
     <link href="css/taskpane.css" rel="stylesheet" type="text/css" />
 </head>
 
 <body class="ms-font-m ms-Fabric">
     <div id="app" class="container">
+        <!-- Header with Logo -->
+        <div class="header">
+            <div class="header-logo">
+                <i class="ms-Icon ms-Icon--Mail" aria-hidden="true"></i>
+                <h2>Email Template Generator</h2>
+            </div>
+        </div>
+
         <!-- Authentication Section -->
         <div id="auth-section" class="section">
-            <h2 class="ms-font-xl">Email Template Generator</h2>
             <div id="login-form" style="display: none;">
-                <p class="ms-font-m">Sign in to use this add-in</p>
+                <h3 class="ms-font-l">Sign in to your account</h3>
+                <p class="ms-font-m">Use your credentials to access email templates</p>
+                
                 <div class="form-group">
-                    <input type="email" id="email-input" class="ms-TextField-field" placeholder="Email">
+                    <label for="email-input">Email</label>
+                    <div class="ms-TextField">
+                        <i class="ms-Icon ms-Icon--Contact" aria-hidden="true" style="position: absolute; left: 10px; top: 10px; color: #605e5c;"></i>
+                        <input type="email" id="email-input" class="ms-TextField-field" placeholder="yourname@example.com" style="padding-left: 32px;">
+                    </div>
                 </div>
+                
                 <div class="form-group">
-                    <input type="password" id="password-input" class="ms-TextField-field" placeholder="Password">
+                    <label for="password-input">Password</label>
+                    <div class="ms-TextField">
+                        <i class="ms-Icon ms-Icon--Lock" aria-hidden="true" style="position: absolute; left: 10px; top: 10px; color: #605e5c;"></i>
+                        <input type="password" id="password-input" class="ms-TextField-field" placeholder="Your password" style="padding-left: 32px;">
+                    </div>
                 </div>
+                
                 <div class="button-container">
-                    <button id="login-button" class="ms-Button ms-Button--primary">
+                    <button id="login-button" class="ms-Button ms-Button--primary action-button">
+                        <i class="ms-Icon ms-Icon--SignIn" aria-hidden="true"></i>
                         <span class="ms-Button-label">Sign In</span>
                     </button>
-                    <button id="register-link" class="ms-Button ms-Button--default">
+                    <button id="register-link" class="ms-Button ms-Button--default action-button">
+                        <i class="ms-Icon ms-Icon--PersonAdd" aria-hidden="true"></i>
                         <span class="ms-Button-label">Register</span>
                     </button>
                 </div>
@@ -46,8 +70,12 @@
             
             <!-- User Info Section (when authenticated) -->
             <div id="user-info" style="display: none;">
-                <p class="ms-font-m">Signed in as: <span id="user-email"></span></p>
-                <button id="logout-button" class="ms-Button ms-Button--default">
+                <div style="display: flex; align-items: center; margin-bottom: 16px;">
+                    <i class="ms-Icon ms-Icon--UserFollowed" aria-hidden="true" style="font-size: 16px; margin-right: 8px; color: #0078d4;"></i>
+                    <p class="ms-font-m" style="margin: 0;">Signed in as: <span id="user-email" style="font-weight: 600;"></span></p>
+                </div>
+                <button id="logout-button" class="ms-Button ms-Button--default action-button">
+                    <i class="ms-Icon ms-Icon--SignOut" aria-hidden="true"></i>
                     <span class="ms-Button-label">Sign Out</span>
                 </button>
             </div>
@@ -56,19 +84,23 @@
         <!-- Email Context Section -->
         <div id="email-context-section" class="section" style="display: none;">
             <div id="no-email-selected" style="display: none;">
-                <p class="ms-font-m-plus warning-text">
-                    This tool requires you to have an email open or selected to generate templates.
-                </p>
+                <div style="display: flex; align-items: center; justify-content: center; padding: 20px;">
+                    <i class="ms-Icon ms-Icon--MailAlert" aria-hidden="true" style="font-size: 24px; margin-right: 12px; color: #797775;"></i>
+                    <p class="ms-font-m-plus warning-text" style="margin: 0;">
+                        Please select or open an email to continue
+                    </p>
+                </div>
             </div>
             
             <div id="email-selected" style="display: none;">
-                <p class="ms-font-m">Email detected:</p>
+                <h3 class="ms-font-l">Email Context</h3>
                 <div class="email-info">
                     <p class="ms-font-s"><strong>Subject:</strong> <span id="email-subject"></span></p>
                     <p class="ms-font-s"><strong>From:</strong> <span id="email-from"></span></p>
                 </div>
-                <button id="generate-template-button" class="ms-Button ms-Button--primary">
-                    <span class="ms-Button-label">Write a Template</span>
+                <button id="generate-template-button" class="ms-Button ms-Button--primary action-button">
+                    <i class="ms-Icon ms-Icon--Lightbulb" aria-hidden="true"></i>
+                    <span class="ms-Button-label">Generate Template</span>
                 </button>
             </div>
         </div>
@@ -76,16 +108,18 @@
         <!-- Template Result Section -->
         <div id="template-result-section" class="section" style="display: none;">
             <h3 class="ms-font-l">Generated Template</h3>
-            <div id="loading-spinner" style="display: none;">
+            <div id="loading-spinner" style="display: none;" class="loading-container">
                 <div class="ms-Spinner"></div>
-                <p class="ms-font-s">Generating template...</p>
+                <p class="ms-font-s">Generating smart template...</p>
             </div>
             <div id="template-content" class="template-box"></div>
             <div class="button-container">
-                <button id="insert-template-button" class="ms-Button ms-Button--primary">
+                <button id="insert-template-button" class="ms-Button ms-Button--primary action-button">
+                    <i class="ms-Icon ms-Icon--NewMail" aria-hidden="true"></i>
                     <span class="ms-Button-label">Insert into New Email</span>
                 </button>
-                <button id="back-button" class="ms-Button ms-Button--default">
+                <button id="back-button" class="ms-Button ms-Button--default action-button">
+                    <i class="ms-Icon ms-Icon--Back" aria-hidden="true"></i>
                     <span class="ms-Button-label">Back</span>
                 </button>
             </div>

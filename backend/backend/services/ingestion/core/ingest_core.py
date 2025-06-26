@@ -33,7 +33,7 @@ def flush_batch(batch_documents, user_id, result, file_registry, syncstatus: Syn
     """
     if not batch_documents:
         return
-    logger.info(f"Batch de {len(batch_documents)} documents a ingérer and result: {result['items_ingested']}")
+    logger.info(f"Batch de {len(batch_documents)} documents a ingérer and items already ingested: {result['items_ingested']}")
     try:
         # Ingest the batch of documents
         batch_ingest_documents(
@@ -49,7 +49,6 @@ def flush_batch(batch_documents, user_id, result, file_registry, syncstatus: Syn
             status = "in_progress"
             progress = result["items_ingested"]
             syncstatus.update_status(status, progress)
-        logger.info(f"Batch of {len(batch_documents)} documents ingested successfully")
     except Exception as batch_err:
         logger.error(f"Error in batch ingestion: {batch_err}")
         logger.error(traceback.format_exc())

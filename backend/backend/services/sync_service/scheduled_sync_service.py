@@ -6,11 +6,14 @@ import threading
 from datetime import datetime
 import json
 import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))  
 
 from backend.services.sync_service.scheduler.scheduler import ScheduledJobManager
 from backend.services.sync_service.core.sync_manager import SyncManager
 from backend.services.db.models import SyncStatus
 from backend.core.logger import log
+from backend.core.config import CONFIG
 
 logger = log.bind(name="backend.services.sync_service.scheduled")
 
@@ -28,8 +31,9 @@ metrics = {
 }
 
 metrics_lock = threading.RLock()
-METRICS_FILE = os.environ.get("METRICS_FILE", "/app/data/sync_metrics.json")
-
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+METRICS_FILE = os.environ.get("METRICS_FILE", os.path.join(BASE_DIR, "data", "sync_metrics.json"))
+logger.info(f"Metrics file: {METRICS_FILE}")
 
 def save_metrics():
     """Save metrics to file for persistence"""
@@ -66,12 +70,12 @@ def run_sync_with_metrics():
         save_metrics()
     
     start_time = time.time()
-    sync_manager = SyncManager()
+    sync_manager = SyncManager(CONFIG)
     
     try:
         # Run the sync job
         logger.info("Starting scheduled sync job")
-        result = sync_manager.run_all_sync_jobs()
+        result = sync_manager.sync_all_users()
         
         # Update metrics on success
         with metrics_lock:
@@ -195,3 +199,10 @@ if __name__ == "__main__":
             time.sleep(60)
     except KeyboardInterrupt:
         signal_handler(signal.SIGINT, None)
+
+def main():
+    run_sync_with_metrics()
+
+if __name__ == "__main__":
+    main()
+    

@@ -45,7 +45,6 @@ def get_supported_extensions():
     """
     try:
         supported_types = CONFIG.get('ingestion', {}).get('supported_types', [])
-        logger.info(f"Supported types: {supported_types}")
         # Convertir les types en extensions avec un point devant
         supported_extensions = {ext.lower() for ext in supported_types}
 
@@ -100,7 +99,6 @@ def load_and_split_document(filepath: str, metadata: Dict[str, Any], chunk_size:
     # Documents OpenDocument Text
     elif ext == ".odt":
         try:
-            logger.info(f"Traitement du document OpenDocument {filepath} avec UnstructuredODTLoader (mode=elements)")
             loader = UnstructuredODTLoader(filepath, mode="elements")
             docs = loader.load()
         except Exception as e:
@@ -138,9 +136,20 @@ def load_and_split_document(filepath: str, metadata: Dict[str, Any], chunk_size:
     # Emails
     elif ext == ".eml":
         # Email : extraction avec unstructured
-        elements = partition_email(filename=filepath)
-        text = "\n".join([el.text for el in elements if hasattr(el, "text") and el.text])
+        #elements = partition_email(filename=filepath)
+        #text = "\n".join([el.text for el in elements if hasattr(el, "text") and el.text])
+        #docs = [Document(page_content=text)]
+        # Construction d'un texte structuré à partir des métadonnées
+        text = (
+            f"Mail from folder: {metadata.get('folder', 'Unknown')}\n"
+            f"Sent by: {metadata.get('sender', 'Unknown')}\n"
+            f"Received by: {metadata.get('receiver', 'Unknown')}\n"
+            f"Date: {metadata.get('date', 'Unknown')}\n"
+            f"Subject: {metadata.get('subject', 'No subject')}\n\n"
+            f"{metadata.get('body_text', '')}"
+        )
         docs = [Document(page_content=text)]
+
 
     # Fichiers tableurs (Excel, CSV, LibreOffice Calc, etc.)
     elif ext in {".csv", ".xlsx", ".xlsm", ".xls", ".ods", ".fods"}:
@@ -164,7 +173,6 @@ def load_and_split_document(filepath: str, metadata: Dict[str, Any], chunk_size:
             elif ext in {".xlsx", ".xlsm", ".xls"}:
                 try:
                     # Utiliser d'abord UnstructuredExcelLoader avec mode="elements" pour une meilleure extraction
-                    logger.info(f"Traitement du fichier Excel {filepath} avec UnstructuredExcelLoader (mode=elements)")
                     loader = UnstructuredExcelLoader(filepath, mode="elements")
                     docs = loader.load()
                     return docs
@@ -197,7 +205,6 @@ def load_and_split_document(filepath: str, metadata: Dict[str, Any], chunk_size:
             elif ext in {".ods", ".fods"}:
                 try:
                     # Pour les fichiers ODS, utiliser UnstructuredExcelLoader avec mode="elements" si possible
-                    logger.info(f"Traitement du fichier Calc {filepath} avec UnstructuredExcelLoader (mode=elements)")
                     loader = UnstructuredExcelLoader(filepath, mode="elements")
                     docs = loader.load()
                     return docs
@@ -265,11 +272,10 @@ def load_and_split_document(filepath: str, metadata: Dict[str, Any], chunk_size:
         doc_metadata["embedded"] = True
         # Assign the combined metadata to the document
         doc.metadata = doc_metadata
-
     splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap, add_start_index=True)  # track index in original document
     return splitter.split_documents(docs)
 
-def batch_load_and_split_document(filepaths: List[dict], chunk_size: int = 500, chunk_overlap: int = 100) -> List[str]:
+def batch_load_and_split_document(filepaths: List[dict], chunk_size: int = 1000, chunk_overlap: int = 200) -> List[str]:
     """
     Charge et découpe une liste de documents en chunks.
 
