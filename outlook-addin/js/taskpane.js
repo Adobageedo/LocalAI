@@ -106,12 +106,22 @@ function checkEmailContext() {
         document.getElementById('no-email-selected').style.display = 'none';
         document.getElementById('email-selected').style.display = 'block';
         
-        // Get email details
-        mailboxItem.subject.getAsync(function(asyncResult) {
-          if (asyncResult.status === Office.AsyncResultStatus.Succeeded) {
-            document.getElementById('email-subject').textContent = asyncResult.value || '(No subject)';
-          }
-        });
+        // Get email details - handle both read and compose modes
+        // In read mode, subject is a property; in compose mode, it's an object with getAsync()
+        if (typeof mailboxItem.subject === 'string') {
+          // Read mode - subject is directly available as a string property
+          document.getElementById('email-subject').textContent = mailboxItem.subject || '(No subject)';
+        } else if (typeof mailboxItem.subject === 'object' && mailboxItem.subject.getAsync) {
+          // Compose mode - need to call getAsync()
+          mailboxItem.subject.getAsync(function(asyncResult) {
+            if (asyncResult.status === Office.AsyncResultStatus.Succeeded) {
+              document.getElementById('email-subject').textContent = asyncResult.value || '(No subject)';
+            }
+          });
+        } else {
+          // Fallback
+          document.getElementById('email-subject').textContent = '(No subject data)';
+        }
         
         // If in read mode, we can get sender info
         if (mailboxItem.from) {
@@ -147,27 +157,52 @@ function generateTemplate() {
   document.getElementById('template-content').textContent = '';
   document.getElementById('email-context-section').style.display = 'none';
   
-  // Get the email content
-  // For read mode
-  if (mailboxItem.body && typeof mailboxItem.body.getAsync === 'function') {
-    mailboxItem.body.getAsync('text', function(asyncResult) {
-      if (asyncResult.status === Office.AsyncResultStatus.Succeeded) {
-        const emailBody = asyncResult.value;
-        const emailSubject = document.getElementById('email-subject').textContent;
-        
-        // Call API to generate template
-        callTemplateGenerationAPI(emailSubject, emailBody);
-      } else {
-        handleTemplateError('Could not retrieve email content');
-      }
-    });
+  // Get email subject based on mode
+  let emailSubject = '';
+  const isReadMode = Office.context.mailbox.item.itemType === Office.MailboxEnums.ItemType.Message;
+  
+  // Handle both read and compose modes
+  if (isReadMode) {
+    // Read mode - get subject directly
+    emailSubject = typeof mailboxItem.subject === 'string' ? mailboxItem.subject : '(No subject)';
+    
+    // Get email body
+    if (mailboxItem.body && typeof mailboxItem.body.getAsync === 'function') {
+      mailboxItem.body.getAsync('text', function(asyncResult) {
+        if (asyncResult.status === Office.AsyncResultStatus.Succeeded) {
+          const emailBody = asyncResult.value;
+          // Call API to generate template
+          callTemplateGenerationAPI(emailSubject, emailBody);
+        } else {
+          handleTemplateError('Could not retrieve email content');
+        }
+      });
+    } else {
+      // Can't get body, but at least use the subject
+      callTemplateGenerationAPI(emailSubject, '');
+    }
   } else {
-    // For compose mode or fallback
-    mailboxItem.subject.getAsync(function(asyncResult) {
-      const subject = (asyncResult.status === Office.AsyncResultStatus.Succeeded) ? asyncResult.value : '';
-      
-      callTemplateGenerationAPI(subject, '');
-    });
+    // Compose mode
+    if (mailboxItem.subject && typeof mailboxItem.subject.getAsync === 'function') {
+      mailboxItem.subject.getAsync(function(asyncResult) {
+        if (asyncResult.status === Office.AsyncResultStatus.Succeeded) {
+          emailSubject = asyncResult.value || '';
+        }
+        
+        // Get body if possible
+        if (mailboxItem.body && typeof mailboxItem.body.getAsync === 'function') {
+          mailboxItem.body.getAsync('text', function(bodyResult) {
+            const emailBody = bodyResult.status === Office.AsyncResultStatus.Succeeded ? bodyResult.value : '';
+            callTemplateGenerationAPI(emailSubject, emailBody);
+          });
+        } else {
+          callTemplateGenerationAPI(emailSubject, '');
+        }
+      });
+    } else {
+      // Can't get subject
+      callTemplateGenerationAPI('', '');
+    }
   }
 }
 
@@ -229,7 +264,7 @@ async function callTemplateGenerationAPI(subject, body) {
     }
     
     const data = await response.json();
-    
+    console.log(data);
     // Hide loading state
     document.getElementById('loading-spinner').style.display = 'none';
     

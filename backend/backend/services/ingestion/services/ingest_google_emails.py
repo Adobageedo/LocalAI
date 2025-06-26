@@ -26,6 +26,7 @@ from backend.services.ingestion.core.ingest_core import flush_batch
 from backend.services.storage.file_registry import FileRegistry
 from backend.services.ingestion.core.utils import generate_email_id
 from backend.services.db.models import SyncStatus
+from backend.services.db.email_manager import EmailManager
 # Utiliser le logger centralisé avec un nom spécifique pour ce module
 logger = log.bind(name="backend.services.ingestion.services.ingest_gmail_emails")
 
@@ -50,7 +51,12 @@ def parse_gmail_message(message: Dict, gmail_service: Any, user: str) -> Optiona
         
         payload = msg.get('payload', {})
         headers = payload.get('headers', [])
-        
+        folder = "other"
+        if "INBOX" in msg.get('labelIds', []):
+            folder = "inbox"
+        elif "SENT" in msg.get('labelIds', []):
+            folder = "sent"
+
         # Générer un doc_id temporaire à partir de l'ID du message
         temp_doc_id = hashlib.md5(message['id'].encode('utf-8')).hexdigest()
         
@@ -63,7 +69,9 @@ def parse_gmail_message(message: Dict, gmail_service: Any, user: str) -> Optiona
             sender=next((h['value'] for h in headers if h['name'].lower() == 'from'), None),
             receiver=next((h['value'] for h in headers if h['name'].lower() == 'to'), None),
             cc=next((h['value'] for h in headers if h['name'].lower() == 'cc'), None),
-            date=next((h['value'] for h in headers if h['name'].lower() == 'date'), None)
+            date=next((h['value'] for h in headers if h['name'].lower() == 'date'), None),
+            conversation_id = msg.get('threadId', ''),
+            folders=folder
         )
         
         # Initialiser le contenu et les pièces jointes
@@ -106,8 +114,7 @@ def parse_gmail_message(message: Dict, gmail_service: Any, user: str) -> Optiona
                         attachments.append(EmailAttachment(
                             filename=filename,
                             content=content,
-                            content_type=mime_type,
-                            parent_email_id=temp_doc_id  # Ajouter l'ID de l'email parent
+                            content_type=mime_type
                         ))
                 
                 # Traiter les parties imbriquées
@@ -236,6 +243,9 @@ def batch_ingest_gmail_emails_to_qdrant(
     # Initialiser le registre de fichiers
     file_registry = FileRegistry(user_id)
 
+    # Initialiser le manager d'emails
+    email_manager = EmailManager()
+
     # Initialiser les statistiques
     start_time = time.time()
     result = {
@@ -306,7 +316,7 @@ def batch_ingest_gmail_emails_to_qdrant(
         try:
             # Générer l'identifiant unique de l'email
             email_id = generate_email_id(email)
-            email_path = f"/google_email/{user_id}/{email_id}"
+            email_path = f"/google_email/{user_id}/{email.metadata.conversation_id}/{email_id}"
 
             logger.info(f"Préparation de l'email {email_idx}/{len(emails)}: {email.metadata.subject or '(sans sujet)'}")
 
@@ -319,9 +329,9 @@ def batch_ingest_gmail_emails_to_qdrant(
 
             # Normaliser le sujet pour les chemins de fichiers
             email_subject_safe = email.metadata.subject.replace('/', '_').replace('\\', '_') if email.metadata.subject else 'sans_sujet'
-            formatted_path = f"{email_id}+{email_subject_safe}"
-            formatted_original_path = f"/Gmail/{gmail_user}/{email.metadata.date}/{email_id}"
-            
+
+            logger.info(f"Folder: {email.metadata.folders} and conversation_id: {email.metadata.conversation_id}")
+
             # Construire les métadonnées pour l'email
             metadata = {
                 "doc_id": email_id,
@@ -338,7 +348,10 @@ def batch_ingest_gmail_emails_to_qdrant(
                 "message_id": email.metadata.message_id,
                 "has_attachments": bool(email.content.attachments),
                 "gmail_user": gmail_user,
-                "labels": ",".join(labels)
+                "conversation_id": email.metadata.conversation_id,
+                "folder": email.metadata.folders,
+                "body_text": email.content.body_text,
+                
             }
 
             # Créer un fichier temporaire pour le contenu de l'email
@@ -361,7 +374,7 @@ def batch_ingest_gmail_emails_to_qdrant(
 
                     # Générer un ID unique pour la pièce jointe
                     attachment_id = hashlib.md5(f"{email_id}_{attachment_name}_{idx}".encode('utf-8')).hexdigest()
-                    att_path = f"{email_path}/attachments/{attachment.filename}"
+                    att_path = f"/google_email/{user_id}/{email.metadata.conversation_id}/attachments/{attachment.filename}"
                     
                     # Construire les métadonnées pour la pièce jointe
                     att_metadata = {
@@ -370,11 +383,13 @@ def batch_ingest_gmail_emails_to_qdrant(
                         "user": user_id,
                         "filename": attachment.filename,
                         "document_type": "email_attachment",
-                        "ingestion_type": "gmail_attachment",
+                        "ingestion_type": "google_email",
                         "ingestion_date": datetime.datetime.now().isoformat(),
                         "parent_email_id": email_id,
                         "content_type": attachment.content_type,
-                        "gmail_user": gmail_user
+                        "gmail_user": gmail_user,
+                        "conversation_id": email.metadata.conversation_id,
+                        "folder": email.metadata.folders
                     }
 
                     # Créer un fichier temporaire pour la pièce jointe
@@ -387,6 +402,24 @@ def batch_ingest_gmail_emails_to_qdrant(
                         "tmp_path": att_tmp_path,  # Pour le nettoyage ultérieur
                         "metadata": att_metadata,
                     })
+                # After preparing metadata, save to the email database
+            try:
+                email_manager.save_email(
+                    user_id=user_id,
+                    email_id=email_id,
+                    sender=email.metadata.sender,
+                    recipients=[email.metadata.receiver],  # Convert to list if needed
+                    subject=email.metadata.subject or '',
+                    body=email.content.body_text or '',
+                    html_body=email.content.body_html or '',
+                    sent_date=email.metadata.date,
+                    source_type="google_email",
+                    conversation_id=email.metadata.conversation_id,
+                    folder=email.metadata.folders
+                )
+                logger.info(f"Email {email_id} saved to database")
+            except Exception as e:
+                logger.error(f"Error saving email to database: {e}")
 
             # Traiter le lot quand il atteint la taille spécifiée
             if len(batch_documents) >= batch_size:
@@ -446,7 +479,7 @@ def main():
     parser.add_argument('--force-reingest', action='store_true', help='Forcer la réingestion même si l\'email existe déjà')
     parser.add_argument('--no-attachments', action='store_true', help='Ne pas ingérer les pièces jointes')
     parser.add_argument('--verbose', action='store_true', help='Mode verbeux')
-    parser.add_argument('--user-id', default="7EShftbbQ4PPTS4hATplexbrVHh2", help='Identifiant de l\'utilisateur')
+    parser.add_argument('--user-id', default="hupTIQvuO4R3BxklIWs1AqbKDP13", help='Identifiant de l\'utilisateur')
     parser.add_argument('--batch-size', type=int, default=20, help='Taille des lots pour l\'ingestion')
     
     args = parser.parse_args()

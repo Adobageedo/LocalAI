@@ -14,9 +14,8 @@ import os
 import sys
 # Ajouter le chemin du projet pour les imports
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..')))  
-
-import time
 import traceback
+import time
 from typing import Dict, List, Any, Optional, Tuple, Union, Callable
 from pathlib import Path
 from datetime import datetime, timedelta

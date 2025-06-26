@@ -6,6 +6,7 @@ Component responsible for scheduling and executing recurring tasks.
 import time
 import threading
 import logging
+import traceback
 from datetime import datetime, timedelta
 from typing import Callable, Dict, List, Any
 
@@ -194,6 +195,7 @@ class ScheduledJobManager:
             logger.info(f"Job {job_id} completed successfully in {elapsed:.2f} seconds")
         except Exception as e:
             logger.error(f"Error in job {job_id}: {e}", exc_info=True)
+            traceback.print_exc()
         finally:
             # Calculate next run time and reset running flag
             with self.lock:

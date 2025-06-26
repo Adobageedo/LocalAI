@@ -95,3 +95,30 @@ CREATE INDEX idx_sync_status_user_id ON sync_status(user_id);
 CREATE INDEX idx_sync_status_user_source ON sync_status(user_id, source_type);
 
 COMMENT ON TABLE sync_status IS 'Tracks synchronization status for user data sources';
+-- Table to store email content with user-specific information
+CREATE TABLE IF NOT EXISTS email_content (
+    id SERIAL PRIMARY KEY,
+    user_id VARCHAR(255) NOT NULL,  -- Username/Email of the associated user
+    email_id VARCHAR(255) NOT NULL,  -- Unique email identifier (Message-ID)
+    conversation_id VARCHAR(255),    -- Thread/Conversation ID
+    sender VARCHAR(255) NOT NULL,    -- Email address of the sender
+    recipients JSONB NOT NULL,       -- Array of recipient email addresses
+    subject TEXT,                    -- Email subject
+    body TEXT,                       -- Email body content
+    html_body TEXT,                  -- HTML version of the email body (if available)
+    sent_date TIMESTAMP NOT NULL,    -- When the email was sent
+    received_date TIMESTAMP,         -- When the email was received
+    folder VARCHAR(50) NOT NULL,                    -- Email labels/folders
+    attachments JSONB,               -- Information about attachments
+    source_type VARCHAR(50) NOT NULL, -- Type of email source (gmail, outlook, imap, etc.)
+    doc_id UUID,                     -- Reference to the document ID in Qdrant if ingested
+    metadata JSONB,                  -- Additional metadata
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT unique_email_content UNIQUE(user_id, email_id, source_type)
+);
+
+-- Indexes for faster querying
+CREATE INDEX IF NOT EXISTS idx_email_content_user_id ON email_content(user_id);
+CREATE INDEX IF NOT EXISTS idx_email_content_conversation_id ON email_content(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_email_content_sent_date ON email_content(sent_date);
