@@ -99,7 +99,7 @@ COMMENT ON TABLE sync_status IS 'Tracks synchronization status for user data sou
 CREATE TABLE IF NOT EXISTS email_content (
     id SERIAL PRIMARY KEY,
     user_id VARCHAR(255) NOT NULL,  -- Username/Email of the associated user
-    email_id VARCHAR(255) NOT NULL,  -- Unique email identifier (Message-ID)
+    email_id VARCHAR(255) NOT NULL,  -- Unique email identifier (Message-ID) in gmail
     conversation_id VARCHAR(255),    -- Thread/Conversation ID
     sender VARCHAR(255) NOT NULL,    -- Email address of the sender
     recipients JSONB NOT NULL,       -- Array of recipient email addresses

@@ -83,7 +83,7 @@ class EmailManager:
             logger.error(f"Error saving email to database: {e}")
             raise
     
-    async def get_emails_by_user(self, user_id: str, limit: int = 100, offset: int = 0, source_type: Optional[str] = None) -> List[Dict[str, Any]]:
+    def get_emails_by_user(self, user_id: str, limit: int = 100, offset: int = 0, source_type: Optional[str] = None) -> List[Dict[str, Any]]:
         """
         Retrieve emails for a specific user
         """
@@ -94,7 +94,7 @@ class EmailManager:
                 ORDER BY sent_date DESC
                 LIMIT %s OFFSET %s;
             """
-            results = await self.db.execute_query(query, (user_id, source_type, limit, offset))
+            results = self.db.execute_query(query, (user_id, source_type, limit, offset))
         else:
             query = """
                 SELECT * FROM email_content 
@@ -102,11 +102,11 @@ class EmailManager:
                 ORDER BY sent_date DESC
                 LIMIT %s OFFSET %s;
             """
-            results = await self.db.execute_query(query, (user_id, limit, offset))
+            results = self.db.execute_query(query, (user_id, limit, offset))
             
         return self._process_email_results(results)
     
-    async def get_emails_by_conversation(self, conversation_id: str, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+    def get_emails_by_conversation(self, conversation_id: str, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """
         Retrieve all emails in a specific conversation/thread
         """
@@ -116,33 +116,33 @@ class EmailManager:
                 WHERE conversation_id = %s AND user_id = %s
                 ORDER BY sent_date ASC;
             """
-            results = await self.db.execute_query(query, (conversation_id, user_id))
+            results = self.db.execute_query(query, (conversation_id, user_id))
         else:
             query = """
                 SELECT * FROM email_content 
                 WHERE conversation_id = %s
                 ORDER BY sent_date ASC;
             """
-            results = await self.db.execute_query(query, (conversation_id,))
+            results = self.db.execute_query(query, (conversation_id,))
             
         return self._process_email_results(results)
     
-    async def get_email_by_id(self, email_id: str, user_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    def get_email_by_id(self, email_id: str, user_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """
         Get a specific email by its ID
         """
         if user_id:
             query = "SELECT * FROM email_content WHERE email_id = %s AND user_id = %s;"
-            results = await self.db.execute_query(query, (email_id, user_id))
+            results = self.db.execute_query(query, (email_id, user_id))
         else:
             query = "SELECT * FROM email_content WHERE email_id = %s;"
-            results = await self.db.execute_query(query, (email_id,))
+            results = self.db.execute_query(query, (email_id,))
             
         if results and len(results) > 0:
             return self._process_email_results([results[0]])[0]
         return None
     
-    async def search_emails(self, 
+    def search_emails(self, 
                            user_id: str,
                            query_text: str,
                            start_date: Optional[datetime] = None,
@@ -181,7 +181,7 @@ class EmailManager:
         """
         
         params.extend([limit, offset])
-        results = await self.db.execute_query(query, tuple(params))
+        results = self.db.execute_query(query, tuple(params))
         return self._process_email_results(results)
     
     def _process_email_results(self, results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
