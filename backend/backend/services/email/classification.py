@@ -4,12 +4,17 @@ Email Classification
 
 Module for classifying emails and suggesting appropriate actions.
 """
+import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
 
 from typing import Dict, List, Optional, Any, Tuple
 from enum import Enum
 
 from backend.services.rag.retrieve_rag_information_modular import get_rag_response_modular
 from backend.core.logger import log
+from backend.services.email.mail_agent import EmailAgent
+from backend.services.db.email_manager import EmailManager
 
 # Setup logger
 logger = log.bind(name="backend.services.email.classification")
@@ -297,8 +302,6 @@ class EmailAutoProcessor:
         Returns:
             Dict containing information about the action taken
         """
-        from backend.core.logger import log
-        from backend.services.email.mail_agent import EmailAgent
         
         logger = log.bind(name="backend.services.email.auto_processor")
         
@@ -316,7 +319,9 @@ class EmailAutoProcessor:
         
         try:
             # Initialize email agent for API actions if needed
-            email_agent = EmailAgent(user_id=user_id)
+            
+            email_manager = EmailManager()
+            email_agent = EmailAgent(user_id=user_id, email_manager=email_manager)
             
             if action == "reply":
                 logger.info(f"Auto-replying to email {email_content.get('id')} for user {user_id}")
@@ -463,3 +468,79 @@ class EmailAutoProcessor:
             result["details"] = f"Error: {str(e)}"
         
         return result
+
+def main():
+    """
+    Test the email classification functionality.
+    
+    This function demonstrates:
+    1. Classification of different email types
+    2. Extraction of key information from emails
+    3. Handling of edge cases
+    """
+    from datetime import datetime
+    classifier = EmailClassifier()
+    email_agent = EmailAutoProcessor()
+    test_emails = [
+        {
+            "subject": "Meeting Reminder: Project Sync Tomorrow",
+            "body": "Hi team, just a reminder that we have our weekly project sync tomorrow at 10 AM. Please come prepared with updates.",
+            "sender": "project.manager@company.com",
+            "received_date": datetime.now().isoformat()
+        },
+        {
+            "subject": "URGENT: Server Down in Production",
+            "body": "The production server is down. All hands on deck to resolve this issue immediately!",
+            "sender": "alerts@it.company.com",
+            "received_date": datetime.now().isoformat()
+        },
+        {
+            "subject": "Your Order Confirmation #12345",
+            "body": "Thank you for your purchase! Your order has been confirmed and will be shipped soon.",
+            "sender": "orders@ecommerce.com",
+            "received_date": datetime.now().isoformat()
+        },
+        {
+            "subject": "Invitation: John's Birthday Party",
+            "body": "You're invited to John's birthday party this Saturday at 7 PM. Please RSVP by Thursday.",
+            "sender": "jane@personal.com",
+            "received_date": datetime.now().isoformat()
+        },
+        {
+            "subject": "Security Alert: Suspicious Login Attempt",
+            "body": "We detected a suspicious login attempt to your account. Please verify your activity.",
+            "sender": "security@company.com",
+            "received_date": datetime.now().isoformat()
+        },
+        {
+            "subject": "Newsletter: Weekly Tech Digest",
+            "body": "This week in tech: New AI breakthroughs, security updates, and industry trends.",
+            "sender": "newsletter@techdigest.com",
+            "received_date": datetime.now().isoformat()
+        }
+    ]
+    
+    print("===== Testing Email Classification =====")
+    for i, email in enumerate(test_emails, 1):
+        print(f"\n--- Test Email {i} ---")
+        print(f"Subject: {email['subject']}")
+        print(f"From: {email['sender']}")
+        
+        # Classify the email
+        classification_result = classifier.classify_email(email)
+        print(f"Classification: {classification_result['action']}")
+        print(f"Priority: {classification_result['priority']}")
+        print(f"Key Information: {classification_result.get('key_info', {})}")
+        
+        action_result = email_agent.process_email_action(
+            user_id="test_user",
+            provider="gmail",  # Use 'outlook' for Outlook test emails
+            email_content=email,
+            classification=classification_result
+        )
+        print(f"Action Result: {action_result}")
+
+        # Test information extraction
+
+if __name__ == "__main__":
+    main()
