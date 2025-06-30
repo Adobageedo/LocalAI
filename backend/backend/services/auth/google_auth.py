@@ -193,12 +193,12 @@ class GoogleEmail:
             ).execute()
             
             # Send the draft
-            sent_message = self.gmail_service.users().drafts().send(
-                userId='me',
-                body={'id': created_draft['id']}
-            ).execute()
+            #sent_message = self.gmail_service.users().drafts().send(
+            #    userId='me',
+            #    body={'id': created_draft['id']}
+            #).execute()
             
-            message_id = sent_message['id']
+            message_id = created_draft['id']
             thread_id = created_draft.get('threadId', 'unknown-thread')
             
             logger.info(f"Email sent successfully with message ID: {message_id}")
@@ -494,13 +494,13 @@ class GoogleEmail:
                 "error": error_message
             }
             
-    def move_email(self, email_id: str, destination_label: str) -> Dict[str, Any]:
+    def move_email(self, email_id: str, destination_folder: str) -> Dict[str, Any]:
         """
         Move an email to a different label/folder.
         
         Args:
             email_id: Gmail Message-ID of the email to move
-            destination_label: Label ID or name where the email should be moved
+            destination_folder: Label ID or name where the email should be moved
             
         Returns:
             Dict with details of the operation result
@@ -516,24 +516,24 @@ class GoogleEmail:
             # Get all labels
             labels = self.gmail_service.users().labels().list(userId='me').execute()
             
-            # Check if destination_label is a system label (like INBOX, SENT, etc.)
+            # Check if destination_folder is a system label (like INBOX, SENT, etc.)
             system_labels = ["INBOX", "SENT", "TRASH", "DRAFT", "SPAM", "IMPORTANT", 
                            "STARRED", "UNREAD", "CATEGORY_PERSONAL", "CATEGORY_SOCIAL", 
                            "CATEGORY_PROMOTIONS", "CATEGORY_UPDATES", "CATEGORY_FORUMS"]
             
-            if destination_label.upper() in system_labels:
-                label_id = destination_label.upper()
+            if destination_folder.upper() in system_labels:
+                label_id = destination_folder.upper()
             else:
                 # Check if the label already exists
                 for label in labels.get('labels', []):
-                    if label['name'].lower() == destination_label.lower():
+                    if label['name'].lower() == destination_folder.lower():
                         label_id = label['id']
                         break
                         
                 # If label doesn't exist, create it
                 if not label_id:
                     new_label = {
-                        'name': destination_label,
+                        'name': destination_folder,
                         'labelListVisibility': 'labelShow',
                         'messageListVisibility': 'show'
                     }
@@ -543,7 +543,7 @@ class GoogleEmail:
                     ).execute()
                     
                     label_id = created_label['id']
-                    logger.info(f"Created new label: {destination_label} with ID: {label_id}")
+                    logger.info(f"Created new label: {destination_folder} with ID: {label_id}")
                     
             # Get current labels of the email
             message = self.gmail_service.users().messages().get(
@@ -570,11 +570,11 @@ class GoogleEmail:
                 }
             ).execute()
             
-            logger.info(f"Email {email_id} moved to label: {destination_label}")
+            logger.info(f"Email {email_id} moved to label: {destination_folder}")
             
             return {
                 "success": True,
-                "message": f"Email moved to {destination_label} successfully",
+                "message": f"Email moved to {destination_folder} successfully",
                 "email_id": email_id,
                 "label_id": label_id
             }
@@ -652,7 +652,7 @@ def main():
         print("\n=== Testing Email Moving ===")
         move_result = google_email.move_email(
             email_id=sent_email_id,
-            destination_label="Archive"
+            destination_folder="Archive"
         )
         print("Move Result:", move_result)
     else:

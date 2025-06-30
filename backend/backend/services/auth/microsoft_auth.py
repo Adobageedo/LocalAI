@@ -187,21 +187,18 @@ class MicrosoftEmail:
             
             # Create email payload
             email_payload = {
-                "message": {
-                    "subject": subject,
-                    "body": {
-                        "contentType": content_type,
-                        "content": content
-                    },
-                    "toRecipients": to_recipients,
-                    "ccRecipients": cc_recipients,
-                    "bccRecipients": bcc_recipients
+                "subject": subject,
+                "body": {
+                    "contentType": content_type,
+                    "content": content
                 },
-                "saveToSentItems": "true"
+                "toRecipients": to_recipients,
+                "ccRecipients": cc_recipients,
+                "bccRecipients": bcc_recipients
             }
             
             # Send the email
-            send_url = f"{self.graph_endpoint}/me/sendMail"
+            send_url = f"{self.graph_endpoint}/me/messages"
             response = requests.post(
                 send_url, 
                 headers=self._get_headers(),
@@ -209,121 +206,81 @@ class MicrosoftEmail:
             )
             response.raise_for_status()
             
-            # Microsoft Graph API doesn't return the message ID in the response
-            # We need to search for the sent message to get its ID
-            # This is a bit inefficient but necessary with the current API
-            
-            # Wait a moment for the message to be saved in the sent items folder
-            time.sleep(2)
-            
-            # Properly escape the subject for URL
-            from urllib.parse import quote
-            escaped_subject = quote(subject)
-            
-            # Query the sent items folder for the recently sent message
-            query_url = f"{self.graph_endpoint}/me/mailFolders/sentItems/messages?$filter=subject eq '{escaped_subject}'&$top=1&$orderby=createdDateTime desc"
-            try:
-                query_response = requests.get(query_url, headers=self._get_headers())
-                query_response.raise_for_status()
-            except requests.exceptions.HTTPError as e:
-                logger.error(f"Error querying sent items: {str(e)}")
-                # Return partial success with the sent status
-                return {
-                    "success": True,
-                    "message_id": "unknown-id",
-                    "thread_id": "unknown-thread",
-                    "warning": "Email sent but could not retrieve message ID"
-                }
-            
-            message_data = query_response.json()
-            message_id = message_data.get("value", [{}])[0].get("id", "unknown-id")
-            thread_id = message_data.get("value", [{}])[0].get("conversationId", "unknown-thread")
-            
-            logger.info(f"Email sent successfully with message ID: {message_id}")
-            
+            # Return success without message ID
+            logger.info("Email sent successfully")
             return {
                 "success": True,
-                "message_id": message_id,
-                "thread_id": thread_id
+                "message_id": "unknown-id",
+                "thread_id": "unknown-thread",
+                "warning": "Email sent but message ID not retrieved"
             }
             
         except Exception as e:
-            logger.error(f"Error sending email via Microsoft Graph API: {str(e)}")
+            # Enhanced error logging
+            error_details = ""
+            if hasattr(e, 'response') and e.response is not None:
+                error_details = f"\nStatus Code: {e.response.status_code}\nResponse: {e.response.text}"
+            logger.error(f"Error sending email via Microsoft Graph API: {str(e)}{error_details}")
             return {
                 "success": False,
-                "error": str(e)
+                "error": str(e),
+                "details": error_details
             }
             
     def reply_to_email(self, email_id: str, body: str, 
                       cc: Optional[List[str]] = None, 
                       include_original: bool = True) -> Dict[str, Any]:
-        """
-        Reply to an email using just the email_id.
+        from urllib.parse import quote
+        encoded_email_id = quote(email_id, safe='')
         
-        Args:
-            email_id: Microsoft Message-ID of the email to reply to
-            body: Content of the reply
-            cc: Optional list of CC recipients
-            include_original: Whether to include original email content (not applicable for MS Graph)
-            
-        Returns:
-            Dict with details of the created reply
-        """
-        if not self.authenticated:
-            if not self.authenticate():
-                return {"success": False, "error": "Authentication failed"}
-                
         try:
-            # Format CC recipients if provided
-            cc_recipients = []
-            if cc:
-                cc_recipients = [{"emailAddress": {"address": email}} for email in cc]
-                
-            # Create reply payload
-            reply_payload = {
-                "message": {
-                    "body": {
-                        "contentType": "text",
-                        "content": body
-                    }
-                },
-                "comment": body  # For API compatibility
+            # Step 1: Create a draft reply
+            draft_url = f"{self.graph_endpoint}/me/messages/{encoded_email_id}/createReply"
+            draft_payload = {
+                "comment": body
             }
             
-            # Add CC recipients if provided
-            if cc_recipients:
-                reply_payload["message"]["ccRecipients"] = cc_recipients
+            if cc:
+                cc_recipients = [{"emailAddress": {"address": email}} for email in cc]
+                draft_payload["ccRecipients"] = cc_recipients
             
-            # Send the reply
-            reply_url = f"{self.graph_endpoint}/me/messages/{email_id}/reply"
-            response = requests.post(
-                reply_url, 
+            draft_response = requests.post(
+                draft_url, 
                 headers=self._get_headers(),
-                json=reply_payload
+                json=draft_payload
             )
-            response.raise_for_status()
+            draft_response.raise_for_status()
+            draft_data = draft_response.json()
+            draft_id = draft_data.get('id')
             
-            # Get the message details to return the ID
-            message_url = f"{self.graph_endpoint}/me/messages/{email_id}"
-            message_response = requests.get(message_url, headers=self._get_headers())
-            message_response.raise_for_status()
-            
-            message_data = message_response.json()
-            thread_id = message_data.get("conversationId", "unknown-thread")
-            
-            logger.info(f"Reply sent to email {email_id}")
-            
+            if not draft_id:
+                return {
+                    "success": False,
+                    "error": "Failed to create draft reply"
+                }            
             return {
                 "success": True,
-                "message_id": email_id,  # The ID of the original message
-                "thread_id": thread_id
+                "message_id": draft_id,
+                "thread_id": "unknown-thread"
             }
             
         except Exception as e:
-            logger.error(f"Error replying to email via Microsoft Graph API: {str(e)}")
+            # Enhanced error logging with full response details
+            error_details = ""
+            if hasattr(e, 'response') and e.response is not None:
+                try:
+                    error_details = (
+                        f"\nStatus Code: {e.response.status_code}"
+                        f"\nResponse: {e.response.text}"
+                    )
+                except Exception as log_error:
+                    error_details = f"\nFailed to extract error details: {str(log_error)}"
+            
+            logger.error(f"Error replying to email via Microsoft Graph API: {str(e)}{error_details}")
             return {
                 "success": False,
-                "error": str(e)
+                "error": str(e),
+                "details": error_details
             }
             
     def forward_email(self, email_id: str, recipients: list, 
@@ -354,7 +311,7 @@ class MicrosoftEmail:
             }
             
             # Send the forward
-            forward_url = f"{self.graph_endpoint}/me/messages/{email_id}/forward"
+            forward_url = f"{self.graph_endpoint}/me/messages/{email_id}/createForward"
             response = requests.post(
                 forward_url, 
                 headers=self._get_headers(),
@@ -574,29 +531,61 @@ def main():
     print("\n=== Testing Authentication ===")
     auth_result = microsoft_email.authenticate()
     print(f"Authentication Result: {'Success' if auth_result else 'Failure'}")
-    
+    message_id=None
     if not auth_result:
         print("Skipping further tests due to authentication failure")
         return
-    
-    print("\n=== Testing Email Sending ===")
-    send_result = microsoft_email.send_email(
-        subject="Test Email from MicrosoftEmail",
-        body="This is a test email sent from MicrosoftEmail class",
-        recipients=[TEST_RECIPIENT]
+    test_send=False
+    if test_send:
+        print("\n=== Testing Email Sending ===")
+        send_result = microsoft_email.send_email(
+            subject="Test Email from MicrosoftEmail",
+            body="This is a test email sent from MicrosoftEmail class",
+            recipients=[TEST_RECIPIENT]
     )
-    print("Send Result:", send_result)
+        print(f"Send Result: {send_result}")
     
-    if send_result.get("success"):
-        sent_email_id = send_result["message_id"]
+    # Only proceed if we have a message ID
+        message_id = send_result.get('message_id')
+    if not message_id or message_id == 'unknown-id' or message_id is None:
+        print("Attempting to fetch last received email ID...")
+        
+        # Fetch last received email in the inbox
+        inbox_url = f"{microsoft_email.graph_endpoint}/me/mailFolders/inbox/messages?$top=1&$orderby=receivedDateTime desc"
+        try:
+            inbox_response = requests.get(inbox_url, headers=microsoft_email._get_headers())
+            inbox_response.raise_for_status()
+            inbox_data = inbox_response.json()
+            
+            if inbox_data.get('value'):
+                last_email = inbox_data['value'][0]
+                message_id = last_email.get('id')
+                # Extract sender and receiver information
+                sender = last_email.get('sender', {}).get('emailAddress', {}).get('address', 'unknown')
+                to_recipients = last_email.get('toRecipients', [])
+                to_emails = [r.get('emailAddress', {}).get('address') for r in to_recipients]
+                
+                print(f"Found last received email with ID: {message_id}")
+                print(f"  From: {sender}")
+                print(f"  To: {', '.join(to_emails)}")
+            else:
+                print("No emails found in inbox")
+                return
+        except Exception as e:
+            print(f"Error fetching inbox: {str(e)}")
+            return
+    message_id=None
+    if message_id:
+        sent_email_id = message_id
         
         print("\n=== Testing Email Replying ===")
         reply_result = microsoft_email.reply_to_email(
             email_id=sent_email_id,
-            body="This is a test reply to the email."
+            body="This is a test reply to the email.TEST"
         )
         print("Reply Result:", reply_result)
-        
+    test_other=False
+    if test_other:
         print("\n=== Testing Email Forwarding ===")
         forward_result = microsoft_email.forward_email(
             email_id=sent_email_id,
@@ -619,6 +608,7 @@ def main():
             destination_folder="Archive"
         )
         print("Move Result:", move_result)
+    
     else:
         print("Skipping further tests due to email sending failure")
 

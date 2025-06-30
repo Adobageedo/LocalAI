@@ -6,6 +6,8 @@ Core module for intelligent email processing and response generation.
 """
 
 import os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
 from typing import Dict, List, Optional, Any, Tuple
 from datetime import datetime
 
@@ -367,9 +369,15 @@ Your response should be formatted as a complete email ready to send, including a
             
             # Optional CC recipients if present in the email data
             cc = email.get("cc", [])
+            include_original = email.get("include_original", True)
             
             # Reply to the email using the appropriate handler
-            result = handler.reply_to_email(email_id=email_id, body=content, cc=cc)
+            result = handler.reply_to_email(
+                email_id=email_id,
+                body=content,
+                cc=cc,
+                include_original=include_original
+            )
             
             if result.get("success", False):
                 logger.info(f"Successfully replied to email {email_id} via {provider}")
@@ -384,6 +392,7 @@ Your response should be formatted as a complete email ready to send, including a
                 "success": False,
                 "error": str(e)
             }
+
             
     def forward_email(
         self,
@@ -577,3 +586,127 @@ Your response should be formatted as a complete email ready to send, including a
                 "success": False,
                 "error": str(e)
             }
+def main():
+    """
+    Test the EmailAgent functionality for both Gmail and Outlook providers.
+    
+    This function demonstrates core email operations:
+    1. Authentication
+    2. Sending emails
+    3. Creating drafts
+    4. Sending drafts
+    5. Replying to emails
+    6. Forwarding emails
+    7. Flagging emails
+    8. Moving emails
+    
+    Note: Replace placeholders with actual test values before running.
+    """
+    import os
+    from dotenv import load_dotenv
+    load_dotenv()
+    
+    # Test configuration - REPLACE WITH ACTUAL VALUES
+    TEST_RECIPIENT = "luigigenissel@gmail.com"
+    TEST_EMAIL_ID = "197c0b924617e725"
+    email_manager = EmailManager()
+    print("\n===== Testing Gmail Provider =====")
+    gmail_agent = EmailAgent('gmail', email_manager)
+    
+    # Test authentication
+    auth_result = True
+    if not auth_result:
+        print("Skipping Gmail tests due to authentication failure")
+    else:
+        # Test sending email
+        send_result = gmail_agent.send_email(
+            subject="Test Email from GmailAgent",
+            body="This is a test email from GmailAgent",
+            recipients=[TEST_RECIPIENT],
+            provider='gmail'
+        )
+        print(f"Send Result: {send_result}")
+        
+        # Test replying to email
+        reply_result = gmail_agent.reply_to_email(
+            content="This is a test reply",
+            provider='gmail',
+            email={"email_id": TEST_EMAIL_ID}
+        )
+        print(f"Reply Result: {reply_result}")
+        
+        # Test forwarding email
+        forward_result = gmail_agent.forward_email(
+            email_content={"email_id": TEST_EMAIL_ID},
+            recipients=[TEST_RECIPIENT],
+            provider='gmail'
+        )
+        print(f"Forward Result: {forward_result}")
+        
+        # Test flagging email
+        flag_result = gmail_agent.update_email_flags(
+            email_id=TEST_EMAIL_ID,
+            mark_read=True,
+            provider='gmail'
+        )
+        print(f"Flag Result: {flag_result}")
+        
+        # Test moving email
+        move_result = gmail_agent.move_email(
+            email_id=TEST_EMAIL_ID,
+            destination_folder="Archive",
+            provider='gmail'
+        )
+        print(f"Move Result: {move_result}")
+    
+    print("\n===== Testing Outlook Provider =====")
+    outlook_agent = EmailAgent('outlook', email_manager)
+    TEST_EMAIL_ID = "AQMkADAwATNiZmYAZS05NjM5LTlhMzAtMDACLTAwCgBGAAADfUkpWxw_xUa6Wf-obpcQsgcAmAM5xqpJYUO9Tf7tkZqlnQAAAgEMAAAAmAM5xqpJYUO9Tf7tkZqlnQAAACuLtOcAAAA="
+    # Test authentication
+    auth_result = True
+    if not auth_result:
+        print("Skipping Outlook tests due to authentication failure")
+    else:
+        # Test sending email
+        send_result = outlook_agent.send_email(
+            subject="Test Email from OutlookAgent",
+            body="This is a test email from OutlookAgent",
+            recipients=[TEST_RECIPIENT],
+            provider='outlook'
+        )
+        print(f"Send Result: {send_result}")
+                
+        # Test replying to email
+        reply_result = outlook_agent.reply_to_email(
+            content="This is a test reply",
+            provider='outlook',
+            email={"email_id": TEST_EMAIL_ID}
+        )
+        print(f"Reply Result: {reply_result}")
+        
+        # Test forwarding email
+        forward_result = outlook_agent.forward_email(
+            email_content={"email_id": TEST_EMAIL_ID},
+            recipients=[TEST_RECIPIENT],
+            provider='outlook'
+        )
+        print(f"Forward Result: {forward_result}")
+        
+        # Test flagging email
+        flag_result = outlook_agent.update_email_flags(
+            email_id=TEST_EMAIL_ID,
+            mark_read=True,
+            provider='outlook'
+        )
+        print(f"Flag Result: {flag_result}")
+        
+        # Test moving email
+        move_result = outlook_agent.move_email(
+            email_id=TEST_EMAIL_ID,
+            destination_folder="Archive",
+            provider='outlook'
+        )
+        print(f"Move Result: {move_result}")
+
+if __name__ == "__main__":
+    main()
