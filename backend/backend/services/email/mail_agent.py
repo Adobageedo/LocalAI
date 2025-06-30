@@ -13,7 +13,8 @@ from backend.services.db.email_manager import EmailManager
 from backend.services.rag.retrieve_rag_information_modular import get_rag_response_modular
 from backend.core.logger import log
 from backend.core.config import CONFIG
-from backend.services.email.gmail_actions import GmailActions
+from backend.services.auth.google_auth import GoogleEmail
+from backend.services.auth.microsoft_auth import MicrosoftEmail
 
 # Setup logger
 logger = log.bind(name="backend.services.email.agent")
@@ -27,13 +28,33 @@ class EmailAgent:
     - Generate context-aware email responses
     - Use RAG for information retrieval to enhance responses
     - Compare RAG-enhanced vs. standard LLM responses
+    - Handle emails across different providers (Gmail, Outlook) through a unified interface
     """
     
-    def __init__(self):
-        """Initialize the email agent."""
-        self.email_manager = EmailManager()
+    def __init__(self, user_id: str, email_manager: EmailManager):
+        """
+        Initialize the email agent.
         
-    async def retrieve_conversation_history(self, conversation_id: str, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
+        Args:
+            user_id: The ID of the user for whom actions are being executed
+            email_manager: Manager for accessing email data from the database
+        """
+        self.user_id = user_id
+        self.email_manager = email_manager
+        
+        # Initialize provider-specific email handlers
+        self.gmail_handler = GoogleEmail(user_id)
+        self.microsoft_handler = MicrosoftEmail(user_id)
+        
+        # Provider mapping for easy dispatch
+        self.provider_handlers = {
+            "gmail": self.gmail_handler,
+            "google_email": self.gmail_handler,  # For backward compatibility
+            "outlook": self.microsoft_handler,
+            "microsoft_email": self.microsoft_handler
+        }
+        
+    def retrieve_conversation_history(self, conversation_id: str, user_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """
         Fetch all emails in a conversation thread and sort by timestamp.
         
@@ -45,7 +66,7 @@ class EmailAgent:
             List of emails in chronological order
         """
         try:
-            emails = await self.email_manager.get_emails_by_conversation(conversation_id, user_id)
+            emails = self.email_manager.get_emails_by_conversation(conversation_id, user_id)
             # Sort by sent_date (should already be sorted from the query, but ensuring here)
             emails.sort(key=lambda x: x.get('sent_date', ''))
             return emails
@@ -53,7 +74,7 @@ class EmailAgent:
             logger.error(f"Error retrieving conversation history: {e}")
             return []
     
-    async def format_conversation_for_context(self, emails: List[Dict[str, Any]]) -> str:
+    def format_conversation_for_context(self, emails: List[Dict[str, Any]]) -> str:
         """
         Format a list of emails into a conversation context string for the LLM.
         
@@ -92,7 +113,7 @@ SUBJECT: {email.get('subject', '')}
         # Join all email texts with a separator
         return "\n\n" + "-"*40 + " PREVIOUS MESSAGES " + "-"*40 + "\n\n" + "\n\n" + "-"*80 + "\n\n".join(formatted_conversation)
     
-    async def generate_response(
+    def generate_response(
         self, 
         email: Dict[str, Any], 
         conversation_history: Optional[List[Dict[str, Any]]] = None,
@@ -118,7 +139,7 @@ SUBJECT: {email.get('subject', '')}
         # Format the conversation history
         formatted_history = ""
         if conversation_history:
-            formatted_history = await self.format_conversation_for_context(conversation_history)
+            formatted_history = self.format_conversation_for_context(conversation_history)
         
         # Create the prompt for the LLM
         prompt = self._create_email_response_prompt(email, formatted_history)
@@ -202,7 +223,7 @@ Your response should be formatted as a complete email ready to send.
 """
         return prompt
     
-    async def generate_new_email(
+    def generate_new_email(
         self,
         user_id: str,
         prompt: str,
@@ -317,174 +338,146 @@ Your response should be formatted as a complete email ready to send, including a
         
         return result
 
-    async def reply_to_email(
+    def reply_to_email(
         self,
-        email_id: str,
         content: str,
         provider: str,
-        thread_id: Optional[str] = None,
-        subject: Optional[str] = None,
-        recipients: Optional[List[str]] = None,
-        cc: Optional[List[str]] = None,
-        user_id: Optional[str] = None
+        email: Dict[str, Any]
     ) -> Dict[str, Any]:
         """
         Reply to an email thread with generated content.
         
         Args:
-            email_id: ID of the email to reply to
             content: Content of the reply
-            thread_id: Optional thread/conversation ID (will be extracted from email if not provided)
-            subject: Subject line (defaults to "Re: original subject")
-            recipients: List of recipients (defaults to original sender)
-            cc: List of CC recipients
-            user_id: User ID for the sender
+            provider: Email provider (gmail, outlook, etc.)
+            email: Email data dictionary containing necessary metadata
             
         Returns:
             Dict with details of the sent reply
         """
         try:
-            # Get the original email if needed to extract info
-            original_email = None
-                                
-            if not subject and original_email:
-                original_subject = original_email.get("subject", "")
-                subject = f"Re: {original_subject}" if not original_subject.startswith("Re:") else original_subject
+            email_id = email.get("email_id", "")
+            if not email_id:
+                return {"success": False, "error": "No email ID provided"}
                 
-            if not recipients and original_email:
-                recipients = [original_email.get("sender")]
+            # Get the appropriate handler for the provider
+            handler = self.provider_handlers.get(provider.lower())
+            if not handler:
+                return {"success": False, "error": f"Unsupported email provider: {provider}"}
+            
+            # Optional CC recipients if present in the email data
+            cc = email.get("cc", [])
+            
+            # Reply to the email using the appropriate handler
+            result = handler.reply_to_email(email_id=email_id, body=content, cc=cc)
+            
+            if result.get("success", False):
+                logger.info(f"Successfully replied to email {email_id} via {provider}")
+            else:
+                logger.error(f"Failed to reply to email {email_id} via {provider}: {result.get('error')}")
                 
-            if not cc:
-                cc = []
-                
-            # Prepare reply data
-            reply_data = {
-                "conversation_id": thread_id,
-                "in_reply_to": email_id,
-                "subject": subject,
-                "body": content,
-                "recipients": recipients,
-                "cc": cc,
-                "sent_date": datetime.now().isoformat(),
-                "folder": "sent",
-                "source_type": "api_generated"
-            }
-            
-            if user_id:
-                reply_data["user_id"] = user_id
-            
-            if provider=="google_email":
-                gmail_actions = GmailActions(user_id)
-                email_id = await gmail_actions.reply_to_email(email_id, content, provider, thread_id, subject, recipients, cc, user_id)
-                # Store the reply in database
-                #message_id = await self.email_manager.save_email(reply_data)
-            
-            logger.info(f"Reply to email {email_id} created with message ID {message_id}")
-            
-            return {
-                "success": True,
-                "message_id": message_id,
-                "thread_id": thread_id
-            }
+            return result
             
         except Exception as e:
-            logger.error(f"Error sending reply to email {email_id}: {str(e)}")
+            logger.error(f"Error replying to email: {str(e)}")
             return {
                 "success": False,
                 "error": str(e)
             }
-    
-    async def forward_email(
+            
+    def forward_email(
         self,
-        email_id: str,
+        email_content: Dict[str, Any],
         recipients: List[str],
-        subject: Optional[str] = None,
         additional_comment: Optional[str] = None,
-        user_id: Optional[str] = None
+        provider: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Forward an email to new recipients.
         
         Args:
-            email_id: ID of the email to forward
+            email_content: Dictionary containing the email data to forward
             recipients: List of recipient email addresses
-            subject: Optional new subject (defaults to "Fwd: original subject")
             additional_comment: Optional comment to add before the forwarded content
-            user_id: User ID for the sender
+            provider: Email provider (gmail, outlook, etc.)
             
         Returns:
             Dict with details of the forwarded email
         """
         try:
-            # Get the original email
-            original_email = await self.email_manager.get_email_by_id(email_id, user_id)
-            if not original_email:
-                raise ValueError(f"Could not find original email with ID {email_id}")
+            if not provider:
+                return {"success": False, "error": "Email provider not specified"}
                 
-            # Prepare subject
-            original_subject = original_email.get("subject", "")
-            if not subject:
-                subject = f"Fwd: {original_subject}" if not original_subject.startswith("Fwd:") else original_subject
-            
-            # Prepare forwarded content
-            original_body = original_email.get("body", "")
-            original_sender = original_email.get("sender", "unknown")
-            original_date = original_email.get("sent_date", "unknown date")
-            
-            # Format the forwarded content
-            forwarded_content = f"""
-{additional_comment if additional_comment else ""}
-
----------- Forwarded message ---------
-From: {original_sender}
-Date: {original_date}
-Subject: {original_subject}
-
-{original_body}
-"""
-            
-            # Prepare forward data
-            forward_data = {
-                "subject": subject,
-                "body": forwarded_content,
-                "recipients": recipients,
-                "cc": [],
-                "sent_date": datetime.now().isoformat(),
-                "folder": "sent",
-                "source_type": "api_generated",
-                "forwarded_from": email_id
-            }
-            
-            if user_id:
-                forward_data["user_id"] = user_id
+            email_id = email_content.get("email_id", "")
+            if not email_id:
+                return {"success": False, "error": "No email ID provided"}
                 
-            # Store the forwarded email in database
-            message_id = await self.email_manager.save_email(forward_data)
-            
-            # Here in a real implementation, you would also send the email via API
-            # For example: await self._send_via_api(forward_data) 
+            # Get the appropriate handler for the provider
+            handler = self.provider_handlers.get(provider.lower())
+            if not handler:
+                return {"success": False, "error": f"Unsupported email provider: {provider}"}
                 
-            logger.info(f"Email {email_id} forwarded with message ID {message_id}")
+            # Forward the email using the appropriate handler
+            result = handler.forward_email(
+                email_id=email_id,
+                recipients=recipients,
+                additional_comment=additional_comment
+            )
             
-            return {
-                "success": True,
-                "message_id": message_id
-            }
+            if result.get("success", False):
+                logger.info(f"Successfully forwarded email {email_id} to {', '.join(recipients)} via {provider}")
+            else:
+                logger.error(f"Failed to forward email {email_id} via {provider}: {result.get('error')}")
+                
+            return result
             
         except Exception as e:
-            logger.error(f"Error forwarding email {email_id}: {str(e)}")
+            logger.error(f"Error forwarding email: {str(e)}")
             return {
                 "success": False,
                 "error": str(e)
             }
     
-    async def update_email_flags(
-        self,
-        email_id: str,
-        flag_important: Optional[bool] = None,
-        mark_read: Optional[bool] = None,
-        user_id: Optional[str] = None
-    ) -> Dict[str, Any]:
+    def move_email(self, email_id: str, destination_folder: str, provider: str) -> Dict[str, Any]:
+        """
+        Move an email to a different folder.
+        
+        Args:
+            email_id: ID of the email to move
+            destination_folder: Destination folder name
+            provider: Email provider (gmail, outlook, etc.)
+            
+        Returns:
+            Dict with success status and details
+        """
+        try:
+            if not provider:
+                return {"success": False, "error": "Email provider not specified"}
+                
+            # Get the appropriate handler for the provider
+            handler = self.provider_handlers.get(provider.lower())
+            if not handler:
+                return {"success": False, "error": f"Unsupported email provider: {provider}"}
+                
+            # Move the email using the appropriate handler
+            result = handler.move_email(email_id=email_id, destination_folder=destination_folder)
+            
+            if result.get("success", False):
+                logger.info(f"Successfully moved email {email_id} to {destination_folder} via {provider}")
+            else:
+                logger.error(f"Failed to move email {email_id} via {provider}: {result.get('error')}")
+                
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error moving email: {str(e)}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    def update_email_flags(self, email_id: str, flag_important: Optional[bool] = None, 
+                          mark_read: Optional[bool] = None, provider: str = None) -> Dict[str, Any]:
         """
         Update flags for an email (important, read status).
         
@@ -492,98 +485,94 @@ Subject: {original_subject}
             email_id: ID of the email to update
             flag_important: Whether to flag the email as important
             mark_read: Whether to mark the email as read
-            user_id: User ID for the email owner
+            provider: Email provider (gmail, outlook, etc.)
             
         Returns:
             Dict with update status
         """
         try:
-            # Get the original email
-            original_email = await self.email_manager.get_email_by_id(email_id, user_id)
-            if not original_email:
-                raise ValueError(f"Could not find email with ID {email_id}")
+            if not provider:
+                return {"success": False, "error": "Email provider not specified"}
+                
+            # Get the appropriate handler for the provider
+            handler = self.provider_handlers.get(provider.lower())
+            if not handler:
+                return {"success": False, "error": f"Unsupported email provider: {provider}"}
+                
+            # Update email flags using the appropriate handler
+            result = handler.flag_email(
+                email_id=email_id,
+                mark_important=flag_important,
+                mark_read=mark_read
+            )
             
-            # Prepare update data
-            update_data = {}
-            
-            # Update metadata with flags
-            metadata = original_email.get("metadata", {}) or {}
-            
-            if flag_important is not None:
-                metadata["important"] = flag_important
-                logger.info(f"Email {email_id} {'flagged as important' if flag_important else 'unflagged'}")
+            if result.get("success", False):
+                logger.info(f"Successfully updated flags for email {email_id} via {provider}")
+            else:
+                logger.error(f"Failed to update flags for email {email_id} via {provider}: {result.get('error')}")
                 
-            if mark_read is not None:
-                metadata["read"] = mark_read
-                logger.info(f"Email {email_id} {'marked as read' if mark_read else 'marked as unread'}")
-                
-            # Only update if there are changes
-            if metadata != original_email.get("metadata", {}):
-                update_data["metadata"] = metadata
-                
-                # Update the email in the database
-                await self.email_manager.update_email(email_id, update_data, user_id)
-                
-                # Here in a real implementation, you would also update via API if needed
-                # For example: await self._update_flags_via_api(email_id, metadata)
-                
-            return {
-                "success": True,
-                "email_id": email_id,
-                "flags_updated": True if update_data else False
-            }
+            return result
             
         except Exception as e:
-            logger.error(f"Error updating flags for email {email_id}: {str(e)}")
+            logger.error(f"Error updating email flags: {str(e)}")
             return {
                 "success": False,
                 "error": str(e)
             }
     
-    async def move_email(
-        self,
-        email_id: str,
-        destination_folder: str,
-        user_id: Optional[str] = None
+    def send_email(
+        self, 
+        subject: str,
+        body: str,
+        recipients: List[str],
+        provider: str,
+        cc: Optional[List[str]] = None,
+        bcc: Optional[List[str]] = None,
+        html_content: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Move an email to a different folder (archive, trash, etc).
+        Send a new email.
         
         Args:
-            email_id: ID of the email to move
-            destination_folder: Target folder name
-            user_id: User ID for the email owner
+            subject: Email subject
+            body: Email body (plain text)
+            recipients: List of recipient email addresses
+            provider: Email provider (gmail, outlook, etc.)
+            cc: Optional list of CC recipients
+            bcc: Optional list of BCC recipients
+            html_content: Optional HTML version of the email body
             
         Returns:
-            Dict with move status
+            Dict with details of the sent email
         """
         try:
-            # Get the original email
-            original_email = await self.email_manager.get_email_by_id(email_id, user_id)
-            if not original_email:
-                raise ValueError(f"Could not find email with ID {email_id}")
+            if not provider:
+                return {"success": False, "error": "Email provider not specified"}
                 
-            # Update the folder
-            update_data = {
-                "folder": destination_folder
-            }
+            # Get the appropriate handler for the provider
+            handler = self.provider_handlers.get(provider.lower())
+            if not handler:
+                return {"success": False, "error": f"Unsupported email provider: {provider}"}
+                
+            # Send email using the appropriate handler
+            result = handler.send_email(
+                subject=subject,
+                body=body,
+                recipients=recipients,
+                cc=cc,
+                bcc=bcc,
+                html_content=html_content
+            )
             
-            # Update the email in the database
-            await self.email_manager.update_email(email_id, update_data, user_id)
-            
-            # Here in a real implementation, you would also move via API if needed
-            # For example: await self._move_via_api(email_id, destination_folder)
-            
-            logger.info(f"Email {email_id} moved to folder '{destination_folder}'")
-            
-            return {
-                "success": True,
-                "email_id": email_id,
-                "destination_folder": destination_folder
-            }
+            if result.get("success", False):
+                logger.info(f"Successfully sent email with subject '{subject}' via {provider}")
+            else:
+                logger.error(f"Failed to send email via {provider}: {result.get('error')}")
+                
+            return result
             
         except Exception as e:
-            logger.error(f"Error moving email {email_id} to folder {destination_folder}: {str(e)}")
+            logger.error(f"Error sending email: {str(e)}")
             return {
                 "success": False,
                 "error": str(e)

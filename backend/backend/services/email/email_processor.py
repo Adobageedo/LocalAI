@@ -45,7 +45,7 @@ class EmailProcessor:
         self.auto_processor = EmailAutoProcessor()
         self.email_manager = EmailManager()
     
-    async def process_emails(
+    def process_emails(
         self,
         user_id: str,
         provider: Optional[str],
@@ -82,7 +82,7 @@ class EmailProcessor:
         # Process emails from database
         if EmailProvider.DATABASE in providers:
             try:
-                emails = await self._fetch_db_emails(
+                emails = self._fetch_db_emails(
                     user_id=user_id,
                     limit=limit,
                     min_date=min_date
@@ -91,7 +91,7 @@ class EmailProcessor:
                 emails_processed = 0
                 for email in emails:
                     try:
-                        result = await self._process_single_email(
+                        result = self._process_single_email(
                             user_id=user_id,
                             email=email,
                             auto_action=auto_actions,
@@ -120,7 +120,7 @@ class EmailProcessor:
         
         return stats
     
-    async def _fetch_db_emails(
+    def _fetch_db_emails(
         self, 
         user_id: str,
         limit: int = 10,
@@ -160,7 +160,7 @@ class EmailProcessor:
                 
             if query:
                 # Use search_emails when we have query text
-                folder_emails = await self.email_manager.search_emails(
+                folder_emails = self.email_manager.search_emails(
                         user_id=user_id,
                         query_text=query,
                         start_date=start_date,
@@ -173,7 +173,7 @@ class EmailProcessor:
                 folder_emails = [email for email in folder_emails if email.get('folder') == 'inbox']
             else:
                 # Get emails by user and filter by folder
-                all_user_emails = await self.email_manager.get_emails_by_user(
+                all_user_emails = self.email_manager.get_emails_by_user(
                     user_id=user_id,
                     limit=limit*5,  # Get more than we need since we'll filter
                     offset=0
@@ -207,7 +207,7 @@ class EmailProcessor:
             
         return emails
     
-    async def _process_single_email(
+    def _process_single_email(
         self,
         user_id: str,
         provider: str,
@@ -231,7 +231,7 @@ class EmailProcessor:
             if email.get("thread_id") or email.get("conversation_id"):
                 thread_id = email.get("thread_id") or email.get("conversation_id")
                 try:
-                    conversation_history = await self.email_manager.get_emails_by_conversation(
+                    conversation_history = self.email_manager.get_emails_by_conversation(
                         conversation_id=thread_id,
                         user_id=user_id
                     )
@@ -245,7 +245,7 @@ class EmailProcessor:
                     logger.warning(f"Failed to get conversation history: {str(e)}")
             
             # Classify the email
-            classification_result = await self.classifier.classify_email(
+            classification_result = self.classifier.classify_email(
                 email_content=email, 
                 conversation_history=conversation_history
             )
@@ -261,7 +261,7 @@ class EmailProcessor:
             
             # Take action if requested
             if auto_action and classification_result:
-                action_result = await self.auto_processor.process_email_action(
+                action_result = self.auto_processor.process_email_action(
                     user_id=user_id,
                     provider=provider,
                     email_content=email,
@@ -279,7 +279,7 @@ class EmailProcessor:
             }
 
 
-async def process_emails_cli():
+def process_emails_cli():
     """
     Command-line interface for processing emails.
     Parses arguments and calls the appropriate methods.
@@ -309,7 +309,7 @@ async def process_emails_cli():
     
     # Process emails
     processor = EmailProcessor()
-    results = await processor.process_emails(
+    results = processor.process_emails(
         user_id=args.user_id,
         providers=providers,
         limit=args.limit,
@@ -323,7 +323,7 @@ async def process_emails_cli():
     print(json.dumps(results, indent=2))
 
 
-async def scheduled_email_processing(args: Dict[str, Any]) -> Dict[str, Any]:
+def scheduled_email_processing(args: Dict[str, Any]) -> Dict[str, Any]:
     """
     Function to be called by the scheduler for processing emails on a schedule.
     
@@ -367,7 +367,7 @@ async def scheduled_email_processing(args: Dict[str, Any]) -> Dict[str, Any]:
     try:
         logger.info(f"Running scheduled email processing for user {user_id}")
         processor = EmailProcessor()
-        results = await processor.process_emails(
+        results = processor.process_emails(
             user_id=user_id,
             providers=providers,
             limit=limit,
@@ -400,7 +400,7 @@ async def scheduled_email_processing(args: Dict[str, Any]) -> Dict[str, Any]:
             "error": str(e)
         }
 
-async def main():
+def main():
     # Arrange
     user_id = "user_001"
     email = {
@@ -417,7 +417,7 @@ async def main():
 
     # Mock dependencies
     # Act
-    result = await processor._process_single_email(user_id=user_id, email=email, auto_action=False)
+    result = processor._process_single_email(user_id=user_id, email=email, auto_action=False)
 
     # Assert
     print(result)

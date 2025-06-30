@@ -4,6 +4,7 @@ from backend.core.config import load_config,OPENAI_API_KEY,OLLAMA_BASE_URL,OLLAM
 from langchain_openai import ChatOpenAI
 from langchain_community.llms import Ollama
 from backend.core.logger import log
+from typing import Optional, List, Dict
 
 logger = log.bind(name="backend.services.rag.llm_router")
 
