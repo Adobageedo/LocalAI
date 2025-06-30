@@ -4,23 +4,23 @@ Gmail Actions
 ============
 
 Module for performing Gmail actions (reply, forward, flag, archive) using the Google API.
-This module implements the direct API calls that work alongside the database operations 
-in EmailAgent to provide complete email handling functionality.
+All email operations (send, reply, forward) create drafts rather than sending directly.
+Methods accept direct parameters for simplicity and ease of integration.
 """
 
 import os
 import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
+
 import base64
 import json
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from typing import Dict, List, Optional, Any, Tuple
+from typing import Dict, List, Optional, Any, Tuple, Union
 from datetime import datetime
 
 from backend.services.auth.credentials_manager import check_google_credentials
 from backend.services.auth.google_auth import get_gmail_service
-from backend.services.email.mail_agent import EmailAgent
-from backend.services.db.email_manager import EmailManager
 from backend.core.logger import log
 from backend.core.config import CONFIG
 
@@ -29,15 +29,16 @@ logger = log.bind(name="backend.services.email.gmail_actions")
 
 class GmailActions:
     """
-    Implements Gmail API actions that complement the EmailAgent database operations.
+    Implements Gmail API actions with a simplified parameter structure.
     
-    This class handles the direct Gmail API calls for operations like:
-    - Sending replies
-    - Forwarding emails
+    This class handles Gmail API calls for operations like:
+    - Creating email drafts 
+    - Replying to emails (as drafts)
+    - Forwarding emails (as drafts)
     - Flagging emails as important
     - Moving emails to different folders (archive, trash)
     
-    It works alongside EmailAgent, which handles the database operations.
+    All methods accept direct parameters rather than complex dictionary structures.
     """
     
     def __init__(self, user_id: str):
@@ -48,11 +49,9 @@ class GmailActions:
             user_id: User identifier for authentication
         """
         self.user_id = user_id
-        self.email_agent = EmailAgent()
-        self.email_manager = EmailManager()
         self.gmail_service = None
         
-    async def authenticate(self) -> bool:
+    def authenticate(self) -> bool:
         """
         Authenticate with Gmail API.
         
@@ -75,250 +74,257 @@ class GmailActions:
         except Exception as e:
             logger.error(f"Error authenticating with Gmail: {str(e)}")
             return False
-            
-    async def _get_raw_email(self, email_id: str) -> Dict[str, Any]:
-        """
-        Get raw email data from Gmail by message ID.
-        
-        Args:
-            email_id: Email ID in the database
-            
-        Returns:
-            Dict with Gmail API message data
-        """
-        try:
-            # First get the email from database to get Gmail message ID
-            email = await self.email_manager.get_email_by_id(email_id, self.user_id)
-            if not email:
-                raise ValueError(f"Email with ID {email_id} not found in database")
-                
-            # Extract Gmail message ID from metadata
-            metadata = email.get('metadata', {}) or {}
-            gmail_message_id = metadata.get('gmail_message_id')
-            
-            if not gmail_message_id:
-                raise ValueError(f"Gmail message ID not found for email {email_id}")
-                
-            # Get the raw message from Gmail API
-            message = self.gmail_service.users().messages().get(
-                userId='me', 
-                id=gmail_message_id, 
-                format='full'
-            ).execute()
-            
-            return message
-            
-        except Exception as e:
-            logger.error(f"Error retrieving raw email {email_id}: {str(e)}")
-            raise
-            
-    async def reply_to_email(
+                        
+    def reply_to_email(
         self,
         email_id: str,
-        content: str,
+        sender: str,
+        subject: str,
+        body: str, 
         thread_id: Optional[str] = None,
-        subject: Optional[str] = None,
-        recipients: Optional[List[str]] = None,
+        message_id: Optional[str] = None,
         cc: Optional[List[str]] = None
     ) -> Dict[str, Any]:
         """
-        Reply to an email via Gmail API.
+        Create a draft reply to an email via Gmail API.
         
         Args:
-            email_id: ID of the email to reply to
-            content: Content of the reply
-            thread_id: Optional thread ID
-            subject: Optional subject (default: Re: original subject)
-            recipients: Optional list of recipients (default: original sender)
+            email_id: ID of the email being replied to
+            sender: Email address of the original sender (will be the recipient of the reply)
+            subject: Subject of the original email
+            body: Content of the reply
+            thread_id: Optional thread ID to attach reply to
+            message_id: Optional message ID for threading
             cc: Optional list of CC recipients
-            
+        
         Returns:
-            Dict with details of the sent reply
+            Dict with details of the created draft reply
         """
         if not self.gmail_service:
-            authenticated = await self.authenticate()
+            authenticated = self.authenticate()
             if not authenticated:
                 return {"success": False, "error": "Authentication failed"}
         
-        try:                
-            # Now handle the actual Gmail API call
-            # Get original email details
-            email = await self.email_manager.get_email_by_id(email_id, self.user_id)
-            if not email:
-                raise ValueError(f"Email with ID {email_id} not found in database")
+        try:
+            # Format subject if needed
+            if not subject.lower().startswith("re:"):
+                subject = f"Re: {subject}"
                 
+            # Set recipients
+            recipients = [sender]
+            cc = cc or []
+            
+            logger.info(f"Creating reply draft to email {email_id} via Gmail API")
             # Create a message
             message = MIMEMultipart()
-            message['To'] = ', '.join(recipients) if recipients else email.get('sender', '')
+            message['To'] = ', '.join(recipients)
             
             if cc and len(cc) > 0:
                 message['Cc'] = ', '.join(cc)
                 
-            message['Subject'] = subject if subject else f"Re: {email.get('subject', '')}"
+            message['Subject'] = subject
             
-            # Set In-Reply-To and References headers for threading
-            message_id = email.get('message_id')
+            # Set In-Reply-To and References headers for threading if available
             if message_id:
                 message['In-Reply-To'] = message_id
                 message['References'] = message_id
                 
             # Add body
-            message.attach(MIMEText(content, 'html' if '<html>' in content.lower() else 'plain'))
-            
-            # Get thread ID if not provided
-            if not thread_id:
-                thread_id = email.get('conversation_id')
-                
+            message.attach(MIMEText(body, 'html' if '<html>' in body.lower() else 'plain'))
+                            
             # Encode the message
             raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
             
-            # Send the message
-            sent_message = self.gmail_service.users().messages().send(
+            # Create the draft
+            draft = self.gmail_service.users().drafts().create(
                 userId='me',
                 body={
                     'raw': raw_message,
                     'threadId': thread_id
                 }
             ).execute()
-            
-            # Update the database record with Gmail message ID
-            await self.email_manager.update_email(
-                db_result["message_id"], 
-                {"metadata": {"gmail_message_id": sent_message['id']}},
-                self.user_id
-            )
-            
-            logger.info(f"Email reply sent via Gmail API with ID {sent_message['id']}")
+            logger.info(f"Email reply draft created via Gmail API with ID {draft['id']}")
             
             return {
                 "success": True,
-                "message_id": db_result["message_id"],
-                "gmail_message_id": sent_message['id'],
-                "thread_id": thread_id
+                "gmail_message_id": draft['id'],
+                "thread_id": thread_id,
+                "email_id": email_id
             }
             
         except Exception as e:
-            logger.error(f"Error sending reply via Gmail API: {str(e)}")
+            logger.error(f"Error creating reply draft via Gmail API: {str(e)}")
             return {
                 "success": False,
-                "error": str(e)
+                "error": str(e),
+                "email_id": email_id
             }
     
-    async def forward_email(
+    def create_draft_email(
         self,
-        email_id: str,
+        subject: str,
+        body: str,
         recipients: List[str],
-        subject: Optional[str] = None,
-        additional_comment: Optional[str] = None
+        cc: Optional[List[str]] = None,
+        bcc: Optional[List[str]] = None,
+        thread_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Forward an email via Gmail API.
+        Create a new email draft via Gmail API.
         
         Args:
-            email_id: ID of the email to forward
+            subject: Email subject
+            body: Email body content
             recipients: List of recipient email addresses
-            subject: Optional new subject (defaults to "Fwd: original subject")
-            additional_comment: Optional comment to add before the forwarded content
+            cc: Optional list of CC recipients
+            bcc: Optional list of BCC recipients
+            thread_id: Optional thread ID to add draft to existing thread
             
         Returns:
-            Dict with details of the forwarded email
+            Dict with details of the created draft
         """
         if not self.gmail_service:
-            authenticated = await self.authenticate()
+            authenticated = self.authenticate()
             if not authenticated:
                 return {"success": False, "error": "Authentication failed"}
-        
+                
         try:
-            # First call EmailAgent to handle database operations
-            db_result = await self.email_agent.forward_email(
-                email_id=email_id,
-                recipients=recipients,
-                subject=subject,
-                additional_comment=additional_comment,
-                user_id=self.user_id
-            )
+            # Set default values for optional parameters
+            cc = cc or []
+            bcc = bcc or []
             
-            if not db_result["success"]:
-                return db_result
-                
-            # Now handle the actual Gmail API call
-            # Get original email details
-            email = await self.email_manager.get_email_by_id(email_id, self.user_id)
-            if not email:
-                raise ValueError(f"Email with ID {email_id} not found in database")
-                
-            # Get the raw email message
-            raw_email = await self._get_raw_email(email_id)
+            logger.info(f"Creating email draft with subject '{subject}' via Gmail API")
             
             # Create a message
             message = MIMEMultipart()
             message['To'] = ', '.join(recipients)
-            message['Subject'] = subject if subject else f"Fwd: {email.get('subject', '')}"
             
-            # Create forwarded content
-            original_sender = email.get('sender', 'Unknown')
-            original_date = email.get('sent_date', 'Unknown date')
-            original_subject = email.get('subject', 'No subject')
-            original_recipients = ', '.join(email.get('recipients', []))
+            if cc and len(cc) > 0:
+                message['Cc'] = ', '.join(cc)
+                
+            if bcc and len(bcc) > 0:
+                message['Bcc'] = ', '.join(bcc)
+                
+            message['Subject'] = subject
             
-            # Format the forwarded header
-            forwarded_header = f"""
----------- Forwarded message ---------
-From: {original_sender}
-Date: {original_date}
-Subject: {original_subject}
-To: {original_recipients}
-
-"""
-            
-            # Add additional comment if provided
-            if additional_comment:
-                message.attach(MIMEText(additional_comment + "\n\n" + forwarded_header, 'plain'))
-            else:
-                message.attach(MIMEText(forwarded_header, 'plain'))
-            
-            # Add the original content
-            original_body = email.get('body', '')
-            message.attach(MIMEText(original_body, 'html' if email.get('is_html', False) else 'plain'))
+            # Add body
+            message.attach(MIMEText(body, 'html' if '<html>' in body.lower() else 'plain'))
             
             # Encode the message
             raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
             
-            # Send the message
-            sent_message = self.gmail_service.users().messages().send(
+            # Create the draft
+            draft_body = {'message': {'raw': raw_message}}
+            if thread_id:
+                draft_body['message']['threadId'] = thread_id
+                
+            draft = self.gmail_service.users().drafts().create(
                 userId='me',
-                body={
-                    'raw': raw_message
-                }
+                body=draft_body
             ).execute()
             
-            # Update the database record with Gmail message ID
-            await self.email_manager.update_email(
-                db_result["message_id"],
-                {"metadata": {"gmail_message_id": sent_message['id']}},
-                self.user_id
-            )
-            
-            logger.info(f"Email forwarded via Gmail API with ID {sent_message['id']}")
+            logger.info(f"Email draft created via Gmail API with ID {draft['id']}")
             
             return {
                 "success": True,
-                "message_id": db_result["message_id"],
-                "gmail_message_id": sent_message['id']
+                "gmail_draft_id": draft['id'],
+                "thread_id": thread_id
             }
             
         except Exception as e:
-            logger.error(f"Error forwarding email via Gmail API: {str(e)}")
+            logger.error(f"Error creating email draft via Gmail API: {str(e)}")
             return {
                 "success": False,
                 "error": str(e)
             }
     
-    async def update_email_flags(
+    def forward_email(
+        self,
+        email_id: str,
+        recipients: List[str],
+        body: str,
+        subject: str,
+        thread_id: Optional[str] = None,
+        additional_comment: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Create a draft to forward an email via Gmail API.
+        
+        Args:
+            email_id: ID of the email being forwarded
+            recipients: List of recipient email addresses
+            body: Content to forward (original email body)
+            subject: Subject line (typically 'Fwd: Original Subject')
+            thread_id: Optional thread ID for the draft
+            additional_comment: Optional comment to include before the forwarded content
+        
+        Returns:
+            Dict with details of the created forward draft
+        """
+        if not self.gmail_service:
+            authenticated = self.authenticate()
+            if not authenticated:
+                return {"success": False, "error": "Authentication failed"}
+            
+        try:
+            logger.info(f"Creating forward draft for email {email_id} via Gmail API")
+            
+            # Format subject if needed
+            if not subject.lower().startswith("fwd:") and not subject.lower().startswith("fw:"):
+                subject = f"Fwd: {subject}"
+
+            # Create a new message
+            message = MIMEMultipart()
+            message['To'] = ', '.join(recipients)
+            message['Subject'] = subject
+            
+            # Prepare email content
+            content = ""
+            
+            # Add additional comment if provided
+            if additional_comment:
+                content += f"{additional_comment}\n\n"
+                
+            # Add forwarded content
+            content += body
+            
+            # Add the content to the message
+            message.attach(MIMEText(content, 'html' if '<html>' in content.lower() else 'plain'))
+            
+            # Encode the message
+            raw_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
+            
+            # Create the forward draft
+            draft_body = {'raw': raw_message}
+            if thread_id:
+                draft_body['threadId'] = thread_id
+                
+            draft = self.gmail_service.users().drafts().create(
+                userId='me',
+                body={'message': draft_body}
+            ).execute()
+            
+            logger.info(f"Email forward draft created via Gmail API with ID {draft['id']}")
+            
+            return {
+                "success": True,
+                "gmail_draft_id": draft['id'],
+                "thread_id": thread_id,
+                "email_id": email_id
+            }
+            
+        except Exception as e:
+            logger.error(f"Error creating forward draft via Gmail API: {str(e)}")
+            return {
+                "success": False,
+                "error": str(e)
+            }
+    
+    def update_email_flags(
         self,
         email_id: str,
         flag_important: Optional[bool] = None,
-        mark_read: Optional[bool] = None
+        mark_read: Optional[bool] = None,
     ) -> Dict[str, Any]:
         """
         Update flags for an email via Gmail API.
@@ -327,30 +333,20 @@ To: {original_recipients}
             email_id: ID of the email to update
             flag_important: Whether to flag the email as important
             mark_read: Whether to mark the email as read
-            
-        Returns:
-            Dict with update status
-        """
+        
+    Returns:
+        Dict with details of the created draft
+    """
         if not self.gmail_service:
-            authenticated = await self.authenticate()
+            authenticated = self.authenticate()
             if not authenticated:
                 return {"success": False, "error": "Authentication failed"}
-        
-        try:
-            # First call EmailAgent to handle database operations
-            db_result = await self.email_agent.update_email_flags(
-                email_id=email_id,
-                flag_important=flag_important,
-                mark_read=mark_read,
-                user_id=self.user_id
-            )
             
-            if not db_result["success"]:
-                return db_result
-                
+        try:
+            
             # Now handle the actual Gmail API call
             # Get original email details to find Gmail message ID
-            email = await self.email_manager.get_email_by_id(email_id, self.user_id)
+            email = self.email_manager.get_email_by_id(email_id, self.user_id)
             if not email:
                 raise ValueError(f"Email with ID {email_id} not found in database")
                 
@@ -401,7 +397,7 @@ To: {original_recipients}
                 "error": str(e)
             }
     
-    async def move_email(
+    def move_email(
         self,
         email_id: str,
         destination_folder: str
@@ -417,33 +413,16 @@ To: {original_recipients}
             Dict with move status
         """
         if not self.gmail_service:
-            authenticated = await self.authenticate()
+            authenticated = self.authenticate()
             if not authenticated:
                 return {"success": False, "error": "Authentication failed"}
         
         try:
-            # First call EmailAgent to handle database operations
-            db_result = await self.email_agent.move_email(
-                email_id=email_id,
-                destination_folder=destination_folder,
-                user_id=self.user_id
-            )
             
-            if not db_result["success"]:
-                return db_result
-                
-            # Now handle the actual Gmail API call
-            # Get original email details to find Gmail message ID
-            email = await self.email_manager.get_email_by_id(email_id, self.user_id)
-            if not email:
-                raise ValueError(f"Email with ID {email_id} not found in database")
-                
+            # Now handle the actual Gmail API call                
             # Extract Gmail message ID from metadata
             metadata = email.get('metadata', {}) or {}
             gmail_message_id = metadata.get('gmail_message_id')
-            
-            if not gmail_message_id:
-                raise ValueError(f"Gmail message ID not found for email {email_id}")
             
             # Map destination folder to Gmail label/action
             gmail_action = None
@@ -507,21 +486,18 @@ To: {original_recipients}
                 "success": False,
                 "error": str(e)
             }
-
-async def main():
+def main():
     """
     Test function to demonstrate Gmail actions.
-    """
-    import asyncio
-    
+    """    
     # User ID for testing
-    user_id = input("Enter user ID: ")
+    user_id = "hupTIQvuO4R3BxklIWs1AqbKDP13"
     
     # Initialize Gmail actions
     gmail_actions = GmailActions(user_id)
     
     # Authenticate
-    authenticated = await gmail_actions.authenticate()
+    authenticated = gmail_actions.authenticate()
     if not authenticated:
         print("Authentication failed.")
         return 1
@@ -529,8 +505,9 @@ async def main():
     print("Authentication successful.")
     
     # Get a list of emails to work with
+    from backend.services.db.email_manager import EmailManager
     email_manager = EmailManager()
-    emails = await email_manager.get_emails_by_user(user_id=user_id, limit=5)
+    emails = email_manager.get_emails_by_user(user_id=user_id, limit=5)
     
     if not emails:
         print("No emails found for this user.")
@@ -547,9 +524,13 @@ async def main():
     if choice < 0 or choice >= len(emails):
         print("Invalid selection.")
         return 1
-        
+    content = "edvewihbdwejkb"
     test_email = emails[choice]
-    email_id = test_email.get('id')
+    logger.info(f"Selected email: {test_email}")
+    reply_data = {
+                "email": test_email,
+                "body": content,
+            }
     
     # Menu of actions
     print("\nAvailable Actions:")
@@ -562,13 +543,12 @@ async def main():
     action = int(input("\nChoose an action: "))
     
     if action == 1:
-        content = input("Enter reply message: ")
-        result = await gmail_actions.reply_to_email(email_id, content)
+        result = gmail_actions.reply_to_email(reply_data)
         
     elif action == 2:
         recipients = input("Enter recipient emails (comma-separated): ").split(',')
         comment = input("Enter optional comment: ")
-        result = await gmail_actions.forward_email(
+        result = gmail_actions.forward_email(
             email_id, 
             recipients, 
             additional_comment=comment if comment else None
@@ -576,15 +556,15 @@ async def main():
         
     elif action == 3:
         flag_important = input("Flag as important? (y/n): ").lower() == 'y'
-        result = await gmail_actions.update_email_flags(email_id, flag_important=flag_important)
+        result = gmail_actions.update_email_flags(email_id, flag_important=flag_important)
         
     elif action == 4:
         mark_read = input("Mark as read? (y/n): ").lower() == 'y'
-        result = await gmail_actions.update_email_flags(email_id, mark_read=mark_read)
+        result = gmail_actions.update_email_flags(email_id, mark_read=mark_read)
         
     elif action == 5:
         destination = input("Destination folder (archive/trash/spam/custom): ")
-        result = await gmail_actions.move_email(email_id, destination)
+        result = gmail_actions.move_email(email_id, destination)
         
     else:
         print("Invalid action.")

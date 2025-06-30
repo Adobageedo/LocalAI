@@ -41,7 +41,7 @@ class EmailClassifier:
         """Initialize the email classifier."""
         pass
     
-    async def classify_email(
+    def classify_email(
         self, 
         email_content: Dict[str, Any],
         conversation_history: Optional[List[Dict[str, Any]]] = None,
@@ -217,7 +217,7 @@ class EmailAutoProcessor:
         """Initialize the email auto processor."""
         self.classifier = EmailClassifier()
     
-    async def process_incoming_email(
+    def process_incoming_email(
         self,
         email: Dict[str, Any],
         user_id: str,
@@ -239,7 +239,7 @@ class EmailAutoProcessor:
             Dict with processing results and recommendations
         """
         # Classify the email
-        classification = await self.classifier.classify_email(
+        classification = self.classifier.classify_email(
             email, 
             conversation_history,
             user_preferences
@@ -275,7 +275,8 @@ class EmailAutoProcessor:
             
         # Return processing results
         return result
-    async def process_email_action(
+    
+    def process_email_action(
         self,
         user_id: str,
         provider: str,
@@ -326,13 +327,10 @@ class EmailAutoProcessor:
                     response_body = "Auto-generated response based on classification."
                 
                 # Send reply
-                reply_result = await email_agent.reply_to_email(
-                    email_id=email_content.get("id"),
+                reply_result = email_agent.reply_to_email(
                     content=response_body,
-                    thread_id=email_content.get("thread_id") or email_content.get("conversation_id"),
-                    subject=f"Re: {email_content.get('subject', '')}",
-                    recipients=[email_content.get("sender")],
-                    provider=provider
+                    provider=provider,
+                    email=email_content
                 )
                 
                 result["success"] = True
@@ -361,11 +359,10 @@ class EmailAutoProcessor:
                 forward_message += email_content.get("body", "")
                 
                 # Forward email
-                forward_result = await email_agent.forward_email(
-                    email_id=email_content.get("id"),
+                forward_result = email_agent.forward_email(
+                    email_content=email_content,
                     additional_comment=reasoning,
                     recipients=forward_recipients,
-                    subject=f"Fwd: {email_content.get('subject', '')}",
                     provider=provider
                 )
                 
@@ -396,7 +393,7 @@ class EmailAutoProcessor:
                 
                 if recipients:
                     # Send new email
-                    new_email_result = await email_agent.generate_new_email(
+                    new_email_result = email_agent.generate_new_email(
                         subject=subject,
                         content=suggested_response,
                         recipients=recipients,
@@ -414,7 +411,7 @@ class EmailAutoProcessor:
                 logger.info(f"Flagging email {email_content.get('id')} as important")
                 
                 # Flag the email as important
-                await email_agent.update_email_flags(
+                email_agent.update_email_flags(
                     email_id=email_content.get("id"),
                     flag_important=True,
                     provider=provider
@@ -427,7 +424,7 @@ class EmailAutoProcessor:
                 logger.info(f"Archiving email {email_content.get('id')}")
                 
                 # Archive the email
-                await email_agent.move_email(
+                email_agent.move_email(
                     email_id=email_content.get("id"),
                     destination_folder="archive",
                     provider=provider
@@ -440,7 +437,7 @@ class EmailAutoProcessor:
                 logger.info(f"Moving email {email_content.get('id')} to trash")
                 
                 # Move to trash (soft delete)
-                await email_agent.move_email(
+                email_agent.move_email(
                     email_id=email_content.get("id"),
                     destination_folder="trash",
                     provider=provider
