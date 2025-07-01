@@ -16,6 +16,8 @@ import time
 import traceback
 from typing import List, Dict, Any, Optional, Tuple
 import json
+import email.utils
+import dateutil.parser
 # Ajouter le chemin du projet pour les imports
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..')))
 
@@ -149,6 +151,48 @@ def parse_gmail_message(message: Dict, gmail_service: Any, user: str) -> Optiona
     except Exception as e:
         logger.error(f"Erreur lors du parsing du message {message['id']}: {e}")
         return None
+
+def parse_email_date(date_str):
+    """
+    Parse email date string into a datetime object using various methods.
+    
+    Args:
+        date_str: The date string to parse
+        
+    Returns:
+        datetime.datetime: The parsed datetime object or current time if parsing fails
+    """
+    if not date_str:
+        return datetime.datetime.now()
+        
+    try:
+        # First try email.utils parser which handles most standard email date formats
+        return email.utils.parsedate_to_datetime(date_str)
+    except Exception:
+        # Remove timezone name in parentheses if present
+        if '(' in date_str and ')' in date_str:
+            clean_date_str = date_str.split('(')[0].strip()
+        else:
+            clean_date_str = date_str
+            
+        # Try various date formats
+        formats = [
+            "%a, %d %b %Y %H:%M:%S %z",  # RFC 2822 format with timezone
+            "%a, %d %b %Y %H:%M:%S",     # RFC 2822 format without timezone
+            "%a, %d %b %Y %H:%M:%S %Z",  # With timezone name
+            "%d %b %Y %H:%M:%S %z",      # Without weekday
+            "%Y-%m-%dT%H:%M:%S%z"        # ISO format
+        ]
+        
+        for fmt in formats:
+            try:
+                return datetime.datetime.strptime(clean_date_str, fmt)
+            except ValueError:
+                continue
+                
+        # If all parsing attempts fail, log error and return current time
+        logging.error(f"Failed to parse date: '{date_str}'")
+        return datetime.datetime.now()
 
 def fetch_gmail_emails(
     gmail_service: Any,
@@ -373,7 +417,7 @@ def batch_ingest_gmail_emails_to_qdrant(
                         continue
 
                     # Générer un ID unique pour la pièce jointe
-                    attachment_id = hashlib.md5(f"{email_id}_{attachment_name}_{idx}".encode('utf-8')).hexdigest()
+                    attachment_id = hashlib.md5(f"{email_id}_{attachment.filename}_{idx}".encode('utf-8')).hexdigest()
                     att_path = f"/google_email/{user_id}/{email.metadata.conversation_id}/attachments/{attachment.filename}"
                     
                     # Construire les métadonnées pour la pièce jointe
@@ -402,8 +446,11 @@ def batch_ingest_gmail_emails_to_qdrant(
                         "tmp_path": att_tmp_path,  # Pour le nettoyage ultérieur
                         "metadata": att_metadata,
                     })
-                # After preparing metadata, save to the email database
+            # After preparing metadata, save to the email database
             try:
+                # Parse the email date string into a datetime object
+                parsed_date = parse_email_date(email.metadata.date)
+                
                 email_manager.save_email(
                     user_id=user_id,
                     email_id=email_id,
@@ -412,7 +459,7 @@ def batch_ingest_gmail_emails_to_qdrant(
                     subject=email.metadata.subject or '',
                     body=email.content.body_text or '',
                     html_body=email.content.body_html or '',
-                    sent_date=email.metadata.date,
+                    sent_date=parsed_date,
                     source_type="google_email",
                     conversation_id=email.metadata.conversation_id,
                     folder=email.metadata.folders

@@ -149,6 +149,7 @@ class EmailManager:
                            end_date: Optional[datetime] = None,
                            source_type: Optional[str] = None,
                            limit: int = 100,
+                           is_classified: Optional[bool] = None,
                            offset: int = 0) -> List[Dict[str, Any]]:
         """
         Search for emails with various filters
@@ -172,6 +173,12 @@ class EmailManager:
             where_clauses.append("source_type = %s")
             params.append(source_type)
         
+        if is_classified is not None:
+            if is_classified:
+                where_clauses.append("is_classified <> 'not classified'")
+            else:
+                where_clauses.append("is_classified = 'not classified'")     
+
         where_clause = " AND ".join(where_clauses)
         query = f"""
             SELECT * FROM email_content 
@@ -210,3 +217,55 @@ class EmailManager:
             processed_results.append(row)
             
         return processed_results
+        
+    def update_email_classification(self, email_id: str, user_id: str, classified_action: str = 'not classified') -> bool:
+        """
+        Update the classification status of an email
+        
+        Args:
+            email_id: The unique ID of the email
+            user_id: The ID of the user who owns the email
+            is_classified: Whether the email has been classified
+            
+        Returns:
+            bool: True if the update was successful, False otherwise
+        """
+        try:
+            query = """
+                UPDATE email_content 
+                SET is_classified = %s, updated_at = CURRENT_TIMESTAMP
+                WHERE email_id = %s AND user_id = %s
+                RETURNING id;
+            """
+            
+            result = self.db.execute_query(query, (classified_action, email_id, user_id))
+            return result is not None and len(result) > 0
+        except Exception as e:
+            logger.error(f"Error updating email classification status: {e}")
+            return False
+            
+    def get_unclassified_emails(self, user_id: str, limit: int = 100, offset: int = 0) -> List[Dict[str, Any]]:
+        """
+        Get emails that have not been classified yet
+        
+        Args:
+            user_id: The ID of the user who owns the emails
+            limit: Maximum number of emails to return
+            offset: Number of emails to skip
+            
+        Returns:
+            List of unclassified emails
+        """
+        try:
+            query = """
+                SELECT * FROM email_content 
+                WHERE user_id = %s AND is_classified = FALSE
+                ORDER BY sent_date DESC
+                LIMIT %s OFFSET %s;
+            """
+            
+            results = self.db.execute_query(query, (user_id, limit, offset))
+            return self._process_email_results(results)
+        except Exception as e:
+            logger.error(f"Error retrieving unclassified emails: {e}")
+            return []
