@@ -62,6 +62,53 @@ function EmailCard({ email, providerType }) {
   const theme = useTheme();
   const [expanded, setExpanded] = useState(false);
   
+  // Map classification action to a color and icon
+  const getClassificationChip = () => {
+    const action = email.is_classified || 'not classified';
+    
+    // Define color and label based on action
+    let chipProps = {
+      label: 'Non classifié',
+      color: 'default',
+    };
+    
+    switch(action) {
+      case 'reply':
+        chipProps = { label: 'Répondre', color: 'primary' };
+        break;
+      case 'forward':
+        chipProps = { label: 'Transférer', color: 'secondary' };
+        break;
+      case 'new_email':
+        chipProps = { label: 'Nouvel email', color: 'info' };
+        break;
+      case 'no_action':
+        chipProps = { label: 'Aucune action', color: 'success' };
+        break;
+      case 'flag_important':
+        chipProps = { label: 'Important', color: 'warning' };
+        break;
+      case 'archive':
+        chipProps = { label: 'Archiver', color: 'default' };
+        break;
+      case 'delete':
+        chipProps = { label: 'Supprimer', color: 'error' };
+        break;
+      default:
+        // Keep default values for 'not classified'
+        break;
+    }
+    
+    return (
+      <Chip 
+        size="small"
+        variant="outlined"
+        {...chipProps}
+        sx={{ ml: 1 }}
+      />
+    );
+  };
+  
   return (
     <Card sx={{ 
       mb: 2, 
@@ -89,9 +136,12 @@ function EmailCard({ email, providerType }) {
           </Typography>
         </Box>
         
-        <Typography variant="h6" sx={{ mb: 1.5, fontSize: '1.1rem' }}>
-          {email.subject || '(Sans objet)'}
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+          <Typography variant="h6" sx={{ fontSize: '1.1rem' }}>
+            {email.subject || '(Sans objet)'}
+          </Typography>
+          {getClassificationChip()}
+        </Box>
         
         <Box sx={{ maxHeight: expanded ? 'none' : '80px', overflow: 'hidden', mb: 2 }}>
           <Typography variant="body2" color="text.secondary">

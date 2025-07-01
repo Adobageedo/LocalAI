@@ -50,7 +50,8 @@ class EmailClassifier:
         self, 
         email_content: Dict[str, Any],
         conversation_history: Optional[List[Dict[str, Any]]] = None,
-        user_preferences: Optional[Dict[str, Any]] = None
+        user_preferences: Optional[Dict[str, Any]] = None,
+        user_id: str = None
     ) -> Dict[str, Any]:
         """
         Classify an email and suggest appropriate actions.
@@ -59,7 +60,8 @@ class EmailClassifier:
             email_content: The email content (subject, body, sender, etc.)
             conversation_history: Optional previous emails in the conversation
             user_preferences: Optional user preferences for classification
-            
+            user_id: User identifier
+        
         Returns:
             Dict with classification results including suggested actions and priority
         """
@@ -86,6 +88,22 @@ class EmailClassifier:
             # Parse the LLM's response to extract structured information
             parsed_classification = self._parse_classification_response(classification_text)
             
+            # Store classification in database if user_id is provided
+            if user_id and email_content.get('id'):
+                try:
+                    email_manager = EmailManager()
+                    
+                    # Update the is_classified flag in email_content table
+                    email_manager.update_email_classification(
+                        email_id=email_content['email_id'],
+                        user_id=user_id,
+                        classified_action=parsed_classification['action']
+                    )
+                    
+                    logger.info(f"Email classification stored in database with ID: {email_content['email_id']}")
+                except Exception as e:
+                    logger.error(f"Error storing email classification in database: {e}")
+            
             return parsed_classification
             
         except Exception as e:
@@ -95,7 +113,8 @@ class EmailClassifier:
                 "action": EmailActionType.REPLY.value,
                 "priority": EmailPriority.MEDIUM.value,
                 "reasoning": f"Default classification due to error: {str(e)}",
-                "suggested_response": None
+                "suggested_response": None,
+                "stored_in_db": False
             }
     
     def _format_email_for_classification(self, email: Dict[str, Any]) -> str:
@@ -247,7 +266,8 @@ class EmailAutoProcessor:
         classification = self.classifier.classify_email(
             email, 
             conversation_history,
-            user_preferences
+            user_preferences,
+            user_id
         )
         
         result = {
@@ -527,7 +547,7 @@ def main():
         print(f"From: {email['sender']}")
         
         # Classify the email
-        classification_result = classifier.classify_email(email)
+        classification_result = classifier.classify_email(email, user_id="test_user")
         print(f"Classification: {classification_result['action']}")
         print(f"Priority: {classification_result['priority']}")
         print(f"Key Information: {classification_result.get('key_info', {})}")

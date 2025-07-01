@@ -113,6 +113,7 @@ CREATE TABLE IF NOT EXISTS email_content (
     source_type VARCHAR(50) NOT NULL, -- Type of email source (gmail, outlook, imap, etc.)
     doc_id UUID,                     -- Reference to the document ID in Qdrant if ingested
     metadata JSONB,                  -- Additional metadata
+    is_classified VARCHAR(255) DEFAULT 'not classified', -- Flag indicating if the email has been classified
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT unique_email_content UNIQUE(user_id, email_id, source_type)
