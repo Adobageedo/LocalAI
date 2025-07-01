@@ -256,7 +256,7 @@ class SyncManager:
         try:
             # Default parameters for Gmail sync
             labels = self.config.get('sync', {}).get('gmail', {}).get('folders', ["INBOX", "SENT"])
-            limit = self.config.get('sync', {}).get('gmail', {}).get('limit_per_folder', 2)
+            limit = self.config.get('sync', {}).get('gmail', {}).get('limit_per_folder', 3)
             
             # Add date threshold to query if specified
             if date_threshold:
@@ -275,7 +275,7 @@ class SyncManager:
                 user_id=user_id,
                 query=query,
                 labels=labels,  # Gmail uses 'labels' instead of 'folders'
-                limit=2,
+                limit=limit,
                 force_reingest=force_reingest,
                 min_date=date_threshold,  # Pass the date threshold to the ingest function
                 return_count=True,  # Request count of processed emails

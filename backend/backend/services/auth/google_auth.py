@@ -83,8 +83,7 @@ GMAIL_SCOPES = [
     'https://www.googleapis.com/auth/gmail.send'
 ]
 DRIVE_SCOPES = [
-    'https://www.googleapis.com/auth/drive.readonly',
-    'https://www.googleapis.com/auth/drive.metadata.readonly'
+    'https://www.googleapis.com/auth/drive'
 ]
 
 def get_gmail_service(user_id):

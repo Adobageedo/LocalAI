@@ -15,6 +15,7 @@ import time
 from typing import List, Dict, Any, Optional, Tuple
 import msal
 import requests
+from backend.services.ingestion.services.ingest_google_emails import parse_email_date
 
 # Ajouter le chemin racine du projet aux chemins d'import
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..')))
@@ -445,6 +446,9 @@ def ingest_outlook_emails_to_qdrant(
                         result["ingested_attachments"] += 1
                 # After preparing metadata, save to the email database
                 try:
+                    # Parse the email date string into a datetime object
+                    parsed_date = parse_email_date(email.metadata.date)
+                    
                     email_manager.save_email(
                         user_id=user_id,
                         email_id=email_id,
@@ -453,7 +457,7 @@ def ingest_outlook_emails_to_qdrant(
                         subject=email.metadata.subject or '',
                         body=email.content.body_text or '',
                         #html_body=email.content.body_html or '',
-                        sent_date=email.metadata.date,
+                        sent_date=parsed_date,
                         source_type="microsoft_email",
                         conversation_id=email.metadata.conversation_id,
                         folder=folder

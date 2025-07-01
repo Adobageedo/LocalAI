@@ -60,7 +60,7 @@ class EmailProcessor:
         
         Args:
             user_id: User ID for authentication
-            providers: List of email providers to process
+            provider: Email provider to process (gmail, outlook, database)
             limit: Maximum number of emails to fetch per provider
             min_date: Minimum date for emails to consider
             auto_actions: Whether to perform actions automatically based on classification
@@ -80,12 +80,13 @@ class EmailProcessor:
         }
             
         # Process emails from database
-        if EmailProvider.DATABASE in providers:
+        if provider == EmailProvider.DATABASE:
             try:
                 emails = self._fetch_db_emails(
                     user_id=user_id,
                     limit=limit,
-                    min_date=min_date
+                    min_date=min_date,
+                    only_unclassified=True
                 )
                 
                 emails_processed = 0
@@ -95,7 +96,6 @@ class EmailProcessor:
                             user_id=user_id,
                             email=email,
                             auto_action=auto_actions,
-                            provider=provider,
                         )
                         stats["results"].append(result)
                         emails_processed += 1
@@ -125,24 +125,25 @@ class EmailProcessor:
         user_id: str,
         limit: int = 10,
         query: Optional[str] = None,
-        min_date: Optional[datetime.datetime] = None
+        min_date: Optional[datetime.datetime] = None,
+        only_unclassified: bool = True
     ) -> List[Dict[str, Any]]:
         """
         Fetch emails from database for the user.
         
         Args:
             user_id: User ID for database lookup
-            folders: List of folders to filter by (inbox, sent, etc.)
             limit: Maximum number of emails to fetch
             query: Text to search for in subject/body
             min_date: Minimum date for emails to consider
-            
+            only_unclassified: If True, only fetch emails that haven't been classified yet
+        
         Returns:
             List of email objects
         """
         # Default to inbox folder if none specified
         folders = ['inbox']
-            
+        
         emails = []
         
         try:
@@ -152,7 +153,7 @@ class EmailProcessor:
             
             # Process each requested folder
             logger.info(f"Fetching emails from database folder 'inbox' for user {user_id}")
-                
+            
             # We'll retrieve emails in batches respecting the limit
             folder_limit = max(limit - len(emails), 0)
             if folder_limit == 0:
@@ -161,24 +162,24 @@ class EmailProcessor:
             if query:
                 # Use search_emails when we have query text
                 folder_emails = self.email_manager.search_emails(
-                        user_id=user_id,
-                        query_text=query,
-                        start_date=start_date,
-                        end_date=end_date,
-                        limit=folder_limit,
-                        offset=0
-                    )
-                    
+                            user_id=user_id,
+                            query_text=query,
+                            start_date=start_date,
+                            end_date=end_date,
+                            limit=folder_limit,
+                            offset=0
+                        )
+                        
                 # Filter by folder after search since the search doesn't take folder param
                 folder_emails = [email for email in folder_emails if email.get('folder') == 'inbox']
             else:
                 # Get emails by user and filter by folder
                 all_user_emails = self.email_manager.get_emails_by_user(
                     user_id=user_id,
-                    limit=limit*5,  # Get more than we need since we'll filter
-                    offset=0
-                )
-                    
+                        limit=limit*5,  # Get more than we need since we'll filter
+                        offset=0
+                    )
+                        
                 # Filter for this folder and respect date constraints
                 folder_emails = []
                 for email in all_user_emails:
@@ -190,14 +191,14 @@ class EmailProcessor:
                                 email_date = datetime.datetime.fromisoformat(email.get('sent_date').replace('Z', '+00:00'))
                             else:
                                 email_date = email.get('sent_date')
-                                
+                                    
                             if email_date < min_date:
                                 continue
-                            
+                                
                         folder_emails.append(email)
                         if len(folder_emails) >= folder_limit:
                             break
-                
+            
             logger.info(f"Found {len(folder_emails)} emails in database folder 'inbox'")
             emails.extend(folder_emails)
             logger.info(f"Successfully fetched {len(emails)} database emails for user {user_id}")
@@ -210,7 +211,6 @@ class EmailProcessor:
     def _process_single_email(
         self,
         user_id: str,
-        provider: str,
         email: Dict[str, Any],
         auto_action: bool = False
     ) -> Dict[str, Any]:
@@ -228,6 +228,7 @@ class EmailProcessor:
         try:
             # Get conversation history if available
             conversation_history = []
+            provider = email.get("source_type")
             if email.get("thread_id") or email.get("conversation_id"):
                 thread_id = email.get("thread_id") or email.get("conversation_id")
                 try:
@@ -247,7 +248,8 @@ class EmailProcessor:
             # Classify the email
             classification_result = self.classifier.classify_email(
                 email_content=email, 
-                conversation_history=conversation_history
+                conversation_history=conversation_history,
+                user_id=user_id
             )
             
             result = {
@@ -286,9 +288,9 @@ def process_emails_cli():
     """
     parser = argparse.ArgumentParser(description="Process emails from various providers")
     parser.add_argument("--user-id", required=True, help="User ID for authentication")
-    parser.add_argument("--providers", nargs="+", choices=["gmail", "outlook", "database"],
-                        default=["database"], help="Email providers to process")
-    parser.add_argument("--limit", type=int, default=10, help="Maximum emails to process per provider")
+    parser.add_argument("--provider", choices=["gmail", "outlook", "database"],
+                        default="database", help="Email provider to process")
+    parser.add_argument("--limit", type=int, default=10, help="Maximum emails to process")
     parser.add_argument("--folders", nargs="+", help="Folders/labels to search")
     parser.add_argument("--min-date", help="Minimum date (YYYY-MM-DD)")
     parser.add_argument("--query", help="Search query for filtering emails")
@@ -305,13 +307,13 @@ def process_emails_cli():
             print(f"Invalid date format: {args.min_date}. Use YYYY-MM-DD format.")
             return
     
-    providers = [EmailProvider(p) for p in args.providers]
+    provider = args.provider
     
     # Process emails
     processor = EmailProcessor()
     results = processor.process_emails(
         user_id=args.user_id,
-        providers=providers,
+        provider=provider,
         limit=args.limit,
         min_date=min_date,
         auto_actions=args.auto_actions,
@@ -330,8 +332,8 @@ def scheduled_email_processing(args: Dict[str, Any]) -> Dict[str, Any]:
     Args:
         args: Dictionary with processing parameters:
             - user_id: User ID for authentication
-            - providers: List of email provider strings
-            - limit: Maximum number of emails to fetch per provider
+            - provider: Email provider string
+            - limit: Maximum number of emails to fetch
             - folders: List of folders/labels to search
             - auto_actions: Whether to automatically perform actions
             
@@ -339,7 +341,7 @@ def scheduled_email_processing(args: Dict[str, Any]) -> Dict[str, Any]:
         Processing results dictionary
     """
     user_id = args.get('user_id')
-    providers_str = args.get('providers')
+    provider_str = args.get('provider')
     limit = args.get('limit', 10)
     folders = args.get('folders')
     auto_actions = args.get('auto_actions', False)
@@ -351,11 +353,11 @@ def scheduled_email_processing(args: Dict[str, Any]) -> Dict[str, Any]:
             "error": "Missing required parameter: user_id"
         }
     
-    # Convert provider strings to enum values if provided
-    providers = None
-    if providers_str:
+    # Convert provider string to enum value if provided
+    provider = None
+    if provider_str:
         try:
-            providers = [EmailProvider(p) for p in providers_str]
+            provider = EmailProvider(provider_str)
         except ValueError as e:
             logger.error(f"Invalid provider in scheduled job: {e}")
             return {
@@ -369,7 +371,7 @@ def scheduled_email_processing(args: Dict[str, Any]) -> Dict[str, Any]:
         processor = EmailProcessor()
         results = processor.process_emails(
             user_id=user_id,
-            providers=providers,
+            provider=provider,
             limit=limit,
             auto_actions=auto_actions,
             folders=folders
@@ -400,26 +402,54 @@ def scheduled_email_processing(args: Dict[str, Any]) -> Dict[str, Any]:
             "error": str(e)
         }
 
-def main():
-    # Arrange
-    user_id = "user_001"
-    email = {
-        "id": "email123",
-        "subject": "Meeting",
-        "sender": "alice@example.com",
-        "date": "2025-06-25T10:00:00Z",
-        "folder": "inbox",
-        "body": "Send a reminder to edoardogenissel@gmail.com to remind him about the meeting tomorrow at 10 AM.",
-        "conversation_id": "conv123"
-    }
-
+def test_process_emails_real_user():
+    """Test the process_emails method with a real user ID"""
+    # Use the specific user ID
+    user_id = "CpixGo0ZYif2Fi33bNrI08WVSfi1"
+    provider = EmailProvider.DATABASE
+    
+    # Create the EmailProcessor instance
     processor = EmailProcessor()
+    
+    try:
+        # Process emails with auto_actions=False
+        print(f"\nProcessing emails for user {user_id}...")
+        result = processor.process_emails(
+            user_id=user_id,
+            provider=provider,
+            limit=5,  # Limit to 5 emails to avoid processing too many
+            auto_actions=False  # Don't take actions automatically
+        )
+        
+        # Print the results
+        print(f"\nProcessed {result['processed_count']} emails")
+        print(f"Classified {result['classified_count']} emails")
+        
+        if result["errors"]:
+            print("\nErrors encountered:")
+            for error in result["errors"]:
+                print(f"  - {error}")
+        
+        if result["results"]:
+            print("\nEmail classification results:")
+            for i, email_result in enumerate(result["results"]):
+                print(f"\nEmail {i+1}:")
+                print(f"  Subject: {email_result.get('subject', 'N/A')}")
+                print(f"  Sender: {email_result.get('sender', 'N/A')}")
+                print(f"  Classification: {email_result.get('classification', {}).get('action', 'N/A')}")
+                print(f"  Priority: {email_result.get('classification', {}).get('priority', 'N/A')}")
+        else:
+            print("\nNo emails were processed. This could be because:")
+            print("  - The user has no emails in the database")
+            print("  - All emails have already been classified")
+            print("  - There was an issue connecting to the database")
+        
+        print("\nReal user test completed!")
+        
+    except Exception as e:
+        print(f"\nError during real user test: {str(e)}")
 
-    # Mock dependencies
-    # Act
-    result = processor._process_single_email(user_id=user_id, email=email, auto_action=False)
-
-    # Assert
-    print(result)
 if __name__ == "__main__":
-    asyncio.run(main())
+    # Run both tests    
+    print("\n=== Running real user test ===")
+    test_process_emails_real_user()

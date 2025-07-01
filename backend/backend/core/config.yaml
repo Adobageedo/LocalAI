@@ -106,7 +106,7 @@ sync:
       - "INBOX"
       - "SENT"
     # Nombre maximum d'emails à récupérer par dossier
-    limit_per_folder: 50
+    limit_per_folder: 4
     # Ne pas récupérer les pièces jointes
     no_attachments: false
     # Forcer la réingestion des emails déjà traités
