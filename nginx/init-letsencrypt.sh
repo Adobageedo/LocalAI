@@ -92,6 +92,17 @@ cert_path=$(docker compose exec certbot find /etc/letsencrypt/live -name "fullch
 if [ -n "$cert_path" ]; then
   echo "Certificats trouvés dans: $cert_path"
   
+  # Renommer le répertoire si nécessaire (enlever le suffixe -0001)
+  if [[ "$cert_path" != "/etc/letsencrypt/live/$domain" ]]; then
+    echo "### Renommage du répertoire de certificats ###"
+    cert_dir_name=$(basename "$cert_path")
+    docker compose exec certbot sh -c "cp -L /etc/letsencrypt/live/$cert_dir_name/* /etc/letsencrypt/live/$domain/ 2>/dev/null || mkdir -p /etc/letsencrypt/live/$domain/"
+    docker compose exec certbot sh -c "cp -L /etc/letsencrypt/archive/$cert_dir_name/* /etc/letsencrypt/archive/$domain/ 2>/dev/null || mkdir -p /etc/letsencrypt/archive/$domain/"
+    docker compose exec certbot sh -c "sed -i.bak 's|$cert_dir_name|$domain|g' /etc/letsencrypt/renewal/$cert_dir_name.conf && mv /etc/letsencrypt/renewal/$cert_dir_name.conf /etc/letsencrypt/renewal/$domain.conf 2>/dev/null || true"
+    echo "Certificats renommés de $cert_dir_name à $domain"
+    cert_path="/etc/letsencrypt/live/$domain"
+  fi
+  
   # Sauvegarder les certificats auto-signés
   echo "### Sauvegarde des certificats auto-signés ###"
   cp "$data_path/live/$domain/fullchain.pem" "$data_path/live/$domain/fullchain.pem.self-signed" 2>/dev/null || true
