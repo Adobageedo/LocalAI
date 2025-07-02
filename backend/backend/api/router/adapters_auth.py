@@ -524,7 +524,8 @@ async def get_recent_gmail_emails(limit: int = 10, user=Depends(get_current_user
                     "content": "",
                     "has_attachments": False,
                     "email_id": file_path,
-                    "doc_id": None
+                    "doc_id": None,
+                    "is_classified": "not classified"
                 }
                 emails.append(email_data)
                 continue
@@ -533,10 +534,11 @@ async def get_recent_gmail_emails(limit: int = 10, user=Depends(get_current_user
                 "subject": metadata.get("subject", "(Sans objet)"),
                 "sender": metadata.get("sender", "Unknown"),
                 "date": metadata.get("date"),
-                "content": metadata.get("content_preview", "")[:500] + ("..." if len(metadata.get("content_preview", "")) > 500 else ""),
+                "content": metadata.get("body_text", "")[:500] + ("..." if len(metadata.get("content_preview", "")) > 500 else ""),
                 "has_attachments": bool(metadata.get("has_attachments")),
                 "email_id": metadata.get("email_id"),
-                "doc_id": file_info.get("doc_id")
+                "doc_id": file_info.get("doc_id"),
+                "is_classified": metadata.get("is_classified", "not classified")
             }
             emails.append(email_data)
         
@@ -572,7 +574,8 @@ async def get_recent_outlook_emails(limit: int = 10, user=Depends(get_current_us
                     "content": "",
                     "has_attachments": False,
                     "email_id": file_path,
-                    "doc_id": None
+                    "doc_id": None,
+                    "is_classified": "not classified"
                 }
                 emails.append(email_data)
                 continue
@@ -581,10 +584,11 @@ async def get_recent_outlook_emails(limit: int = 10, user=Depends(get_current_us
                 "subject": metadata.get("subject", "(Sans objet)"),
                 "sender": metadata.get("sender", "Unknown"),
                 "date": metadata.get("date"),
-                "content": metadata.get("content_preview", "")[:500] + ("..." if len(metadata.get("content_preview", "")) > 500 else ""),
+                "content": metadata.get("body_text", "")[:500] + ("..." if len(metadata.get("body_text", "")) > 500 else ""),
                 "has_attachments": bool(metadata.get("has_attachments")),
                 "email_id": metadata.get("email_id"),
-                "doc_id": file_info.get("doc_id")
+                "doc_id": file_info.get("doc_id"),
+                "is_classified": metadata.get("is_classified", "not classified")
             }
             emails.append(email_data)
         emails.sort(key=lambda x: x.get("date", ""), reverse=True)

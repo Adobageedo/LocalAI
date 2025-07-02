@@ -64,27 +64,38 @@ services:
 
   # Nginx - Serveur web et proxy inverse
   nginx:
-    image: nginx:alpine
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
     container_name: nginx
     ports:
-      - "80:80"     # HTTP
-      - "443:443"   # HTTPS
+      - "80:80"
+      - "443:443"
     volumes:
-      - ./nginx/conf:/etc/nginx/conf.d  # Configurations Nginx
-      - ./nginx/ssl:/etc/nginx/ssl      # Certificats SSL gérés par Certbot
-      - ./certbot/www:/var/www/certbot   # Challenge pour Certbot
-      - ./nginx/logs:/var/log/nginx      # Logs
-      - /var/www/chardouin.fr/html:/usr/share/nginx/html/chardouin.fr  # Site statique
+      - ./nginx/conf:/etc/nginx/conf.d
+      - ./nginx/ssl:/etc/nginx/ssl
+      - ./certbot/www:/var/www/certbot
+      - ./certbot/conf:/etc/letsencrypt
+      - ./nginx/logs:/var/log/nginx
     depends_on:
       - backend
+      - certbot
     restart: unless-stopped
     networks:
       - rag-network
-  # Note: Le service Certbot a été supprimé car il n'est pas nécessaire
-  # en environnement de développement. Pour la production, vous pouvez :
-  # 1. Installer Certbot directement sur l'hôte
-  # 2. Utiliser un service géré comme Cloudflare
-  # 3. Configurer Let's Encrypt via votre hébergeur
+
+  # Certbot pour les certificats SSL Let's Encrypt
+  certbot:
+    image: certbot/certbot:latest
+    container_name: certbot
+    volumes:
+      - ./certbot/www:/var/www/certbot
+      - ./certbot/conf:/etc/letsencrypt
+    entrypoint: "/bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done;'"
+    restart: unless-stopped
+    networks:
+      - rag-network
+
   postgres:
     image: postgres:15-alpine
     container_name: postgres

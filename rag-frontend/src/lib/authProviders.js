@@ -229,11 +229,10 @@ const authProviders = {
    * @param {number} limit - Nombre maximum d'emails à récupérer
    * @returns {Promise<Array>} Liste des emails
    */
-  getRecentEmails: async (provider, limit = 10) => {
+  getRecentEmails: async (provider, limit = 10, force = false) => {
     const cacheKey = `recentEmails_${provider}_${limit}`;
     const cached = localStorage.getItem(cacheKey);
-  
-    if (cached) {
+    if (cached && !force) {
       try {
         const parsed = JSON.parse(cached);
         const now = Date.now();
@@ -247,6 +246,8 @@ const authProviders = {
         console.warn('Error parsing cached recent emails', err);
         localStorage.removeItem(cacheKey); // clean up malformed cache
       }
+    }else{
+      localStorage.removeItem(cacheKey); // expired
     }
 
     try {
@@ -257,7 +258,6 @@ const authProviders = {
         endpoint = `sources/outlook/recent_emails`;
       }
       const response = await authFetch(`${API_BASE_URL}/${endpoint}?limit=${limit}`);
-      console.log("response getRecentEmails", response);
       if (!response.ok) {
         throw new Error(`Error fetching ${provider} emails: ${response.statusText}`);
       }

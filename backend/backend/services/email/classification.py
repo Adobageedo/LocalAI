@@ -15,6 +15,7 @@ from backend.services.rag.retrieve_rag_information_modular import get_rag_respon
 from backend.core.logger import log
 from backend.services.email.mail_agent import EmailAgent
 from backend.services.db.email_manager import EmailManager
+from backend.services.storage.file_registry import FileRegistry
 
 # Setup logger
 logger = log.bind(name="backend.services.email.classification")
@@ -99,8 +100,13 @@ class EmailClassifier:
                         user_id=user_id,
                         classified_action=parsed_classification['action']
                     )
-                    
-                    logger.info(f"Email classification stored in database with ID: {email_content['email_id']}")
+                    file_registry = FileRegistry(user_id)
+                    file_registry.update_email_classification(
+                        email_id=email_content['email_id'],
+                        user_id=user_id,
+                        classified_action=parsed_classification['action']
+                    )
+                    logger.info(f"Email classification stored in file registry with ID: {email_content['email_id']}")
                 except Exception as e:
                     logger.error(f"Error storing email classification in database: {e}")
             

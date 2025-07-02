@@ -272,3 +272,38 @@ class FileRegistry:
                 count += 1
                 
         return count
+
+    def update_email_classification(self, email_id: str, user_id: str, classified_action: str = 'not classified') -> bool:
+        """
+        Met à jour le statut de classification d'un email dans le registre.
+        
+        Args:
+            email_id: Identifiant unique de l'email
+            user_id: Identifiant de l'utilisateur propriétaire de l'email
+            classified_action: Action de classification (reply, forward, no_action, etc.)
+            
+        Returns:
+            bool: True si la mise à jour a réussi, False sinon
+        """
+        updated = False
+        
+        # Parcourir tous les fichiers dans le registre pour trouver l'email correspondant
+        for file_path, file_info in self.registry.items():
+            # Vérifier si c'est un email et s'il correspond à l'ID recherché
+            if "metadata" in file_info and file_info["metadata"].get("doc_id") == email_id:
+                # Mettre à jour le statut de classification dans les métadonnées
+                if "metadata" not in file_info:
+                    file_info["metadata"] = {}
+                
+                file_info["metadata"]["is_classified"] = classified_action
+                file_info["last_modified"] = datetime.now().isoformat()
+                updated = True
+                logger.info(f"Classification de l'email {email_id} mise à jour: {classified_action}")
+        
+        # Sauvegarder les modifications si au moins un email a été mis à jour
+        if updated:
+            self._save_registry()
+            return True
+        else:
+            logger.warning(f"Aucun email avec l'ID {email_id} trouvé dans le registre pour l'utilisateur {user_id}")
+            return False
