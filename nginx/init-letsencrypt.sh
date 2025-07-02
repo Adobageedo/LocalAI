@@ -56,11 +56,11 @@ docker compose up -d nginx
 echo "Attente de 5 secondes pour que Nginx démarre..."
 sleep 5
 
-echo "### Suppression des anciens certificats Let's Encrypt (s'ils existent) ###"
+echo "### Nettoyage des anciens certificats Let's Encrypt (s'ils existent) ###"
 docker compose run --rm --entrypoint "\
-  rm -rf /etc/letsencrypt/live/$domain && \
-  rm -rf /etc/letsencrypt/archive/$domain && \
-  rm -rf /etc/letsencrypt/renewal/$domain.conf" certbot
+  rm -rf /etc/letsencrypt/live/$domain* && \
+  rm -rf /etc/letsencrypt/archive/$domain* && \
+  rm -rf /etc/letsencrypt/renewal/$domain*.conf" certbot
 
 echo "### Demande du certificat Let's Encrypt ###"
 # Sélectionner le bon paramètre en fonction du mode staging
@@ -85,23 +85,26 @@ docker compose run --rm --entrypoint "\
     --force-renewal \
     $domain_args" certbot
 
-# Vérifier si les certificats Let's Encrypt ont été générés avec succès
-if docker compose exec certbot test -f /etc/letsencrypt/live/$domain/fullchain.pem; then
-  echo "### Certificats Let's Encrypt générés avec succès ###"
+# Trouver le répertoire de certificat réel (peut être avec un suffixe comme -0001)
+echo "### Recherche des certificats Let's Encrypt générés ###"
+cert_path=$(docker compose exec certbot find /etc/letsencrypt/live -name "fullchain.pem" | grep "$domain" | head -n 1 | xargs dirname 2>/dev/null)
+
+if [ -n "$cert_path" ]; then
+  echo "Certificats trouvés dans: $cert_path"
   
   # Sauvegarder les certificats auto-signés
   echo "### Sauvegarde des certificats auto-signés ###"
-  cp "$data_path/live/$domain/fullchain.pem" "$data_path/live/$domain/fullchain.pem.self-signed"
-  cp "$data_path/live/$domain/privkey.pem" "$data_path/live/$domain/privkey.pem.self-signed"
+  cp "$data_path/live/$domain/fullchain.pem" "$data_path/live/$domain/fullchain.pem.self-signed" 2>/dev/null || true
+  cp "$data_path/live/$domain/privkey.pem" "$data_path/live/$domain/privkey.pem.self-signed" 2>/dev/null || true
   
   # Copier les certificats Let's Encrypt vers le répertoire Nginx
   echo "### Copie des certificats Let's Encrypt vers Nginx ###"
-  docker compose exec certbot cp /etc/letsencrypt/live/$domain/fullchain.pem /etc/nginx/ssl/live/$domain/fullchain.pem
-  docker compose exec certbot cp /etc/letsencrypt/live/$domain/privkey.pem /etc/nginx/ssl/live/$domain/privkey.pem
+  docker compose exec certbot cp "$cert_path/fullchain.pem" "/etc/nginx/ssl/live/$domain/fullchain.pem"
+  docker compose exec certbot cp "$cert_path/privkey.pem" "/etc/nginx/ssl/live/$domain/privkey.pem"
   
   # Définir les permissions appropriées
-  docker compose exec certbot chmod 644 /etc/nginx/ssl/live/$domain/fullchain.pem
-  docker compose exec certbot chmod 600 /etc/nginx/ssl/live/$domain/privkey.pem
+  docker compose exec certbot chmod 644 "/etc/nginx/ssl/live/$domain/fullchain.pem"
+  docker compose exec certbot chmod 600 "/etc/nginx/ssl/live/$domain/privkey.pem"
   
   echo "### Redémarrage de Nginx avec les certificats Let's Encrypt ###"
   docker compose exec nginx nginx -s reload
@@ -111,7 +114,7 @@ if docker compose exec certbot test -f /etc/letsencrypt/live/$domain/fullchain.p
   echo "Ils seront automatiquement renouvelés tous les 90 jours."
   echo "Vous pouvez maintenant accéder à votre site via HTTPS: https://$domain"
 else
-  echo "### ERREUR: Les certificats Let's Encrypt n'ont pas été générés correctement ###"
+  echo "### ERREUR: Les certificats Let's Encrypt n'ont pas été trouvés ###"
   echo "Nginx continue d'utiliser les certificats auto-signés."
   echo "Vérifiez les journaux de Certbot pour plus d'informations:"
   docker compose logs certbot
