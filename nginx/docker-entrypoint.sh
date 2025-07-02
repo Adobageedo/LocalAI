@@ -8,15 +8,25 @@ handle_certificates() {
         # Check if certificates need renewal (every 6 hours)
         sleep 6h & wait $!
         
-        # Check if certificates have been updated
-        if [ -f "/etc/nginx/ssl/live/chardouin.fr/fullchain.pem.new" ]; then
-            echo "New certificates detected, reloading Nginx..."
-            mv /etc/nginx/ssl/live/chardouin.fr/fullchain.pem.new /etc/nginx/ssl/live/chardouin.fr/fullchain.pem
-            mv /etc/nginx/ssl/live/chardouin.fr/privkey.pem.new /etc/nginx/ssl/live/chardouin.fr/privkey.pem
-            nginx -s reload
-            echo "Nginx reloaded with new certificates."
-        else
-            echo "No certificate changes detected."
+        # Check if Let's Encrypt certificates have been updated
+        if [ -f "/etc/letsencrypt/live/chardouin.fr/fullchain.pem" ]; then
+            echo "Checking for certificate updates..."
+            
+            # Compare modification times
+            CURRENT_CERT_TIME=$(stat -c %Y /etc/nginx/ssl/live/chardouin.fr/fullchain.pem 2>/dev/null || echo "0")
+            NEW_CERT_TIME=$(stat -c %Y /etc/letsencrypt/live/chardouin.fr/fullchain.pem 2>/dev/null || echo "0")
+            
+            if [ "$NEW_CERT_TIME" -gt "$CURRENT_CERT_TIME" ]; then
+                echo "New Let's Encrypt certificates detected, updating Nginx certificates..."
+                cp /etc/letsencrypt/live/chardouin.fr/fullchain.pem /etc/nginx/ssl/live/chardouin.fr/fullchain.pem
+                cp /etc/letsencrypt/live/chardouin.fr/privkey.pem /etc/nginx/ssl/live/chardouin.fr/privkey.pem
+                chmod 644 /etc/nginx/ssl/live/chardouin.fr/fullchain.pem
+                chmod 600 /etc/nginx/ssl/live/chardouin.fr/privkey.pem
+                nginx -s reload
+                echo "Nginx reloaded with new certificates."
+            else
+                echo "No certificate changes detected."
+            fi
         fi
     done
 }
