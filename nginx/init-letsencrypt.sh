@@ -12,8 +12,8 @@ fi
 # Paramètres par défaut
 domains=(chardouin.fr www.chardouin.fr)
 rsa_key_size=4096
-data_path="./ssl"
-email="edoardogenissel@gmail.com" # Adresse email pour les notifications Let's Encrypt
+data_path="./nginx/ssl"
+email="admin@chardouin.fr" # Adresse email pour les notifications Let's Encrypt
 staging=0 # Mettre à 1 pour tester avec le serveur staging de Let's Encrypt
 
 # Demander les informations à l'utilisateur
@@ -31,10 +31,32 @@ echo "### Création des répertoires pour $domain ###"
 
 # Créer les répertoires requis
 mkdir -p "$data_path/live/$domain"
-mkdir -p "$data_path/conf/live/$domain"
-mkdir -p "../certbot/www"
+mkdir -p "./certbot/www"
+mkdir -p "./certbot/conf/live/$domain"
 
-echo "### Suppression du certificat temporaire ###"
+# Générer des certificats auto-signés si nécessaire
+if [ ! -f "$data_path/live/$domain/fullchain.pem" ] || [ ! -f "$data_path/live/$domain/privkey.pem" ]; then
+  echo "### Génération de certificats auto-signés temporaires ###"
+  openssl req -x509 -nodes -newkey rsa:$rsa_key_size -days 1 \
+    -keyout "$data_path/live/$domain/privkey.pem" \
+    -out "$data_path/live/$domain/fullchain.pem" \
+    -subj "/CN=$domain" \
+    -addext "subjectAltName=DNS:$domain,DNS:www.$domain,DNS:localhost"
+  
+  # Définir les permissions appropriées
+  chmod 600 "$data_path/live/$domain/privkey.pem"
+  chmod 644 "$data_path/live/$domain/fullchain.pem"
+  
+  echo "Certificats auto-signés générés avec succès."
+fi
+
+# S'assurer que Nginx utilise les certificats auto-signés pour démarrer
+echo "### Démarrage de Nginx avec les certificats auto-signés ###"
+docker compose up -d nginx
+echo "Attente de 5 secondes pour que Nginx démarre..."
+sleep 5
+
+echo "### Suppression des anciens certificats Let's Encrypt (s'ils existent) ###"
 docker compose run --rm --entrypoint "\
   rm -rf /etc/letsencrypt/live/$domain && \
   rm -rf /etc/letsencrypt/archive/$domain && \
@@ -63,10 +85,34 @@ docker compose run --rm --entrypoint "\
     --force-renewal \
     $domain_args" certbot
 
-echo "### Redémarrage de Nginx ###"
-docker compose exec nginx nginx -s reload
-
-echo "### Configuration terminée! ###"
-echo "Les certificats Let's Encrypt ont été générés pour: ${domains[*]}"
-echo "Ils seront automatiquement renouvelés tous les 90 jours."
-echo "Vous pouvez maintenant accéder à votre site via HTTPS: https://$domain"
+# Vérifier si les certificats Let's Encrypt ont été générés avec succès
+if docker compose exec certbot test -f /etc/letsencrypt/live/$domain/fullchain.pem; then
+  echo "### Certificats Let's Encrypt générés avec succès ###"
+  
+  # Sauvegarder les certificats auto-signés
+  echo "### Sauvegarde des certificats auto-signés ###"
+  cp "$data_path/live/$domain/fullchain.pem" "$data_path/live/$domain/fullchain.pem.self-signed"
+  cp "$data_path/live/$domain/privkey.pem" "$data_path/live/$domain/privkey.pem.self-signed"
+  
+  # Copier les certificats Let's Encrypt vers le répertoire Nginx
+  echo "### Copie des certificats Let's Encrypt vers Nginx ###"
+  docker compose exec certbot cp /etc/letsencrypt/live/$domain/fullchain.pem /etc/nginx/ssl/live/$domain/fullchain.pem
+  docker compose exec certbot cp /etc/letsencrypt/live/$domain/privkey.pem /etc/nginx/ssl/live/$domain/privkey.pem
+  
+  # Définir les permissions appropriées
+  docker compose exec certbot chmod 644 /etc/nginx/ssl/live/$domain/fullchain.pem
+  docker compose exec certbot chmod 600 /etc/nginx/ssl/live/$domain/privkey.pem
+  
+  echo "### Redémarrage de Nginx avec les certificats Let's Encrypt ###"
+  docker compose exec nginx nginx -s reload
+  
+  echo "### Configuration terminée! ###"
+  echo "Les certificats Let's Encrypt ont été générés pour: ${domains[*]}"
+  echo "Ils seront automatiquement renouvelés tous les 90 jours."
+  echo "Vous pouvez maintenant accéder à votre site via HTTPS: https://$domain"
+else
+  echo "### ERREUR: Les certificats Let's Encrypt n'ont pas été générés correctement ###"
+  echo "Nginx continue d'utiliser les certificats auto-signés."
+  echo "Vérifiez les journaux de Certbot pour plus d'informations:"
+  docker compose logs certbot
+fi
