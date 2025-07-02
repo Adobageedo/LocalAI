@@ -35,7 +35,7 @@ mkdir -p "$data_path/conf/live/$domain"
 mkdir -p "../certbot/www"
 
 echo "### Suppression du certificat temporaire ###"
-docker-compose run --rm --entrypoint "\
+docker compose run --rm --entrypoint "\
   rm -rf /etc/letsencrypt/live/$domain && \
   rm -rf /etc/letsencrypt/archive/$domain && \
   rm -rf /etc/letsencrypt/renewal/$domain.conf" certbot
@@ -54,7 +54,7 @@ for domain in "${domains[@]}"; do
 done
 
 # Obtenir le certificat
-docker-compose run --rm --entrypoint "\
+docker compose run --rm --entrypoint "\
   certbot certonly --webroot -w /var/www/certbot \
     $staging_arg \
     --email $email \
@@ -64,7 +64,7 @@ docker-compose run --rm --entrypoint "\
     $domain_args" certbot
 
 echo "### Redémarrage de Nginx ###"
-docker-compose exec nginx nginx -s reload
+docker compose exec nginx nginx -s reload
 
 echo "### Configuration terminée! ###"
 echo "Les certificats Let's Encrypt ont été générés pour: ${domains[*]}"
