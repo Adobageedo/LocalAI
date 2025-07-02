@@ -38,6 +38,9 @@ from backend.services.db.models import SyncStatus
 # Import file registry for tracking document counts
 from backend.services.storage.file_registry import FileRegistry
 
+# Import email processor for classification after sync
+from backend.services.email.email_processor import EmailProcessor, EmailProvider
+
 from backend.core.logger import log
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..'))
 # Setup logging
@@ -182,66 +185,60 @@ class SyncManager:
     
     def sync_provider(self, user_id: str, provider_name: str):
         """Synchronize emails for a specific user and provider."""
-        # Skip disabled providers
-        provider_config = self.config.get('sync', {}).get(provider_name, {})
-        if not provider_config.get('enabled', True):
-            logger.info(f"Provider {provider_name} is disabled in config")
-            return
-        
-        # Check if user has available credits
-        if not self.credits_manager.has_available_credits(user_id):
-            logger.warning(f"User {user_id} has no available credits for {provider_name} synchronization")
-            return
-        
         try:
-            limit=100#self.credits_manager.get_limit(user_id)
-            # Create sync status record
-            syncstatus = SyncStatus(user_id=user_id, source_type=provider_name, total_documents=limit)
-            syncstatus.upsert_status(status="in_progress", progress=0.0)
-            # Get date threshold for filtering old documents
+            # Get date threshold for this user based on credits
             date_threshold = self.credits_manager.get_date_threshold(user_id)
-            logger.info(f"Using date threshold for {user_id}: {date_threshold.isoformat()[:10]} ({date_threshold.strftime('%Y-%m-%d')})")
             
-            # Get query from config
-            query = provider_config.get('query', '')
-            if not query and provider_name == 'gmail':
-                query = None  # Default value for Gmail
-            elif not query and provider_name == 'outlook':
-                query = None  # Default value for Outlook
-        
-            try:
-                # Execute provider-specific synchronization
-                if provider_name == 'gmail':
-                    logger.info(f"Syncing Gmail for user {user_id}")
-                    self._sync_gmail(user_id=user_id, query=query, date_threshold=date_threshold, syncstatus=syncstatus)
-                elif provider_name == 'outlook':
-                    logger.info(f"Syncing Outlook for user {user_id}")
-                    self._sync_outlook(user_id=user_id, query=query, date_threshold=date_threshold, syncstatus=syncstatus)
-                elif provider_name == 'gdrive':
-                    logger.info(f"Syncing Google Drive for user {user_id}")
-                    self._sync_gdrive(user_id=user_id, query=query, syncstatus=syncstatus)
-                elif provider_name == 'personal-storage':
-                    logger.info(f"Syncing Personal Storage for user {user_id}")
-                    self._sync_personal_storage(user_id=user_id, syncstatus=syncstatus)
-                else:
-                    logger.warning(f"Unknown provider: {provider_name}")
+            # Create a sync status record
+            syncstatus = SyncStatus(user_id=user_id, source_type=provider_name, total_documents=50)
+            syncstatus.upsert_status(status="in_progress", progress=0.0)
             
-                # After sync is complete, get new document count from file registry
-                registry = FileRegistry(user_id)  # Reload registry to see changes
-                final_docs = registry.count_user_documents()
-                # Deduct credits based on actual new documents added to the registry
-                syncstatus.update_status(status="completed", progress=1.0)
-                if final_docs > 0:
-                    self.credits_manager.use_credits(user_id, final_docs)
-                # Update sync status
+            # Dispatch to provider-specific sync method
+            if provider_name == "gmail":
+                # Get Gmail-specific config
+                gmail_config = self.config.get('sync', {}).get('gmail', {})
+                query = gmail_config.get('query')
                 
-            except Exception as e:
-                logger.error(f"Error synchronizing {provider_name} for user {user_id}: {e}", exc_info=True)
-                syncstatus.update_status(status="failed")
+                # Sync Gmail emails
+                self._sync_gmail(user_id, query, date_threshold, syncstatus)
+                
+                # Process and classify emails after sync
+                self._process_emails_after_sync(user_id, "gmail", syncstatus)
+                
+            elif provider_name == "outlook":
+                # Get Outlook-specific config
+                outlook_config = self.config.get('sync', {}).get('outlook', {})
+                query = outlook_config.get('query')
+                
+                # Sync Outlook emails
+                self._sync_outlook(user_id, query, date_threshold, syncstatus)
+                
+                # Process and classify emails after sync
+                self._process_emails_after_sync(user_id, "outlook", syncstatus)
+                
+            elif provider_name == "personal_storage":
+                # Sync personal storage
+                self._sync_personal_storage(user_id, syncstatus)
+                
+            elif provider_name == "gdrive":
+                # Get Google Drive-specific config
+                gdrive_config = self.config.get('sync', {}).get('gdrive', {})
+                query = gdrive_config.get('query')
+                limit = gdrive_config.get('limit', 100)
+                force_reingest = gdrive_config.get('force_reingest', False)
+                
+                # Sync Google Drive documents
+                self._sync_gdrive(user_id, query, None, limit, force_reingest, syncstatus)
+            
+            # Mark sync as completed
+            syncstatus.upsert_status(status="completed", progress=1.0)
+            
         except Exception as e:
-            logger.error(f"Error synchronizing {provider_name} for user {user_id}: {e}", exc_info=True)
-            SyncStatus.create(user_id=user_id, source_type=provider_name, status="error")
-        
+            logger.error(f"Error syncing {provider_name} for user {user_id}: {str(e)}", exc_info=True)
+            # Mark sync as failed
+            if 'syncstatus' in locals():
+                syncstatus.upsert_status(status="failed", progress=1.0)
+    
     def _sync_gmail(self, user_id: str, query: str = None, date_threshold: Optional[datetime] = None, syncstatus: SyncStatus = None) -> int:
         """Synchronize Gmail emails for a specific user.
         
@@ -256,7 +253,7 @@ class SyncManager:
         try:
             # Default parameters for Gmail sync
             labels = self.config.get('sync', {}).get('gmail', {}).get('folders', ["INBOX", "SENT"])
-            limit = self.config.get('sync', {}).get('gmail', {}).get('limit_per_folder', 3)
+            limit = self.config.get('sync', {}).get('gmail', {}).get('limit_per_folder', 30)
             
             # Add date threshold to query if specified
             if date_threshold:
@@ -414,5 +411,69 @@ class SyncManager:
                 "success": False,
                 "files_ingested": 0,
                 "files_skipped": 0,
+                "errors": [error_msg]
+            }
+
+    def _process_emails_after_sync(self, user_id: str, provider_name: str, syncstatus: Optional[SyncStatus] = None) -> Dict[str, Any]:
+        """Process and classify emails after synchronization.
+        
+        Args:
+            user_id: User identifier
+            provider_name: Name of the email provider (gmail, outlook)
+            syncstatus: Optional SyncStatus object for tracking
+            
+        Returns:
+            Dictionary with processing results
+        """
+        try:
+            # Update sync status if provided
+            if syncstatus:
+                syncstatus.update_status(f"Processing emails from {provider_name}")
+            
+            # Get email processing config
+            processing_config = self.config.get('email_processing', {})
+            limit = processing_config.get('limit_per_sync', 10)
+            auto_actions = processing_config.get('auto_actions', False)
+            
+            # Create email processor
+            processor = EmailProcessor()
+            
+            # Process emails from database (already synced)
+            logger.info(f"Processing emails for user {user_id} after {provider_name} sync")
+            result = processor.process_emails(
+                user_id=user_id,
+                provider=EmailProvider.DATABASE,
+                limit=limit,
+                auto_actions=auto_actions
+            )
+            
+            # Log results
+            processed_count = result.get('processed_count', 0)
+            classified_count = result.get('classified_count', 0)
+            actions_taken = result.get('actions_taken', 0)
+            
+            logger.info(f"Email processing completed for user {user_id} after {provider_name} sync: "
+                       f"{processed_count} emails processed, {classified_count} classified, "
+                       f"{actions_taken} actions taken")
+            
+            # Update sync status if provided
+            if syncstatus:
+                syncstatus.update_status(f"Completed processing {processed_count} emails")
+            
+            return result
+            
+        except Exception as e:
+            error_msg = f"Email processing error for user {user_id} after {provider_name} sync: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            
+            # Update sync status if provided
+            if syncstatus:
+                syncstatus.update_status(f"Error processing emails: {str(e)}")
+            
+            return {
+                "success": False,
+                "processed_count": 0,
+                "classified_count": 0,
+                "actions_taken": 0,
                 "errors": [error_msg]
             }
