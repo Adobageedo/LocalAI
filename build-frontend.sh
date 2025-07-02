@@ -30,6 +30,14 @@ npm run build
 if [ -d "./dist" ]; then
   echo "✅ Build réussi ! Les fichiers sont dans le dossier './dist'"
   echo "🚀 Vous pouvez maintenant démarrer Docker avec 'docker-compose up -d'"
+  # Supprime les anciens fichiers du site
+  sudo rm -rf /var/www/chardouin.fr/html/*
+
+  # Déplace les nouveaux fichiers buildés
+  sudo mv ./dist/* /var/www/chardouin.fr/html/
+
+  echo "📁 Déploiement terminé dans /var/www/chardouin.fr/html"
+
 else
   echo "❌ Erreur lors du build. Vérifiez les logs ci-dessus."
 fi

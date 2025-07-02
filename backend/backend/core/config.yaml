@@ -128,6 +128,20 @@ sync:
     # Forcer la réingestion des emails déjà traités
     force_reingest: false
 
+  # Configuration du traitement des emails après synchronisation
+  email_processing:
+    enabled: true
+    # Nombre maximum d'emails à traiter après chaque synchronisation
+    limit_per_sync: 50
+    # Activer les actions automatiques basées sur la classification
+    auto_actions: false
+    # Types d'actions automatiques à effectuer (reply, forward, flag_important, etc.)
+    allowed_actions:
+      - "flag_important"
+      - "archive"
+    # Priorité minimale pour les actions automatiques (low, medium, high)
+    min_priority: "medium"
+
 # Configuration des journaux
 logging:
   # Niveau de journalisation (DEBUG, INFO, WARNING, ERROR, CRITICAL)
