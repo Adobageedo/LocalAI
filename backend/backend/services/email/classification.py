@@ -171,60 +171,42 @@ Content: {email.get('body', '')}
     ) -> str:
         """Create a prompt for email classification."""
         # Add user preferences if available
-        preferences_text = ""
-        custom_actions = []
-        custom_priorities = []
-        custom_prompt = None
+        rules_text = ""
         
         if user_preferences:
-            # Extract custom prompt if provided
-            if "custom_prompt" in user_preferences:
-                custom_prompt = user_preferences.get("custom_prompt")
-            
-            # Extract custom actions and priorities if provided
-            if "custom_actions" in user_preferences:
-                custom_actions = user_preferences.get("custom_actions", [])
-            
-            if "custom_priorities" in user_preferences:
-                custom_priorities = user_preferences.get("custom_priorities", [])
-            
-            # Format general preferences
-            preferences_text = "\nUSER PREFERENCES:\n"
-            for key, value in user_preferences.items():
-                if key not in ["custom_prompt", "custom_actions", "custom_priorities"]:
-                    preferences_text += f"- {key}: {value}\n"
-        
-        # If user has provided a custom prompt template, use it
-        if custom_prompt:
-            # Replace placeholders with actual content
-            return custom_prompt.replace("{email}", email) \
-                               .replace("{conversation_history}", conversation_history) \
-                               .replace("{preferences_text}", preferences_text)
+            # Extract and format rules if provided
+            if "rules" in user_preferences and user_preferences["rules"]:
+                rules = user_preferences.get("rules", [])
+                rules_text = "\nUSER CLASSIFICATION RULES:\n"
+                for i, rule in enumerate(rules, 1):
+                    keyword = rule.get("keyword", "")
+                    action = rule.get("action", "")
+                    recipient = rule.get("recipient", "")
+                    description = rule.get("description", "")
+                    
+                    rule_text = f"{i}. When an email contains \"{keyword}\", perform action \"{action}\""
+                    if recipient and (action == "forward" or action == "new_email"):
+                        rule_text += f" to {recipient}"
+                    if description:
+                        rule_text += f" - {description}"
+                    
+                    rules_text += rule_text + "\n"
         
         # Default actions and priorities
         action_options = [action.value for action in EmailActionType]
         priority_options = [priority.value for priority in EmailPriority]
         
-        # Add custom actions and priorities if provided
-        for custom_action in custom_actions:
-            if custom_action not in action_options:
-                action_options.append(custom_action)
-        
-        for custom_priority in custom_priorities:
-            if custom_priority not in priority_options:
-                priority_options.append(custom_priority)
-        
         # Format action and priority guidelines
         action_guidelines = "\n".join([f"- \"{action}\": {self._get_action_description(action)}" for action in action_options])
         priority_guidelines = "\n".join([f"- \"{priority}\": {self._get_priority_description(priority)}" for priority in priority_options])
         
-        # Default prompt
+        # Always use the default prompt, but incorporate user rules if available
         return f"""
 You are an intelligent email assistant. Analyze the following email and determine the most appropriate action to take.
 
 {email}
 {conversation_history}
-{preferences_text}
+{rules_text}
 
 Based on this information, please categorize the email and suggest an action to take.
 For your response, follow this format exactly:
@@ -240,7 +222,7 @@ For the ACTION field, use the following guidelines:
 For the PRIORITY field:
 {priority_guidelines}
 """
-
+    
     def _get_action_description(self, action: str) -> str:
         """Get description for an action type."""
         descriptions = {

@@ -11,13 +11,19 @@ logger = log.bind(name="backend.api.endpoints.email_preferences")
 
 class ClassificationPreferences(BaseModel):
     """Model for email classification preferences"""
-    custom_prompt: Optional[str] = None
-    custom_actions: Optional[list] = None
-    custom_priorities: Optional[list] = None
+    rules: Optional[list] = None
     sender_rules: Optional[Dict[str, Any]] = None
     subject_rules: Optional[Dict[str, Any]] = None
     content_rules: Optional[Dict[str, Any]] = None
     general_preferences: Optional[Dict[str, Any]] = None
+
+class ClassificationRule(BaseModel):
+    """Model for a single classification rule"""
+    id: str
+    keyword: str
+    action: str
+    recipient: Optional[str] = None
+    description: Optional[str] = None
 
 @router.get("/classification", response_model=ClassificationPreferences)
 async def get_classification_preferences(current_user: Dict = Depends(get_current_user)):
@@ -25,7 +31,7 @@ async def get_classification_preferences(current_user: Dict = Depends(get_curren
     Get the current user's email classification preferences
     """
     try:
-        user_id = current_user.get("id")
+        user_id = current_user.get("uid")
         user_preferences = UserPreferences()
         preferences = user_preferences.get_user_classification_preferences(user_id)
         
@@ -50,14 +56,14 @@ async def update_classification_preferences(
     Update the current user's email classification preferences
     """
     try:
-        user_id = current_user.get("id")
-        email_manager = EmailManager()
+        user_id = current_user.get("uid")
+        user_preferences = UserPreferences()
         
         # Convert Pydantic model to dict
         preferences_dict = preferences.dict(exclude_unset=True)
         
         # Save preferences to database
-        success = email_manager.save_user_classification_preferences(user_id, preferences_dict)
+        success = user_preferences.save_user_classification_preferences(user_id, preferences_dict)
         
         if not success:
             raise HTTPException(
