@@ -247,7 +247,7 @@ def fetch_gmail_emails(
 
 def batch_ingest_gmail_emails_to_qdrant(
     labels: List[str] = ["INBOX", "SENT"],
-    limit: int = 10,
+    limit: int = 500,
     query: str = None,
     force_reingest: bool = False,
     save_attachments: bool = True,
@@ -344,6 +344,7 @@ def batch_ingest_gmail_emails_to_qdrant(
         )
         
         result["total_emails_found"] = total_found
+        syncstatus.total_documents = total_found
         logger.info(f"Nombre d'emails trouvés: {total_found}")
         
         if not emails:
