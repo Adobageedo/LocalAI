@@ -301,7 +301,7 @@ def batch_ingest_gdrive_documents(
         # Récupérer les fichiers depuis Google Drive
         files = fetch_drive_files(drive_service, query, limit, folder_id)
         result["total_files_found"] = len(files)
-        
+        syncstatus.total_documents = len(files)
         if not files:
             logger.info("Aucun fichier trouvé dans Google Drive avec les critères spécifiés")
             result["success"] = True

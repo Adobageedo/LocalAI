@@ -49,6 +49,7 @@ def flush_batch(batch_documents, user_id, result, file_registry, syncstatus: Syn
             status = "in_progress"
             progress = result["items_ingested"]
             syncstatus.update_status(status, progress)
+            logger.info(f"Batch de {len(batch_documents)} documents ingérés et items already ingested: {result['items_ingested']}")
     except Exception as batch_err:
         logger.error(f"Error in batch ingestion: {batch_err}")
         logger.error(traceback.format_exc())

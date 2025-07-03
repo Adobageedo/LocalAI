@@ -6,13 +6,79 @@ This module provides the UserPreferences class for managing user preferences in 
 import json
 from typing import Dict, Any, Optional
 from datetime import datetime
-
+from backend.core.logger import log
 from .postgres_manager import PostgresManager
+logger = log.bind(name="backend.services.db.user_preferences")
 
 class UserPreferences:
     """Model class for user_preferences table"""
     
-    def __init__(self, user_id: str, language: str = "fr", dark_mode: bool = False,
+    def __init__(self):
+        self.db = PostgresManager()
+    
+    def save_user_classification_preferences(self, user_id: str, preferences: Dict[str, Any]) -> bool:
+        """
+        Save or update user's email classification preferences
+        
+        Args:
+            user_id: User identifier
+            preferences: Dictionary of classification preferences
+            
+        Returns:
+            Boolean indicating success
+        """
+        try:
+            # Convert preferences to JSON
+            preferences_json = json.dumps(preferences)
+            
+            # Check if preferences already exist for this user
+            check_query = "SELECT user_id FROM user_preferences WHERE user_id = %s"
+            result = self.db.execute_query(check_query, (user_id,), fetch_one=True)
+            
+            if result:
+                # Update existing preferences
+                update_query = """
+                    UPDATE user_preferences 
+                    SET preferences = %s, updated_at = NOW()
+                    WHERE user_id = %s
+                """
+                self.db.execute_query(update_query, (preferences_json, user_id), commit=True)
+            else:
+                # Insert new preferences
+                insert_query = """
+                    INSERT INTO user_preferences 
+                    (user_id, preferences, created_at, updated_at)
+                    VALUES (%s, %s, NOW(), NOW())
+                """
+                self.db.execute_query(insert_query, (user_id, preferences_json), commit=True)
+            
+            return True
+        except Exception as e:
+            logger.error(f"Error saving user classification preferences: {e}")
+            return False
+    
+    def get_user_classification_preferences(self, user_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Retrieve user's email classification preferences
+        
+        Args:
+            user_id: User identifier
+            
+        Returns:
+            Dictionary of classification preferences or None if not found
+        """
+        try:
+            query = "SELECT preferences FROM user_preferences WHERE user_id = %s"
+            result = self.db.execute_query(query, (user_id,), fetch_one=True)
+            
+            if result and result[0]:
+                return json.loads(result[0])
+            return None
+        except Exception as e:
+            logger.error(f"Error retrieving user classification preferences: {e}")
+            return None
+    
+    def start(self, user_id: str, language: str = "fr", dark_mode: bool = False,
                  email_notifications: bool = False, mail_server: Optional[str] = None,
                  mail_username: Optional[str] = None, mail_password: Optional[str] = None,
                  mail_imap_port: Optional[int] = 993, mail_smtp_port: Optional[int] = 465,
