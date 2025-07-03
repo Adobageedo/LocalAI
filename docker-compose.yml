@@ -72,6 +72,7 @@ services:
       - "80:80"
       - "443:443"
     volumes:
+      - /var/www/chardouin.fr/html:/var/www/chardouin.fr/html:ro
       - ./nginx/conf:/etc/nginx/conf.d
       - ./nginx/ssl:/etc/nginx/ssl
       - ./certbot/www:/var/www/certbot
