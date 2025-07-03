@@ -16,7 +16,7 @@ from backend.core.logger import log
 from backend.services.email.mail_agent import EmailAgent
 from backend.services.db.email_manager import EmailManager
 from backend.services.storage.file_registry import FileRegistry
-
+from backend.services.db.user_preferences import UserPreferences
 # Setup logger
 logger = log.bind(name="backend.services.email.classification")
 
@@ -45,7 +45,7 @@ class EmailClassifier:
     
     def __init__(self):
         """Initialize the email classifier."""
-        pass
+        self.user_preferences = UserPreferences()
     
     def classify_email(
         self, 
@@ -69,6 +69,14 @@ class EmailClassifier:
         # Format the email and conversation history for the LLM
         formatted_email = self._format_email_for_classification(email_content)
         formatted_history = self._format_history_for_classification(conversation_history) if conversation_history else ""
+        
+        # If user_id is provided but no preferences, try to load them from the database
+        if user_id and not user_preferences:
+            try:
+                user_preferences = self.user_preferences.get_user_classification_preferences(user_id)
+                logger.info(f"Loaded classification preferences for user {user_id}")
+            except Exception as e:
+                logger.error(f"Error loading user preferences: {e}")
         
         # Create the prompt for classification
         classification_prompt = self._create_classification_prompt(
@@ -164,11 +172,53 @@ Content: {email.get('body', '')}
         """Create a prompt for email classification."""
         # Add user preferences if available
         preferences_text = ""
+        custom_actions = []
+        custom_priorities = []
+        custom_prompt = None
+        
         if user_preferences:
+            # Extract custom prompt if provided
+            if "custom_prompt" in user_preferences:
+                custom_prompt = user_preferences.get("custom_prompt")
+            
+            # Extract custom actions and priorities if provided
+            if "custom_actions" in user_preferences:
+                custom_actions = user_preferences.get("custom_actions", [])
+            
+            if "custom_priorities" in user_preferences:
+                custom_priorities = user_preferences.get("custom_priorities", [])
+            
+            # Format general preferences
             preferences_text = "\nUSER PREFERENCES:\n"
             for key, value in user_preferences.items():
-                preferences_text += f"- {key}: {value}\n"
+                if key not in ["custom_prompt", "custom_actions", "custom_priorities"]:
+                    preferences_text += f"- {key}: {value}\n"
         
+        # If user has provided a custom prompt template, use it
+        if custom_prompt:
+            # Replace placeholders with actual content
+            return custom_prompt.replace("{email}", email) \
+                               .replace("{conversation_history}", conversation_history) \
+                               .replace("{preferences_text}", preferences_text)
+        
+        # Default actions and priorities
+        action_options = [action.value for action in EmailActionType]
+        priority_options = [priority.value for priority in EmailPriority]
+        
+        # Add custom actions and priorities if provided
+        for custom_action in custom_actions:
+            if custom_action not in action_options:
+                action_options.append(custom_action)
+        
+        for custom_priority in custom_priorities:
+            if custom_priority not in priority_options:
+                priority_options.append(custom_priority)
+        
+        # Format action and priority guidelines
+        action_guidelines = "\n".join([f"- \"{action}\": {self._get_action_description(action)}" for action in action_options])
+        priority_guidelines = "\n".join([f"- \"{priority}\": {self._get_priority_description(priority)}" for priority in priority_options])
+        
+        # Default prompt
         return f"""
 You are an intelligent email assistant. Analyze the following email and determine the most appropriate action to take.
 
@@ -179,23 +229,39 @@ You are an intelligent email assistant. Analyze the following email and determin
 Based on this information, please categorize the email and suggest an action to take.
 For your response, follow this format exactly:
 
-ACTION: [One of: reply, forward, new_email, no_action, flag_important, archive, delete]
-PRIORITY: [One of: high, medium, low]
+ACTION: [One of: {', '.join(action_options)}]
+PRIORITY: [One of: {', '.join(priority_options)}]
 REASONING: [Briefly explain why you chose this action and priority]
 SUGGESTED_RESPONSE: [A brief outline of how to respond, if applicable]
 
 For the ACTION field, use the following guidelines:
-- "reply": The email requires a direct response
-- "forward": The email should be forwarded to someone else
-- "new_email": A new email should be composed (not a direct reply)
-- "no_action": No action needed at this time
-- "flag_important": The email should be flagged for later attention
+{action_guidelines}
 
 For the PRIORITY field:
-- "high": Urgent, should be handled immediately
-- "medium": Important but not urgent
-- "low": Can be handled when convenient
+{priority_guidelines}
 """
+
+    def _get_action_description(self, action: str) -> str:
+        """Get description for an action type."""
+        descriptions = {
+            "reply": "The email requires a direct response",
+            "forward": "The email should be forwarded to someone else",
+            "new_email": "A new email should be composed (not a direct reply)",
+            "no_action": "No action needed at this time",
+            "flag_important": "The email should be flagged for later attention",
+            "archive": "The email can be archived",
+            "delete": "The email can be deleted"
+        }
+        return descriptions.get(action, "Custom action")
+    
+    def _get_priority_description(self, priority: str) -> str:
+        """Get description for a priority level."""
+        descriptions = {
+            "high": "Urgent, should be handled immediately",
+            "medium": "Important but not urgent",
+            "low": "Can be handled when convenient"
+        }
+        return descriptions.get(priority, "Custom priority")
     
     def _parse_classification_response(self, response: str) -> Dict[str, Any]:
         """

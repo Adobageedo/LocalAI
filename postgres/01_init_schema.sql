@@ -118,7 +118,21 @@ CREATE TABLE IF NOT EXISTS email_content (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT unique_email_content UNIQUE(user_id, email_id, source_type)
 );
-
+CREATE TABLE IF NOT EXISTS user_preferences (
+    id SERIAL PRIMARY KEY,
+    user_id VARCHAR(255) NOT NULL,
+    language VARCHAR(10) NOT NULL DEFAULT 'fr',
+    preferences JSONB,
+    dark_mode BOOLEAN NOT NULL DEFAULT FALSE,
+    email_notifications BOOLEAN NOT NULL DEFAULT FALSE,
+    mail_server VARCHAR(255),
+    mail_username VARCHAR(255),
+    mail_password VARCHAR(255),
+    mail_security VARCHAR(20) DEFAULT 'ssl',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+);
 -- Indexes for faster querying
 CREATE INDEX IF NOT EXISTS idx_email_content_user_id ON email_content(user_id);
 CREATE INDEX IF NOT EXISTS idx_email_content_conversation_id ON email_content(conversation_id);

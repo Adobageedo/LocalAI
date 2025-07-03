@@ -344,7 +344,8 @@ def ingest_outlook_emails_to_qdrant(
         )
         
         result["total_emails_found"] = total_found
-        
+        syncstatus.total_documents = total_found
+        logger.info(f"Nombre d'emails trouvés: {total_found}")
         # Si aucun email trouvé, terminer
         if not emails:
             logger.info("Aucun email trouvé correspondant aux critères")

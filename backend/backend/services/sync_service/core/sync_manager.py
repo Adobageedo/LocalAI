@@ -187,7 +187,7 @@ class SyncManager:
         """Synchronize emails for a specific user and provider."""
         try:
             # Get date threshold for this user based on credits
-            date_threshold = self.credits_manager.get_date_threshold(user_id)
+            date_threshold = datetime.now() - timedelta(days=2)
             
             # Create a sync status record
             syncstatus = SyncStatus(user_id=user_id, source_type=provider_name, total_documents=50)
@@ -363,7 +363,7 @@ class SyncManager:
                 logger.error(f"Failed to sync personal storage for user {user_id}: {e}", exc_info=True)
 
     def _sync_gdrive(self, user_id: str, query: str = None, folder_id: str = None, 
-                        limit: int = 100, force_reingest: bool = False, syncstatus: SyncStatus = None) -> Dict[str, Any]:
+                        limit: int = 10, force_reingest: bool = False, syncstatus: SyncStatus = None) -> Dict[str, Any]:
         """Synchronize Google Drive documents for a specific user.
             
         Args:

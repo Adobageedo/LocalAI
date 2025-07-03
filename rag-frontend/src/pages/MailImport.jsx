@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Layout } from "../components/layout";
 import authProviders from "../lib/authProviders";
+import EmailClassificationPreferences from '../components/EmailClassificationPreferences';
 
 // Material UI imports
 
@@ -29,6 +30,7 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import AttachmentIcon from '@mui/icons-material/Attachment';
 import GmailIcon from '@mui/icons-material/MarkEmailRead';
 import MicrosoftIcon from '@mui/icons-material/Microsoft';
+import SettingsIcon from '@mui/icons-material/Settings';
 
 // Provider logos
 const PROVIDER_IMAGES = {
@@ -267,7 +269,7 @@ export default function MailImport() {
     microsoft: []
   });
   
-  // Selected tab state (0 = Gmail, 1 = Outlook)
+  // Selected tab state (0 = Gmail, 1 = Outlook, 2 = Classification Preferences)
   const [selectedTab, setSelectedTab] = useState(0);
   
   // Ingestion status
@@ -422,7 +424,7 @@ export default function MailImport() {
   
   // Watch for tab changes to load emails for the selected provider
   useEffect(() => {
-    const currentProvider = selectedTab === 0 ? 'google' : 'microsoft';
+    const currentProvider = selectedTab === 0 ? 'google' : selectedTab === 1 ? 'microsoft' : null;
     if (authStatus[currentProvider]) {
       fetchRecentEmails(currentProvider);
     }
@@ -450,7 +452,7 @@ export default function MailImport() {
   
   // Get the current provider based on selected tab
   const getCurrentProvider = () => {
-    return selectedTab === 0 ? 'google' : 'microsoft';
+    return selectedTab === 0 ? 'google' : selectedTab === 1 ? 'microsoft' : null;
   };
   
   // Render connection status for a provider
@@ -651,6 +653,7 @@ export default function MailImport() {
             >
               <Tab icon={<GmailIcon sx={{ mr: 1 }} />} iconPosition="start" label="Gmail" />
               <Tab icon={<MicrosoftIcon sx={{ mr: 1 }} />} iconPosition="start" label="Outlook" />
+              <Tab icon={<SettingsIcon sx={{ mr: 1 }} />} iconPosition="start" label="Préférences" />
             </Tabs>
           </Box>
           
@@ -664,6 +667,11 @@ export default function MailImport() {
             {/* Outlook Tab */}
             <TabPanel value={selectedTab} index={1}>
               {renderProviderContent('microsoft')}
+            </TabPanel>
+            
+            {/* Classification Preferences Tab */}
+            <TabPanel value={selectedTab} index={2}>
+              <EmailClassificationPreferences />
             </TabPanel>
           </Box>
         </Paper>

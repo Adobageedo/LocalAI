@@ -73,7 +73,7 @@ def batch_ingest_user_documents(user_id: str, storage_path: str = None, limit: i
     if limit and len(files) > limit:
         files = files[:limit]
         logger.info(f"Limiting ingestion to {limit} files")
-    
+    syncstatus.total_documents = len(files)
     # Initialize result tracking
     result = {
         "success": False,

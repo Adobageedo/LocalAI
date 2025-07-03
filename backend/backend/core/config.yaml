@@ -17,7 +17,7 @@ retrieval:
   vectorstore:
     path: ./data/vectorstore      # Path to vector store
     type: qdrant                  # qdrant, faiss, chroma, etc.
-    host: localhost
+    host: qdrant
     port: 6333
     collection: rag_documents1536
   filter_fallback: false           # Fallback to no-filter if filtered results are empty
@@ -106,7 +106,7 @@ sync:
       - "INBOX"
       - "SENT"
     # Nombre maximum d'emails à récupérer par dossier
-    limit_per_folder: 4
+    limit_per_folder: 500
     # Ne pas récupérer les pièces jointes
     no_attachments: false
     # Forcer la réingestion des emails déjà traités
@@ -122,7 +122,7 @@ sync:
       - "inbox"
       - "sentitems"
     # Nombre maximum d'emails à récupérer par dossier
-    limit_per_folder: 50
+    limit_per_folder: 500
     # Ne pas récupérer les pièces jointes
     no_attachments: false
     # Forcer la réingestion des emails déjà traités
@@ -132,7 +132,7 @@ sync:
   email_processing:
     enabled: true
     # Nombre maximum d'emails à traiter après chaque synchronisation
-    limit_per_sync: 50
+    limit_per_sync: 500
     # Activer les actions automatiques basées sur la classification
     auto_actions: false
     # Types d'actions automatiques à effectuer (reply, forward, flag_important, etc.)
