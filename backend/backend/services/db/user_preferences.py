@@ -42,7 +42,7 @@ class UserPreferences:
                     SET preferences = %s, updated_at = NOW()
                     WHERE user_id = %s
                 """
-                self.db.execute_query(update_query, (preferences_json, user_id), commit=True)
+                self.db.execute_query(update_query, (preferences_json, user_id))
             else:
                 # Insert new preferences
                 insert_query = """
@@ -50,7 +50,7 @@ class UserPreferences:
                     (user_id, preferences, created_at, updated_at)
                     VALUES (%s, %s, NOW(), NOW())
                 """
-                self.db.execute_query(insert_query, (user_id, preferences_json), commit=True)
+                self.db.execute_query(insert_query, (user_id, preferences_json))
             
             return True
         except Exception as e:
