@@ -33,3 +33,5 @@ rag-backend/data/*
 *.json
 **/data/
 rag-frontend/src/config.js
+*.cer
+*.key

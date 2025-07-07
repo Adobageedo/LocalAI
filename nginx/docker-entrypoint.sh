@@ -13,18 +13,18 @@ check_certificates() {
         echo "SSL certificates for chardouin.fr found."
     fi
     
-    # Check for hardouin.osteopathe.fr certificates
-    if [ ! -f "/etc/nginx/ssl/hardouin.osteopathe.fr.cer" ] || [ ! -f "/etc/nginx/ssl/hardouin.osteopathe.fr.key" ]; then
-        echo "WARNING: SSL certificates for hardouin.osteopathe.fr not found!"
+    # Check for hardouinosteopathe.fr certificates
+    if [ ! -f "/etc/nginx/ssl/hardouinosteopathe.fr.cer" ] || [ ! -f "/etc/nginx/ssl/hardouinosteopathe.fr.key" ]; then
+        echo "WARNING: SSL certificates for hardouinosteopathe.fr not found!"
         echo "Please make sure to mount the IONOS certificates to /etc/nginx/ssl/"
     else
-        echo "SSL certificates for hardouin.osteopathe.fr found."
+        echo "SSL certificates for hardouinosteopathe.fr found."
     fi
 }
 
 # Create directories for website content if they don't exist
 mkdir -p /var/www/chardouin.fr/html
-mkdir -p /var/www/hardouin.osteopathe.fr/html
+mkdir -p /var/www/hardouinosteopathe.fr/html
 
 # Check for SSL certificates
 check_certificates
