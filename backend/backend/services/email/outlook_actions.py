@@ -554,3 +554,107 @@ if __name__ == "__main__":
         # Example: Test moving an email
         # email_id = "example_email_id"
         # outlook.move_email(email_id, "Inbox")
+    def move_email(
+        self,
+        email_id: str,
+        destination_folder: str
+    ) -> Dict[str, Any]:
+        """
+        Move an email to a different folder via Microsoft Graph API.
+        
+        Args:
+            email_id: ID of the email to move
+            destination_folder: Target folder name ('Archive', 'DeletedItems', etc.)
+            
+        Returns:
+            Dict with move status
+        """
+        if not self.outlook_client:
+            authenticated = self.authenticate()
+            if not authenticated:
+                return {"success": False, "error": "Authentication failed"}
+        
+        try:
+            logger.info(f"Moving email {email_id} to {destination_folder} via Outlook API")
+            
+            # Get access token from the outlook_client
+            access_token = self.outlook_client["access_token"]
+            
+            headers = {
+                'Authorization': f'Bearer {access_token}',
+                'Content-Type': 'application/json'
+            }
+            
+            # Map common folder names to Outlook well-known folder names
+            folder_mapping = {
+                "inbox": "inbox",
+                "sent": "sentitems",
+                "archive": "archive",
+                "trash": "deleteditems",
+                "junk": "junkemail",
+                "drafts": "drafts"
+            }
+            
+            # Get the well-known folder name if it's a common folder
+            target_folder = folder_mapping.get(destination_folder.lower(), destination_folder)
+            
+            # First we need to get the target folder ID
+            folder_id = None
+            
+            # Check if it's a well-known folder
+            if target_folder.lower() in folder_mapping.values():
+                # Get the folder ID for the well-known folder
+                well_known_url = f"{self.graph_endpoint}/me/mailFolders/{target_folder}"
+                folder_response = requests.get(well_known_url, headers=headers)
+                folder_response.raise_for_status()
+                folder_data = folder_response.json()
+                folder_id = folder_data.get("id")
+            else:
+                # Search for the custom folder by name
+                folders_url = f"{self.graph_endpoint}/me/mailFolders"
+                folders_response = requests.get(folders_url, headers=headers)
+                folders_response.raise_for_status()
+                folders_data = folders_response.json()
+                
+                # Look for the folder with matching name
+                for folder in folders_data.get("value", []):
+                    if folder.get("displayName").lower() == target_folder.lower():
+                        folder_id = folder.get("id")
+                        break
+                        
+                # If folder not found, create it
+                if not folder_id:
+                    create_folder_url = f"{self.graph_endpoint}/me/mailFolders"
+                    create_folder_payload = {
+                        "displayName": destination_folder
+                    }
+                    create_response = requests.post(create_folder_url, headers=headers, json=create_folder_payload)
+                    create_response.raise_for_status()
+                    create_data = create_response.json()
+                    folder_id = create_data.get("id")
+            
+            # Move the email to the target folder
+            if folder_id:
+                move_url = f"{self.graph_endpoint}/me/messages/{email_id}/move"
+                move_payload = {
+                    "destinationId": folder_id
+                }
+                move_response = requests.post(move_url, headers=headers, json=move_payload)
+                move_response.raise_for_status()
+                
+                logger.info(f"Email {email_id} successfully moved to {destination_folder}")
+                
+                return {
+                    "success": True,
+                    "email_id": email_id,
+                    "destination_folder": destination_folder
+                }
+            else:
+                raise ValueError(f"Could not find or create folder '{destination_folder}'")
+                
+        except Exception as e:
+            logger.error(f"Error moving email via Outlook API: {str(e)}")
+            return {
+                "success": False,
+                "error": str(e)
+            }

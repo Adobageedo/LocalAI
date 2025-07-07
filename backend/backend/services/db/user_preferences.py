@@ -70,9 +70,8 @@ class UserPreferences:
         try:
             query = "SELECT preferences FROM user_preferences WHERE user_id = %s"
             result = self.db.execute_query(query, (user_id,), fetch_one=True)
-            
-            if result and result[0]:
-                return json.loads(result[0])
+            if result and result.get("preferences"):
+                return result["preferences"]
             return None
         except Exception as e:
             logger.error(f"Error retrieving user classification preferences: {e}")
