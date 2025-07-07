@@ -53,7 +53,7 @@ services:
       - "8000:8000"
     env_file: ./backend/backend/core/.env
     volumes:
-      - ./backend:/app  # Pour le développement, permet de modifier les fichiers en direct
+      #- ./backend:/app  # Pour le développement, permet de modifier les fichiers en direct
       - ./backend/data:/app/data  # Persistence des données (registre JSON)
       - /tmp:/tmp  
     depends_on:
