@@ -370,8 +370,9 @@ class EmailAutoProcessor:
         
         Args:
             user_id: The ID of the user who owns the email
-            email_content: The full email content
-            classification: The classification result containing action, priority, etc.
+            provider: Email provider (gmail, outlook, etc.)
+            email_content: The email content to process
+            classification: Classification results with action, priority, etc.
             
         Returns:
             Dict containing information about the action taken
@@ -379,10 +380,12 @@ class EmailAutoProcessor:
         
         logger = log.bind(name="backend.services.email.auto_processor")
         
-        action = classification.get("action")
-        priority = classification.get("priority")
+        action = classification.get("action", "no_action")
+        priority = classification.get("priority", "medium")
         reasoning = classification.get("reasoning", "")
         suggested_response = classification.get("suggested_response", "")
+        
+        logger.info(f"Processing {action} for email from {email_content.get('sender', 'unknown')} with priority {priority}")
         
         result = {
             "action": action,
@@ -401,14 +404,20 @@ class EmailAutoProcessor:
                 logger.info(f"Auto-replying to email {email_content.get('id')} for user {user_id}")
                 
                 # Generate response content
-                response_body = suggested_response
+                response_data = email_agent.generate_email_response(
+                    email=email_content,
+                    provider=provider,  # Pass provider for writing style analysis
+                    temperature=0.7
+                )
+                
+                response_body = response_data.get("body", "")
                 if not response_body:
-                    response_body = "Auto-generated response based on classification."
+                    response_body = suggested_response or "Auto-generated response based on classification."
                 
                 # Send reply
                 reply_result = email_agent.reply_to_email(
                     content=response_body,
-                    provider=provider,
+                    provider=provider,  # Pass provider for writing style analysis
                     email=email_content
                 )
                 
@@ -473,10 +482,10 @@ class EmailAutoProcessor:
                 if recipients:
                     # Send new email
                     new_email_result = email_agent.generate_new_email(
-                        subject=subject,
-                        content=suggested_response,
+                        prompt=suggested_response,
                         recipients=recipients,
-                        provider=provider
+                        provider=provider,  # Pass provider for writing style analysis
+                        temperature=0.7
                     )
                     
                     result["success"] = True
@@ -557,6 +566,12 @@ def main():
     email_agent = EmailAutoProcessor()
     test_emails = [
         {
+            "subject": "Invitation: John's Birthday Party",
+            "body": "You're invited to John's birthday party this Saturday at 7 PM. Please RSVP by Thursday.",
+            "sender": "jane@personal.com",
+            "received_date": datetime.now().isoformat()
+        },
+        {
             "subject": "Meeting Reminder: Project Sync Tomorrow",
             "body": "Hi team, just a reminder that we have our weekly project sync tomorrow at 10 AM. Please come prepared with updates.",
             "sender": "project.manager@company.com",
@@ -572,12 +587,6 @@ def main():
             "subject": "Your Order Confirmation #12345",
             "body": "Thank you for your purchase! Your order has been confirmed and will be shipped soon.",
             "sender": "orders@ecommerce.com",
-            "received_date": datetime.now().isoformat()
-        },
-        {
-            "subject": "Invitation: John's Birthday Party",
-            "body": "You're invited to John's birthday party this Saturday at 7 PM. Please RSVP by Thursday.",
-            "sender": "jane@personal.com",
             "received_date": datetime.now().isoformat()
         },
         {
