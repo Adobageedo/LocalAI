@@ -417,7 +417,7 @@ def test_process_emails_real_user():
         result = processor.process_emails(
             user_id=user_id,
             provider=provider,
-            limit=5,  # Limit to 5 emails to avoid processing too many
+            limit=20,  # Limit to 5 emails to avoid processing too many
             auto_actions=False  # Don't take actions automatically
         )
         

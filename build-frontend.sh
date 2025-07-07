@@ -14,9 +14,9 @@ export VITE_KEYCLOAK_CLIENT_ID=rag-frontend
 cd ./rag-frontend
 
 # Nettoyer les installations précédentes
-echo "🧹 Nettoyage des installations précédentes..."
-rm -rf node_modules
-rm -f package-lock.json
+#echo "🧹 Nettoyage des installations précédentes..."
+#rm -rf node_modules
+#rm -f package-lock.json
 
 # Installer les dépendances
 echo "📦 Installation des dépendances..."
