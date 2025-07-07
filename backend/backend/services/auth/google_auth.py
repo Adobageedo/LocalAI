@@ -592,6 +592,76 @@ class GoogleEmail:
                 "success": False,
                 "error": error_message
             }
+            
+    def get_sent_emails(self, limit: int = 100) -> List[Dict[str, Any]]:
+        """
+        Retrieve sent emails from the user's sent folder.
+        
+        Args:
+            limit: Maximum number of emails to retrieve (default: 100)
+            
+        Returns:
+            List of sent email objects with their content
+        """
+        try:
+            if not self.authenticate():
+                logger.error("Failed to authenticate with Gmail")
+                return []
+                
+            # Query the sent mail folder
+            query_params = {
+                'userId': 'me',
+                'labelIds': ['SENT'],
+                'maxResults': limit
+            }
+            
+            # Get message IDs first
+            results = self.gmail_service.users().messages().list(**query_params).execute()
+            messages = results.get('messages', [])
+            
+            sent_emails = []
+            for message in messages:
+                try:
+                    msg_id = message['id']
+                    # Get full message content
+                    msg = self.gmail_service.users().messages().get(
+                        userId='me', 
+                        id=msg_id,
+                        format='full'
+                    ).execute()
+                    
+                    # Extract headers
+                    headers = {}
+                    for header in msg['payload']['headers']:
+                        headers[header['name'].lower()] = header['value']
+                    
+                    # Extract content
+                    content = self._extract_email_content(msg)
+                    
+                    sent_email = {
+                        'id': msg_id,
+                        'subject': headers.get('subject', ''),
+                        'to': headers.get('to', ''),
+                        'from': headers.get('from', ''),
+                        'date': headers.get('date', ''),
+                        'content': content
+                    }
+                    
+                    sent_emails.append(sent_email)
+                except Exception as e:
+                    logger.error(f"Error processing sent email {message.get('id', 'unknown')}: {str(e)}")
+                    continue
+                    
+            logger.info(f"Retrieved {len(sent_emails)} sent emails from Gmail")
+            return sent_emails
+            
+        except HttpError as e:
+            logger.error(f"HTTP error retrieving sent emails: {str(e)}")
+            return []
+        except Exception as e:
+            logger.error(f"Error retrieving sent emails via Gmail API: {str(e)}")
+            return []
+
 def main():    
     # Test configuration
     USER_ID = "test_user"

@@ -520,6 +520,75 @@ class MicrosoftEmail:
                 "success": False,
                 "error": str(e)
             }
+            
+    def get_sent_emails(self, limit: int = 100) -> List[Dict[str, Any]]:
+        """
+        Retrieve sent emails from the user's sent folder.
+        
+        Args:
+            limit: Maximum number of emails to retrieve (default: 100)
+            
+        Returns:
+            List of sent email objects with their content
+        """
+        try:
+            if not self.authenticate():
+                logger.error("Failed to authenticate with Microsoft Graph")
+                return []
+                
+            # Construct the URL for sent items folder
+            sent_items_url = f"{self.graph_endpoint}/me/mailFolders/sentItems/messages?$top={limit}"
+            
+            # Get messages from sent folder
+            response = requests.get(sent_items_url, headers=self._get_headers())
+            response.raise_for_status()
+            data = response.json()
+            
+            sent_emails = []
+            for msg in data.get('value', []):
+                try:
+                    # Extract message details
+                    msg_id = msg.get('id')
+                    subject = msg.get('subject', '')
+                    
+                    # Extract recipients
+                    to_recipients = msg.get('toRecipients', [])
+                    to_emails = [r.get('emailAddress', {}).get('address', '') for r in to_recipients]
+                    to_str = '; '.join(to_emails)
+                    
+                    # Extract sender
+                    from_email = msg.get('sender', {}).get('emailAddress', {}).get('address', '')
+                    
+                    # Extract date
+                    date = msg.get('sentDateTime', '')
+                    
+                    # Extract content
+                    content = msg.get('body', {}).get('content', '')
+                    
+                    sent_email = {
+                        'id': msg_id,
+                        'subject': subject,
+                        'to': to_str,
+                        'from': from_email,
+                        'date': date,
+                        'content': content
+                    }
+                    
+                    sent_emails.append(sent_email)
+                except Exception as e:
+                    logger.error(f"Error processing sent email {msg.get('id', 'unknown')}: {str(e)}")
+                    continue
+                    
+            logger.info(f"Retrieved {len(sent_emails)} sent emails from Outlook")
+            return sent_emails
+            
+        except requests.exceptions.RequestException as e:
+            logger.error(f"HTTP error retrieving sent emails: {str(e)}")
+            return []
+        except Exception as e:
+            logger.error(f"Error retrieving sent emails via Microsoft Graph API: {str(e)}")
+            return []
+
 def main():
     # Test configuration
     USER_ID = "test_user"

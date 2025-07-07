@@ -4,26 +4,16 @@ FROM nginx:1.25-alpine
 RUN apk add --no-cache openssl bash curl
 
 # Créer les répertoires nécessaires
-RUN mkdir -p /etc/nginx/ssl/live/chardouin.fr \
-    && mkdir -p /usr/share/nginx/html/chardouin.fr \
-    && mkdir -p /var/www/certbot
+RUN mkdir -p /etc/nginx/ssl \
+    && mkdir -p /var/www/chardouin.fr/html \
+    && mkdir -p /var/www/hardouin.osteopathe.fr/html
 
 # Copier la configuration Nginx
 COPY conf/ /etc/nginx/conf.d/
 
-# Créer une page HTML de test
-RUN echo "<html><head><title>Test SSL</title></head><body><h1>SSL Test Page</h1><p>Si vous voyez cette page, cela signifie que le serveur Nginx fonctionne correctement.</p></body></html>" > /usr/share/nginx/html/chardouin.fr/index.html
-
-# Générer des certificats auto-signés temporaires
-RUN openssl req -x509 -nodes -newkey rsa:4096 -days 365 \
-    -keyout /etc/nginx/ssl/live/chardouin.fr/privkey.pem \
-    -out /etc/nginx/ssl/live/chardouin.fr/fullchain.pem \
-    -subj "/CN=chardouin.fr" \
-    -addext "subjectAltName=DNS:chardouin.fr,DNS:www.chardouin.fr,DNS:localhost"
-
-# Définir les permissions appropriées
-RUN chmod 600 /etc/nginx/ssl/live/chardouin.fr/privkey.pem \
-    && chmod 644 /etc/nginx/ssl/live/chardouin.fr/fullchain.pem
+# Créer des pages HTML de test
+RUN echo "<html><head><title>Chardouin.fr</title></head><body><h1>Chardouin.fr Test Page</h1><p>If you see this page, Nginx is working correctly for chardouin.fr.</p></body></html>" > /var/www/chardouin.fr/html/index.html \
+    && echo "<html><head><title>Hardouin Osteopathe</title></head><body><h1>Hardouin Osteopathe Test Page</h1><p>If you see this page, Nginx is working correctly for hardouin.osteopathe.fr.</p></body></html>" > /var/www/hardouin.osteopathe.fr/html/index.html
 
 # Copier le script d'entrée
 COPY docker-entrypoint.sh /docker-entrypoint.sh
