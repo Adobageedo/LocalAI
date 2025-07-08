@@ -320,7 +320,7 @@ export default function MailImport() {
       await checkAuthStatus();
       // Also fetch recent emails if authentication was successful
       if (authStatus[provider]) {
-        fetchRecentEmails(provider, 10, true);
+        fetchRecentEmails(provider, 100, true);
       }
     } catch (err) {
       console.error(`Error connecting to ${provider}:`, err);
@@ -331,7 +331,7 @@ export default function MailImport() {
   };
   
   // Fetch recent emails from authenticated provider
-  const fetchRecentEmails = async (provider, limit = 10, force = false) => {
+  const fetchRecentEmails = async (provider, limit = 100, force = false) => {
     try {
       setLoading(prev => ({ ...prev, [`${provider}Emails`]: true }));
       const response = await authProviders.getRecentEmails(provider, limit, force);
@@ -376,7 +376,7 @@ export default function MailImport() {
       setIngestionStatus(prev => ({ ...prev, [provider]: true }));
       await authProviders.startIngestion(provider);
       // After ingestion, refresh the email list
-      await fetchRecentEmails(provider, 10, true);
+      await fetchRecentEmails(provider, 100, true);
     } catch (err) {
       console.error(`Error starting ${provider} ingestion:`, err);
     } finally {
