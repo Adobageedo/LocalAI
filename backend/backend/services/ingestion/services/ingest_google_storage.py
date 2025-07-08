@@ -349,6 +349,7 @@ def batch_ingest_gdrive_documents(
                     "path": source_path,
                     "doc_id": doc_id,
                     "ingestion_type": "google_storage",
+                    "filename": file_name,
                     "user": user_id,
                     "ingestion_date": datetime.datetime.now().isoformat()
                 }

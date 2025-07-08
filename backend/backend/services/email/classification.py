@@ -74,7 +74,6 @@ class EmailClassifier:
         if user_id and not user_preferences:
             try:
                 user_preferences = self.user_preferences.get_user_classification_preferences(user_id)
-                logger.info(f"Loaded classification preferences for user {user_id}")
             except Exception as e:
                 logger.error(f"Error loading user preferences: {e}")
         
@@ -110,11 +109,10 @@ class EmailClassifier:
                     )
                     file_registry = FileRegistry(user_id)
                     file_registry.update_email_classification(
-                        email_id=email_content['email_id'],
+                        email_id=email_content['doc_id'],
                         user_id=user_id,
                         classified_action=parsed_classification['action']
                     )
-                    logger.info(f"Email classification stored in file registry with ID: {email_content['email_id']}")
                 except Exception as e:
                     logger.error(f"Error storing email classification in database: {e}")
             
@@ -384,8 +382,6 @@ class EmailAutoProcessor:
         priority = classification.get("priority", "medium")
         reasoning = classification.get("reasoning", "")
         suggested_response = classification.get("suggested_response", "")
-        
-        logger.info(f"Processing {action} for email from {email_content.get('sender', 'unknown')} with priority {priority}")
         
         result = {
             "action": action,

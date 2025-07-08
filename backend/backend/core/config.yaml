@@ -134,13 +134,13 @@ sync:
     # Nombre maximum d'emails à traiter après chaque synchronisation
     limit_per_sync: 500
     # Activer les actions automatiques basées sur la classification
-    auto_actions: false
+    auto_actions: true
     # Types d'actions automatiques à effectuer (reply, forward, flag_important, etc.)
-    allowed_actions:
-      - "flag_important"
-      - "archive"
+    #allowed_actions:
+    #  - "flag_important"
+    #  - "archive"
     # Priorité minimale pour les actions automatiques (low, medium, high)
-    min_priority: "medium"
+    #min_priority: "medium"
 
 # Configuration des journaux
 logging:

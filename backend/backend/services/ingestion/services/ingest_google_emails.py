@@ -66,6 +66,7 @@ def parse_gmail_message(message: Dict, gmail_service: Any, user: str) -> Optiona
         metadata = EmailMetadata(
             doc_id=temp_doc_id,  # Ajouter doc_id requis
             user=user,           # Ajouter user requis
+            provider_id=message['id'],
             message_id=next((h['value'] for h in headers if h['name'].lower() == 'message-id'), None),
             subject=next((h['value'] for h in headers if h['name'].lower() == 'subject'), 'Sans sujet'),
             sender=next((h['value'] for h in headers if h['name'].lower() == 'from'), None),
@@ -391,6 +392,7 @@ def batch_ingest_gmail_emails_to_qdrant(
                 "cc": email.metadata.cc,
                 "date": email.metadata.date,
                 "message_id": email.metadata.message_id,
+                "provider_id": email.metadata.provider_id,
                 "has_attachments": bool(email.content.attachments),
                 "gmail_user": gmail_user,
                 "conversation_id": email.metadata.conversation_id,
@@ -428,6 +430,7 @@ def batch_ingest_gmail_emails_to_qdrant(
                         "user": user_id,
                         "filename": attachment.filename,
                         "document_type": "email_attachment",
+                        "provider_id": email.metadata.provider_id,
                         "ingestion_type": "google_email",
                         "ingestion_date": datetime.datetime.now().isoformat(),
                         "parent_email_id": email_id,
@@ -454,7 +457,7 @@ def batch_ingest_gmail_emails_to_qdrant(
                 
                 email_manager.save_email(
                     user_id=user_id,
-                    email_id=email_id,
+                    email_id=email.metadata.provider_id,
                     sender=email.metadata.sender,
                     recipients=[email.metadata.receiver],  # Convert to list if needed
                     subject=email.metadata.subject or '',

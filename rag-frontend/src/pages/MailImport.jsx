@@ -505,6 +505,9 @@ export default function MailImport() {
     
     // Ensure emails is always an array
     const emails = Array.isArray(recentEmails[provider]) ? recentEmails[provider] : [];
+    //const emails = Array.isArray(recentEmails[provider])
+    //  ? [...recentEmails[provider]].sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0))
+    //  : [];
     
     if (emails.length === 0) {
       return (
