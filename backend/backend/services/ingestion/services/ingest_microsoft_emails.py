@@ -55,7 +55,8 @@ def parse_outlook_message(message: Dict, access_token: str, user: str, folder: s
         metadata = EmailMetadata(
             doc_id=temp_doc_id,
             user=user,
-            message_id=message.get('internetMessageId', None),
+            message_id=message.get('id', None),
+            provider_id=message.get('id', None),
             subject=message.get('subject', 'Sans sujet'),
             sender=message.get('from', {}).get('emailAddress', {}).get('address', None),
             receiver="; ".join([r.get('emailAddress', {}).get('address', '') for r in message.get('toRecipients', [])]),
@@ -390,7 +391,7 @@ def ingest_outlook_emails_to_qdrant(
                     "bcc": email.metadata.bcc,
                     "subject": email.metadata.subject,
                     "date": email.metadata.date,
-                    "message_id": email.metadata.message_id,
+                    "provider_id": email.metadata.provider_id,
                     "has_attachments": email.metadata.has_attachments,
                     "content_type": email.metadata.content_type or "text/plain",
                     "ingestion_date": datetime.datetime.now().isoformat(),
@@ -425,7 +426,7 @@ def ingest_outlook_emails_to_qdrant(
                             "path": f"/microsoft_email/{user_id}/{email.metadata.conversation_id}/attachments/{attachment_name}",
                             "user": user_id,
                             "filename": attachment_name,
-                            "message_id": email.metadata.message_id,
+                            "provider_id": email.metadata.provider_id,
                             "parent_email_id": email_id,
                             "subject": email.metadata.subject,
                             "date": email.metadata.date,
@@ -452,7 +453,7 @@ def ingest_outlook_emails_to_qdrant(
                     
                     email_manager.save_email(
                         user_id=user_id,
-                        email_id=email_id,
+                        email_id=email.metadata.provider_id,
                         sender=email.metadata.sender,
                         recipients=[email.metadata.receiver],  # Convert to list if needed
                         subject=email.metadata.subject or '',

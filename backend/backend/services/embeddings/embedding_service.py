@@ -69,9 +69,7 @@ class EmbeddingService(BaseEmbedder):
             self._embedder = HuggingFaceEmbeddings(model_name=self.model, model_kwargs={"device": "cpu"})
         else:
             raise ValueError(f"Fournisseur d'embeddings '{provider}' non pris en charge")
-            
-        log.info(f"Service d'embeddings initialisé avec {self.provider} ({self.model})")
-        
+                    
     def get_embeddings(self, texts: List[str]) -> List[List[float]]:
         """
         Génère des embeddings pour une liste de textes.

@@ -46,11 +46,12 @@ class EmailAttachment:
 class EmailMetadata:
     """Classe représentant les métadonnées d'un email."""
     def __init__(self, doc_id=None, user=None, message_id=None, subject=None, sender=None, 
-                 receiver=None, cc=None, bcc=None, date=None, folders=None, source=None,
+                 receiver=None, cc=None, bcc=None, date=None, folders=None, source=None,provider_id=None,
                  content_type=None, has_attachments=False, parent_email_id=None, conversation_id=None):
         self.doc_id = doc_id
         self.user = user
         self.message_id = message_id
+        self.provider_id = provider_id
         self.subject = subject
         self.sender = sender
         self.receiver = receiver

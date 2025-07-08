@@ -26,13 +26,23 @@ import {
   Download as DownloadIcon,
   FilePresent as FileIcon,
   ContentCopy as ContentCopyIcon,
-  Check as CheckIcon
+  Check as CheckIcon,
+  Email as EmailIcon,
+  InsertDriveFile as DriveFileIcon,
+  Image as ImageIcon,
+  PictureAsPdf as PdfIcon,
+  VideoFile as VideoIcon,
+  Article as WordIcon,
+  TableChart as ExcelIcon,
+  Slideshow as PowerPointIcon,
+  Launch as LaunchIcon
 } from '@mui/icons-material';
 import { API_BASE_URL } from '../../config';
 import ReactMarkdown from 'react-markdown';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { materialLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import remarkGfm from 'remark-gfm';
+import { openSource, getFileName, getSourceIcon, getSourceDisplayName } from '../../utils/sourceHandler';
 
 // Simple message bubbles without animations
 const UserMessageBubble = styled(Box)(({ theme }) => ({
@@ -111,34 +121,23 @@ export default function ChatMessage({ message, isLatest }) {
   // Select the appropriate message bubble based on role
   const MessageBubble = isUser ? UserMessageBubble : AssistantMessageBubble;
   
-  // Handle source click for download
+  // Handle source click based on source type
   const handleSourceClick = (source) => {
     try {
-      // Get the file path from the source (handle both string and object formats)
-      const filePath = getSourcePath(source);
-      if (!filePath) {
-        setNotification({
-          open: true,
-          message: 'No valid file path found for this source',
-          severity: 'error'
-        });
-        return;
-      }
+      // Use the sourceHandler utility to handle different source types
+      const result = openSource(source);
       
-      // Download the file
-      downloadSource(filePath);
-      
-      // Show success notification
+      // Show notification based on result
       setNotification({
         open: true,
-        message: `Downloading ${getFileName(filePath)}...`,
-        severity: 'success'
+        message: result.message,
+        severity: result.success ? 'success' : 'error'
       });
     } catch (error) {
-      console.error('Error downloading source:', error);
+      console.error('Error handling source:', error);
       setNotification({
         open: true,
-        message: `Error downloading file: ${error.message}`,
+        message: `Error opening source: ${error.message}`,
         severity: 'error'
       });
     }
@@ -156,33 +155,62 @@ export default function ChatMessage({ message, isLatest }) {
     return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
   };
   
-  // Get file name from path
-  const getFileName = (path) => {
-    if (!path) return 'Unknown Document';
-    const parts = path.split('/');
-    return parts[parts.length - 1];
-  };
-
   // Get source path from source (could be string or object)
   const getSourcePath = (source) => {
     if (!source) return null;
     if (typeof source === 'string') return source;
     return source.source || source.path || null;
   };
-
-  // Download a source document
-  const downloadSource = (path) => {
-    if (!path) return;
+  
+  // Get source type from source object or path
+  const getSourceType = (source) => {
+    if (!source) return 'personal_storage';
     
-    // Clean the path - remove any leading slash if present
-    const cleanPath = path.startsWith('/') ? path.substring(1) : path;
+    // If source has explicit type, use it
+    if (source.type) return source.type;
     
-    // Create the download URL using the file_management_router endpoint
-    const downloadUrl = `${API_BASE_URL}/download?path=${encodeURIComponent(cleanPath)}`;
+    // Otherwise infer from path
+    const path = getSourcePath(source);
+    if (!path) return 'personal_storage';
     
-    // Open in a new window/tab or use a hidden iframe technique
-    // This triggers the browser's download functionality
-    window.open(downloadUrl, '_blank');
+    if (path.startsWith('/google_email/')) {
+      return 'google_email';
+    } else if (path.startsWith('/microsoft_email/')) {
+      return 'microsoft_email';
+    } else if (path.startsWith('/google_drive/')) {
+      return 'google_storage';
+    } else {
+      return 'personal_storage';
+    }
+  };
+  
+  // Get appropriate icon component based on source type and file extension
+  const getSourceIconComponent = (source) => {
+    const sourceType = getSourceType(source);
+    const path = getSourcePath(source);
+    const iconType = getSourceIcon({ type: sourceType, path });
+    
+    switch (iconType) {
+      case 'email':
+        return <EmailIcon fontSize="small" color="primary" />;
+      case 'pdf':
+        return <PdfIcon fontSize="small" color="error" />;
+      case 'word':
+        return <WordIcon fontSize="small" color="primary" />;
+      case 'excel':
+        return <ExcelIcon fontSize="small" color="success" />;
+      case 'powerpoint':
+        return <PowerPointIcon fontSize="small" color="warning" />;
+      case 'image':
+        return <ImageIcon fontSize="small" color="secondary" />;
+      case 'video':
+        return <VideoIcon fontSize="small" color="secondary" />;
+      case 'file':
+      default:
+        return sourceType === 'google_storage' ? 
+          <DriveFileIcon fontSize="small" color="primary" /> : 
+          <FileIcon fontSize="small" color="primary" />;
+    }
   };
 
   // Component for rendering code blocks in markdown with enhanced UI
@@ -393,18 +421,13 @@ export default function ChatMessage({ message, isLatest }) {
                     onClick={() => handleSourceClick(source)}
                   >
                     <ListItemIcon sx={{ minWidth: 36 }}>
-                      {(() => {
-                        const path = getSourcePath(source);
-                        return path && path.toLowerCase().endsWith('.pdf') ?
-                          <DocumentIcon fontSize="small" color="error" /> : 
-                          <FileIcon fontSize="small" color="primary" />;
-                      })()}
+                      {getSourceIconComponent(source)}
                     </ListItemIcon>
                     <ListItemText 
                       primary={
                         <Tooltip title={getSourcePath(source) || 'Unknown Source'}>
                           <Typography variant="body2" noWrap sx={{ color: '#007AFF' }}>
-                            {getFileName(getSourcePath(source))}
+                            {getSourceDisplayName(source)}
                           </Typography>
                         </Tooltip>
                       }
@@ -415,7 +438,17 @@ export default function ChatMessage({ message, isLatest }) {
                               Page {source.page}
                             </Typography>
                           )}
-                          <DownloadIcon fontSize="inherit" sx={{ fontSize: '0.875rem', opacity: 0.6 }} />
+                          {getSourceType(source) === 'personal_storage' ? (
+                            <DownloadIcon fontSize="inherit" sx={{ fontSize: '0.875rem', opacity: 0.6, mr: 0.5 }} />
+                          ) : (
+                            <LaunchIcon fontSize="inherit" sx={{ fontSize: '0.875rem', opacity: 0.6, mr: 0.5 }} />
+                          )}
+                          <Typography variant="caption" color="text.secondary">
+                            {getSourceType(source) === 'google_email' ? 'Open in Gmail' : 
+                             getSourceType(source) === 'outlook_email' ? 'Open in Outlook' : 
+                             getSourceType(source) === 'google_storage' ? 'Open in Drive' : 
+                             'Download'}
+                          </Typography>
                         </Box>
                       }
                     />

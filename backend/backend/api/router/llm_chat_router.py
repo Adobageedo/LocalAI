@@ -1052,22 +1052,8 @@ def prompt_ia(data: dict, user=Depends(get_current_user)):
     # Extract filenames cited in the answer (e.g., [contract.pdf])
     import re, os
     answer = rag_result.get("answer", "")
-    cited_filenames = set(re.findall(r'\[([^\[\]]+)\]', answer))
-
-    # Only include sources whose filename is actually cited in the answer
-    sources = []
-    seen = set()
-    for doc in rag_result.get("documents", []):
-        metadata = getattr(doc, "metadata", {}) or {}
-        path = metadata.get("source_path")
-        if path:
-            filename = os.path.basename(path)
-            if filename in cited_filenames and path not in seen:
-                sources.append(path)
-                seen.add(path)
-        if len(sources) == 5:
-            break
-
+    sources = rag_result.get("sources_info", [])
+    
     # Return the response
     return {
         "answer": answer,

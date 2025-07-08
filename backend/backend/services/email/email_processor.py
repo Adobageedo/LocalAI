@@ -51,7 +51,7 @@ class EmailProcessor:
         provider: Optional[str],
         limit: int = 10,
         min_date: Optional[datetime.datetime] = None,
-        auto_actions: bool = False,
+        auto_actions: bool = True,
         folders: Optional[List[str]] = None,
         query: Optional[str] = None
     ) -> Dict[str, Any]:
@@ -152,7 +152,6 @@ class EmailProcessor:
             end_date = None  # No upper bound
             
             # Process each requested folder
-            logger.info(f"Fetching emails from database folder 'inbox' for user {user_id}")
             
             # We'll retrieve emails in batches respecting the limit
             folder_limit = max(limit - len(emails), 0)
@@ -171,7 +170,23 @@ class EmailProcessor:
                         )
                         
                 # Filter by folder after search since the search doesn't take folder param
-                folder_emails = [email for email in folder_emails if email.get('folder') == 'inbox']
+                filtered = []
+                for email in folder_emails:
+                    if email.get('folder') != 'inbox':
+                        continue
+                    if min_date:
+                        sent_date = email.get('sent_date')
+                        if isinstance(sent_date, str):
+                            sent_date = datetime.datetime.fromisoformat(sent_date.replace('Z', '+00:00'))
+                        if sent_date < min_date:
+                            continue
+                    if only_unclassified and email.get('is_classified') != "not classified" and email.get('is_classified') != None:
+                        continue
+                    filtered.append(email)
+                    if len(filtered) >= folder_limit:
+                        break
+                emails.extend(filtered)
+
             else:
                 # Get emails by user and filter by folder
                 all_user_emails = self.email_manager.get_emails_by_user(
@@ -194,14 +209,14 @@ class EmailProcessor:
                                     
                             if email_date < min_date:
                                 continue
-                                
+                        if only_unclassified and email.get('is_classified') != "not classified" and email.get('is_classified') != None:
+                            continue
+                        logger.info(f"Adding email {email.get('subject')} to folder_emails")
                         folder_emails.append(email)
                         if len(folder_emails) >= folder_limit:
                             break
             
-            logger.info(f"Found {len(folder_emails)} emails in database folder 'inbox'")
             emails.extend(folder_emails)
-            logger.info(f"Successfully fetched {len(emails)} database emails for user {user_id}")
             
         except Exception as e:
             logger.error(f"Error fetching database emails for user {user_id}: {str(e)}")
@@ -212,7 +227,7 @@ class EmailProcessor:
         self,
         user_id: str,
         email: Dict[str, Any],
-        auto_action: bool = False
+        auto_action: bool = True
     ) -> Dict[str, Any]:
         """
         Process a single email through classification and optional automation.
@@ -241,7 +256,6 @@ class EmailProcessor:
                         e for e in conversation_history 
                         if e.get("id") != email.get("id")
                     ]
-                    logger.info(f"Retrieved {len(conversation_history)} messages in conversation history")
                 except Exception as e:
                     logger.warning(f"Failed to get conversation history: {str(e)}")
             
@@ -344,7 +358,7 @@ def scheduled_email_processing(args: Dict[str, Any]) -> Dict[str, Any]:
     provider_str = args.get('provider')
     limit = args.get('limit', 10)
     folders = args.get('folders')
-    auto_actions = args.get('auto_actions', False)
+    auto_actions = args.get('auto_actions', True)
     
     if not user_id:
         logger.error("No user_id provided for scheduled email processing")
@@ -367,7 +381,6 @@ def scheduled_email_processing(args: Dict[str, Any]) -> Dict[str, Any]:
     
     # Process emails
     try:
-        logger.info(f"Running scheduled email processing for user {user_id}")
         processor = EmailProcessor()
         results = processor.process_emails(
             user_id=user_id,
@@ -418,7 +431,7 @@ def test_process_emails_real_user():
             user_id=user_id,
             provider=provider,
             limit=20,  # Limit to 5 emails to avoid processing too many
-            auto_actions=False  # Don't take actions automatically
+            auto_actions=True  # Don't take actions automatically
         )
         
         # Print the results

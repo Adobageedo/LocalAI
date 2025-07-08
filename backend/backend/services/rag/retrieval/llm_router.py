@@ -23,8 +23,6 @@ class LLM:
 
         self.llm = None  # Lazy instantiation
 
-        logger.info(f"LLM initialized with model={self.model}, provider={self.provider}, temperature={self.temperature}")
-
     def _create_llm_instance(self):
         if self.provider == "openai" and OPENAI_API_KEY:
             return ChatOpenAI(
@@ -67,7 +65,6 @@ class LLM:
         """
         llm = self._ensure_llm_instance()
         try:
-            logger.debug(f"Generating text with prompt of length {len(prompt)}")
             response = await llm.ainvoke(prompt)
             return response.content
         except Exception as e:
@@ -102,7 +99,6 @@ class LLM:
         
         llm = self._ensure_llm_instance()
         try:
-            logger.debug(f"Generating chat completion with {len(messages)} messages")
             response = await llm.ainvoke(chat_messages)
             return response.content
         except Exception as e:
@@ -136,7 +132,6 @@ class LLM:
         
         llm = self._ensure_llm_instance()
         try:
-            logger.debug(f"Streaming chat completion with {len(messages)} messages")
             async for chunk in llm.astream(chat_messages):
                 yield chunk.content
         except Exception as e:

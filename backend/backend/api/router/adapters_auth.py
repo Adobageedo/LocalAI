@@ -7,7 +7,9 @@ from backend.core.logger import log
 import requests
 import subprocess
 import json
-from datetime import datetime
+import base64
+from email.utils import parsedate_to_datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 from fastapi import APIRouter, HTTPException, Request, status, BackgroundTasks
 from fastapi.responses import StreamingResponse, JSONResponse, HTMLResponse
@@ -143,11 +145,13 @@ async def get_outlook_auth_url(callback_url: str = None, user=Depends(get_curren
             token_cache=token_cache
         )
         
+        state_data = json.dumps({"user_id": user_id, "redirect_uri": redirect_uri})
+        state_encoded = base64.urlsafe_b64encode(state_data.encode()).decode()
         # Generate auth URL
         auth_url = app.get_authorization_request_url(
             scopes=SCOPES,
             redirect_uri=redirect_uri,
-            state=user_id,
+            state=state_encoded,
             prompt="select_account"
         )
         
@@ -176,10 +180,13 @@ async def outlook_auth_callback(code: str = None, error: str = None, state: str 
         
         if state:
             # Le state contient directement l'user_id
-            user_id = state
+            state_data = base64.urlsafe_b64decode(state.encode()).decode()
+            user_id = json.loads(state_data).get("user_id")
+            redirect_uri = json.loads(state_data).get("redirect_uri")
         else:
             user_id = "outlook"
-        logger.info(f"[OUTLOOK CALLBACK] Received auth code for user {user_id}")
+            redirect_uri = "https://chardouin.fr/api/sources/outlook/callback"
+        logger.info(f"[OUTLOOK CALLBACK] Received auth code for user {user_id} with redirect_uri {redirect_uri}")
 
         # Vérification de la présence du code
         if not code:
@@ -215,10 +222,6 @@ async def outlook_auth_callback(code: str = None, error: str = None, state: str 
             authority="https://login.microsoftonline.com/common",
             token_cache=token_cache
         )
-        
-        # URL de redirection utilisée lors de la demande d'autorisation
-        # Utiliser l'URL frontend car c'est probablement ce qui est enregistré dans Azure
-        redirect_uri = "https://chardouin.fr/api/sources/outlook/callback"
         
         # Échanger le code d'autorisation contre un token d'accès
         result = app.acquire_token_by_authorization_code(
@@ -541,8 +544,14 @@ async def get_recent_gmail_emails(limit: int = 10, user=Depends(get_current_user
                 "is_classified": metadata.get("is_classified", "not classified")
             }
             emails.append(email_data)
-        
-        emails.sort(key=lambda x: x.get("date", ""), reverse=True)
+        def parse_email_date(email):
+            try:
+                dt = parsedate_to_datetime(email.get("date"))
+                return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
+            except Exception:
+                return datetime.min.replace(tzinfo=timezone.utc)
+
+        emails.sort(key=parse_email_date, reverse=True)
         emails = emails[:limit]
         logger.debug(f"[GMAIL] Returning {len(emails)} emails after sorting and limiting.")
         return JSONResponse({"emails": emails})
@@ -560,7 +569,7 @@ async def get_recent_outlook_emails(limit: int = 10, user=Depends(get_current_us
             error_msg = creds_status.get("error", "User not authenticated to Outlook or credentials invalid")
             return JSONResponse({"emails": [], "error": error_msg})
         registry = FileRegistry(user_id)
-        outlook_files = registry.get_files_by_prefix("microsoft_email/")
+        outlook_files = registry.get_files_by_prefix("/microsoft_email/")
         
         emails = []
         for idx, file_path in enumerate(outlook_files[:limit]):
