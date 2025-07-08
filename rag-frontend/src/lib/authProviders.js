@@ -6,6 +6,7 @@ import { API_BASE_URL } from '../config';
  * pour les différents fournisseurs (Google, Microsoft)
  */
 const CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
+const EMAIL_CACHE_TTL = 1 * 10 * 60 * 1000; // 10 minutes
 
 const authProviders = {
   /**
@@ -237,7 +238,7 @@ const authProviders = {
         const parsed = JSON.parse(cached);
         const now = Date.now();
   
-        if (now - parsed.timestamp < CACHE_TTL) {
+        if (now - parsed.timestamp < EMAIL_CACHE_TTL) {
           return parsed.data;
         } else {
           localStorage.removeItem(cacheKey); // expired

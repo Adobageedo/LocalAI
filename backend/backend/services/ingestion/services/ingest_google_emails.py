@@ -418,7 +418,7 @@ def batch_ingest_gmail_emails_to_qdrant(
                         continue
 
                     # Générer un ID unique pour la pièce jointe
-                    attachment_id = hashlib.md5(f"{email_id}_{attachment.filename}_{idx}".encode('utf-8')).hexdigest()
+                    attachment_id = hashlib.md5(f"{email_id}_{attachment.filename}_{att_idx}".encode('utf-8')).hexdigest()
                     att_path = f"/google_email/{user_id}/{email.metadata.conversation_id}/attachments/{attachment.filename}"
                     
                     # Construire les métadonnées pour la pièce jointe
