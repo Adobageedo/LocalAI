@@ -431,9 +431,10 @@ class SyncManager:
                 syncstatus.update_status(f"Processing emails from {provider_name}")
             
             # Get email processing config
-            processing_config = self.config.get('email_processing', {})
-            limit = processing_config.get('limit_per_sync', 10)
-            auto_actions = processing_config.get('auto_actions', False)
+            processing_config = self.config.get('sync', {}).get('email_processing', {})
+            logger.info(f"Email processing config: {processing_config}")
+            limit = processing_config.get('limit_per_sync', 500)
+            auto_actions = processing_config.get('auto_actions', True)
             
             # Create email processor
             processor = EmailProcessor()

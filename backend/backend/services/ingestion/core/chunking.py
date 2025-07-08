@@ -270,6 +270,7 @@ def load_and_split_document(filepath: str, metadata: Dict[str, Any], chunk_size:
         doc_metadata["unique_id"] = str(uuid.uuid4())
         doc_metadata["num_chunks"] = len(docs)
         doc_metadata["embedded"] = True
+        doc_metadata["page_content"] = doc.page_content
         # Assign the combined metadata to the document
         doc.metadata = doc_metadata
     splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap, add_start_index=True)  # track index in original document

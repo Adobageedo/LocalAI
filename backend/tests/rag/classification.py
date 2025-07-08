@@ -178,7 +178,7 @@ if __name__ == "__main__":
     # Email configuration - DO NOT hardcode credentials in production!
     # These are only used for testing and should be moved to environment variables
     # or a secure configuration file in a real application
-    RECIPIENT_EMAIL = "edoardogenissel@gmail.com"
+    RECIPIENT_EMAIL = "edoardogenissel@outlook.com"
     # Corrected email address - make sure it matches exactly with your IONOS account
     SENDER_EMAIL = "info@chardouin.fr"  # Changed from passwotinfo to info
     PASSWORD = "enzo789luigiIO&"  # This should be stored securely, not in code
