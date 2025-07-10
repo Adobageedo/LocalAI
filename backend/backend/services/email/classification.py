@@ -109,7 +109,7 @@ class EmailClassifier:
                     )
                     file_registry = FileRegistry(user_id)
                     file_registry.update_email_classification(
-                        email_id=email_content['doc_id'],
+                        email_id=email_content['email_id'],
                         user_id=user_id,
                         classified_action=parsed_classification['action']
                     )

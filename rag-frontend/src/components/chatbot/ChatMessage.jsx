@@ -158,7 +158,13 @@ export default function ChatMessage({ message, isLatest }) {
   // Get source path from source (could be string or object)
   const getSourcePath = (source) => {
     if (!source) return null;
-    if (typeof source === 'string') return source;
+    // Handle the new format "filename|source"
+    let getsource=source.source;
+    if (typeof getsource === 'string') {
+      const parts = getsource.split('|');
+      return parts.length > 1 ? parts[1] : getsource;
+    }
+    
     return source.source || source.path || null;
   };
   
@@ -172,7 +178,6 @@ export default function ChatMessage({ message, isLatest }) {
     // Otherwise infer from path
     const path = getSourcePath(source);
     if (!path) return 'personal_storage';
-    
     if (path.startsWith('/google_email/')) {
       return 'google_email';
     } else if (path.startsWith('/microsoft_email/')) {

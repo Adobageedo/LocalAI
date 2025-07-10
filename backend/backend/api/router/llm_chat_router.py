@@ -420,7 +420,6 @@ async def add_message(conversation_id: Optional[UUID4] = None, message: MessageC
                         logger.warning(f"Ignoring invalid source type: {type(src)}")
                         
                 sources_data = processed_sources
-                logger.debug(f"Processed {len(processed_sources)} sources")
         
         logger.info(f"Adding message to conversation {conversation_id} for user {user_id}")
         

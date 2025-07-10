@@ -546,9 +546,15 @@ async def get_recent_gmail_emails(limit: int = 10, user=Depends(get_current_user
             emails.append(email_data)
         def parse_email_date(email):
             try:
-                dt = parsedate_to_datetime(email.get("date"))
+                date_str = email.get("date")
+                logger.debug(f"Email date: {date_str}")
+                if date_str is None or date_str == "":
+                    return datetime.min.replace(tzinfo=timezone.utc)
+                dt = parsedate_to_datetime(date_str)
+                logger.debug(f"Parsed email date: {dt}")
                 return dt if dt.tzinfo else dt.replace(tzinfo=timezone.utc)
-            except Exception:
+            except Exception as e:
+                logger.warning(f"Error parsing email date: {e}, using default date")
                 return datetime.min.replace(tzinfo=timezone.utc)
 
         emails.sort(key=parse_email_date, reverse=True)
@@ -642,7 +648,7 @@ from backend.services.sync_service.core.sync_manager import SyncManager
 
 class SyncRequest(BaseModel):
     """Request model for starting a synchronization for a user"""
-    provider: Optional[str] = Field(None, description="Optional provider name to sync (gmail, outlook, gdrive, personal-storage). If not provided, all providers for the user will be synchronized.")
+    provider: Optional[str] = Field(None, description="Optional provider name to sync (gmail, outlook, gdrive, personal_storage). If not provided, all providers for the user will be synchronized.")
     force_reingest: bool = Field(False, description="Whether to force reingestion of all documents")
 
 from fastapi.background import BackgroundTasks
@@ -703,6 +709,8 @@ def run_all_providers_sync(sync_id: str, user_id: str, providers: list, config: 
 
 @router.post("/sync/start")
 async def sync_for_user(request: SyncRequest, background_tasks: BackgroundTasks, user=Depends(get_current_user)):
+    # Debug log the request
+    logger.info(f"Sync request received: {request}")
     """Start a one-time synchronization for the specified user and provider in the background.
     If no provider is specified, sync all configured providers for the user.
     
@@ -727,7 +735,7 @@ async def sync_for_user(request: SyncRequest, background_tasks: BackgroundTasks,
         if request.force_reingest:
             if "sync" not in config:
                 config["sync"] = {}
-            for provider in ["gmail", "outlook", "gdrive", "personal-storage","google"]:
+            for provider in ["gmail", "outlook", "gdrive", "personal_storage","google"]:
                 if provider not in config["sync"]:
                     config["sync"][provider] = {}
                 config["sync"][provider]["force_reingest"] = False
@@ -744,7 +752,7 @@ async def sync_for_user(request: SyncRequest, background_tasks: BackgroundTasks,
         
         # If provider specified, sync only that provider
         if request.provider:
-            valid_providers = ["gmail", "outlook", "gdrive", "personal-storage", "microsoft","google"]
+            valid_providers = ["gmail", "outlook", "gdrive", "personal_storage", "microsoft","google"]
             if request.provider not in valid_providers:
                 return JSONResponse(
                     status_code=status.HTTP_400_BAD_REQUEST,

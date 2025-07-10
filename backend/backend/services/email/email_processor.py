@@ -418,7 +418,7 @@ def scheduled_email_processing(args: Dict[str, Any]) -> Dict[str, Any]:
 def test_process_emails_real_user():
     """Test the process_emails method with a real user ID"""
     # Use the specific user ID
-    user_id = "CpixGo0ZYif2Fi33bNrI08WVSfi1"
+    user_id = "6NtmIVkebWgJWs6cyjtjKVO4Wxp1"
     provider = EmailProvider.DATABASE
     
     # Create the EmailProcessor instance
