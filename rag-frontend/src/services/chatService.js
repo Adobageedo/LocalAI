@@ -16,7 +16,8 @@ export async function getConversations() {
 export async function getConversationMessages(conversationId) {
     try {
       const response = await authFetch(`${API_BASE_URL}/conversations/${conversationId}/messages`);
-      return await response.json();
+      const data = await response.json();
+      return data;
     } catch (error) {
       console.error('Error fetching conversation messages:', error);
       throw error;
@@ -53,13 +54,12 @@ export async function addMessage(conversation_id, message) {
         apiUrl = `${API_BASE_URL}/conversations/messages`;
       }
       
-      console.log(`Adding message to ${conversation_id ? 'existing' : 'new'} conversation:`, message);
       
       // Ensure message has the right format for the backend
       const messageToSend = {
         role: message.role,
         message: message.message || message.content, // Support both formats
-        sources: message.sources || [] // Include sources if available
+        sources: message.sources || [] // Include sources if available - now in format "filename|source|conversation_id|page_content"
       };
       
       const response = await authFetch(apiUrl, {
@@ -163,6 +163,7 @@ export async function generateConversationTitle(message) {
 // Send prompt to LLM API
 export async function sendPrompt(promptData) {
     try {
+      console.log("promptData.conversation_history",promptData.conversation_history);
       const response = await authFetch(`${API_BASE_URL}/prompt`, {
         method: 'POST',
         headers: {

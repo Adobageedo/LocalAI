@@ -207,7 +207,6 @@ export default function Chatbot() {
           role: 'user',
           message: content,
         }),
-        
         // Step 2: Send the message to the LLM API and get response
         sendPrompt({
           question: content,
@@ -217,7 +216,8 @@ export default function Chatbot() {
           include_profile_context: chatSettings.useUserContext,
           conversation_history: updatedMessages.map(m => ({
             role: m.role,
-            message: m.content
+            message: m.content,
+            sources: m.sources
           }))
         })
       ]);

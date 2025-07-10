@@ -67,7 +67,6 @@ export default function EmailClassificationPreferences() {
       }
       
       const data = await response.json();
-      console.log(data);
       // If we got preferences, use them; otherwise use defaults
       if (data) {
         setPreferences({
@@ -100,7 +99,6 @@ export default function EmailClassificationPreferences() {
         },
         body: JSON.stringify(preferences)
       });
-      console.log("for preferences", preferences,"response", response);
       
       if (!response.ok) {
         throw new Error('Failed to save classification preferences');
