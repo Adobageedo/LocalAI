@@ -65,11 +65,13 @@ def get_rag_response_modular(question: str, metadata_filter=None, top_k=None, us
             doc_id = metadata.get("doc_id", None)
             filename = metadata.get("filename", doc_id or "Unknown")
             source = metadata.get("path", "Unknown")
+            page_content = metadata.get("page_content", "Unknown")
             if doc_id:
                 doc_id_to_info[doc_id] = {
                     "filename": filename,
                     "source": source,
-                    "conversation_id": metadata.get("conversation_id", "Unknown")
+                    "conversation_id": metadata.get("conversation_id", "Unknown"),
+                    "page_content": page_content
                 }
 
         # Replace [doc_id] with [filename] in the answer
@@ -83,11 +85,9 @@ def get_rag_response_modular(question: str, metadata_filter=None, top_k=None, us
         answer = replace_doc_ids_with_filenames(answer, doc_id_to_info)
 
         # Now filter doc_id_to_info to only include those
+        # Return both filename and source path as strings
         sources_info = [
-            {
-                "source": info["source"],
-                "conversation_id": info.get("conversation_id")  # Use .get() in case it might be missing
-            }
+            f"{info['filename']}|{info['source']}|{info['conversation_id']}|{info['page_content']}"
             for doc_id, info in doc_id_to_info.items()
             if doc_id in used_doc_ids and "source" in info
         ]

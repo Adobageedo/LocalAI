@@ -194,22 +194,23 @@ const authProviders = {
   
   /**
    * Lance une ingestion de données via le gestionnaire de synchronisation
-   * @param {string} provider - Le fournisseur ('gmail', 'outlook', 'gdrive', 'personal-storage')
+   * @param {string} provider - Le fournisseur ('gmail', 'outlook', 'gdrive', 'personal_storage')
    * @param {Object} options - Options d'ingestion
    * @param {boolean} options.forceReingest - Force la réingestion des documents
    * @returns {Promise<Object>} Résultat de l'opération
    */
   startIngestion: async (provider, options = {}) => {      
-    const defaultOptions = {
+    // Match field names with the backend's SyncRequest model
+    const requestBody = {
       provider: provider,
       force_reingest: options.forceReingest || false
     };
-    console.log(defaultOptions);
+    console.log('Sending sync request:', requestBody);
     try {
       const response = await authFetch(`${API_BASE_URL}/sources/sync/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(defaultOptions),
+        body: JSON.stringify(requestBody),
       });
       
       if (!response.ok) {
@@ -305,7 +306,7 @@ const authProviders = {
       'gmail': 'Gmail',
       'outlook': 'Microsoft Outlook',
       'gdrive': 'Google Drive',
-      'personal-storage': 'Stockage Personnel'
+      'personal_storage': 'Stockage Personnel'
     };
     
     return names[provider] || provider.charAt(0).toUpperCase() + provider.slice(1);

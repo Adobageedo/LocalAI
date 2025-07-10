@@ -290,7 +290,7 @@ class FileRegistry:
         # Parcourir tous les fichiers dans le registre pour trouver l'email correspondant
         for file_path, file_info in self.registry.items():
             # Vérifier si c'est un email et s'il correspond à l'ID recherché
-            if "metadata" in file_info and file_info["metadata"].get("doc_id") == email_id:
+            if "metadata" in file_info and file_info["metadata"].get("provider_id") == email_id:
                 # Mettre à jour le statut de classification dans les métadonnées
                 if "metadata" not in file_info:
                     file_info["metadata"] = {}

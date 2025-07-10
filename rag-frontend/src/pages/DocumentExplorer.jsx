@@ -882,7 +882,7 @@ const DocumentExplorer = () => {
     try {
       setLoading(true);
       showNotification('Starting synchronization...');
-      await authProviders.startIngestion('personal-storage');
+      await authProviders.startIngestion('personal_storage');
       showNotification('Synchronization started');
     } catch (error) {
       console.error('Personal Storage sync error:', error);
