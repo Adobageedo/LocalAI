@@ -5,7 +5,6 @@ Script for ingesting documents from Microsoft OneDrive into Qdrant using OAuth2.
 
 import os
 import sys
-import logging
 import hashlib
 import argparse
 import datetime
@@ -111,7 +110,7 @@ def download_onedrive_file(access_token: str, file_id: str, file_metadata: Dict)
         file_name = file_metadata.get('name', f"file_{file_id}")
         mime_type = file_metadata.get('file', {}).get('mimeType', 'application/octet-stream')
         
-        logger.debug(f"Downloading file: {file_name} (ID: {file_id}, MIME: {mime_type})")
+        logger.info(f"Downloading file: {file_name} (ID: {file_id}, MIME: {mime_type})")
         
         # Check if it's a folder
         if file_metadata.get('folder'):
@@ -121,10 +120,10 @@ def download_onedrive_file(access_token: str, file_id: str, file_metadata: Dict)
         # Download URL
         download_url = f"{GRAPH_API_ENDPOINT}/me/drive/items/{file_id}/content"
         
-        # Make the request to download the file
+        # Set up headers with access token
         headers = {
-            'Authorization': f'Bearer {access_token}',
-            'Accept': 'application/json',
+            "Authorization": f"Bearer {access_token}",
+            "Accept": "application/json"
         }
         
         response = requests.get(download_url, headers=headers, stream=True)
@@ -157,68 +156,232 @@ def download_onedrive_file(access_token: str, file_id: str, file_metadata: Dict)
         return None
 
 
-def fetch_onedrive_files(access_token: str, query: str = None, limit: int = 10, folder_id: str = None) -> List[Dict]:
+def fetch_onedrive_files(access_token: str, query: str = None, limit: int = 100, folder_id: str = None) -> List[Dict[str, Any]]:
     """
-    Fetch the list of files from OneDrive.
+    Fetch files from OneDrive using Microsoft Graph API.
     
     Args:
         access_token: Microsoft Graph API access token
-        query: Search query for OneDrive files
-        limit: Maximum number of files to retrieve
+        query: Search query to filter files
+        limit: Maximum number of files to return
         folder_id: ID of the folder to explore (optional)
         
     Returns:
-        List of files with their metadata
+        List of file metadata dictionaries
     """
     try:
+        logger.info(f"Starting fetch_onedrive_files with params: query={query}, limit={limit}, folder_id={folder_id}")
+        
+        # Set up headers with access token
         headers = {
             'Authorization': f'Bearer {access_token}',
-            'Accept': 'application/json',
+            'Accept': 'application/json'
         }
+        logger.info("Headers configured with access token")
         
-        # Build the URL based on whether we're looking at a specific folder or not
+        # Construct the base URL for OneDrive files based on Microsoft Graph API documentation
         if folder_id:
+            # If folder_id is provided, get files from that specific folder
             url = f"{GRAPH_API_ENDPOINT}/me/drive/items/{folder_id}/children"
+            logger.info(f"Using folder-specific URL: {url}")
         else:
+            # Try the recommended endpoint for accessing root folder items
             url = f"{GRAPH_API_ENDPOINT}/me/drive/root/children"
+            logger.info(f"Using root folder URL: {url}")
         
-        # Add query parameters
+        # Add search query if provided
+        if query:
+            # Use search endpoint instead
+            url = f"{GRAPH_API_ENDPOINT}/me/drive/root/search(q='{query}')"
+            logger.info(f"Using search URL with query '{query}': {url}")
+        
+        # Add parameters for pagination and fields
         params = {
-            '$top': min(100, limit),  # Maximum items per page
+            '$top': min(100, limit),
             '$select': 'id,name,file,folder,lastModifiedDateTime,createdDateTime,size,webUrl,parentReference'
         }
         
-        # If a search query is provided, use the search endpoint instead
-        if query:
-            url = f"{GRAPH_API_ENDPOINT}/me/drive/root/search(q='{query}')"
+        # Make the initial request
+        logger.info(f"Making request to: {url}")
+        response = requests.get(url, headers=headers, params=params)
         
+        # Log response details for infoging
+        logger.info(f"Response status code: {response.status_code}")
+        
+        # Handle error responses
+        if response.status_code != 200:
+            logger.error(f"Error response: {response.status_code} - {response.text}")
+            return []
+            
+        data = response.json()
+        logger.info(f"Response data keys: {list(data.keys())}")
+        
+        # Process results
         results = []
-        next_link = url
+        items = data.get('value', [])
+        items_in_response = len(items)
+        logger.info(f"Received {items_in_response} items in response")
         
-        # Handle pagination
-        while next_link and len(results) < limit:
-            response = requests.get(next_link, headers=headers, params=params)
+        for item in items:
+            # Log item details for infoging
+            item_name = item.get('name', 'unnamed')
+            item_id = item.get('id', 'no-id')
+            is_folder = 'folder' in item
+            is_file = 'file' in item
+            item_type = "folder" if is_folder else "file" if is_file else "unknown"
             
+            logger.info(f"Processing item: {item_name} (type: {item_type}, id: {item_id})")
+            
+            # Skip folders unless we're explicitly looking at folder contents
+            if is_folder and not folder_id:
+                logger.info(f"Skipping folder: {item_name}")
+                continue
+                
+            # Only include files (skip folders in search results)
+            if is_file:
+                logger.info(f"Adding file to results: {item_name}")
+                results.append(item)
+            else:
+                logger.info(f"Skipping non-file item: {item_name}")
+        
+        # Handle pagination if there are more results
+        while '@odata.nextLink' in data and len(results) < limit:
+            next_link = data['@odata.nextLink']
+            logger.info(f"Following pagination link: {next_link}")
+            
+            response = requests.get(next_link, headers=headers)
             if response.status_code != 200:
-                logger.error(f"Error fetching files: {response.status_code} {response.text}")
+                logger.error(f"Error in pagination response: {response.status_code} - {response.text}")
                 break
-            
+                
             data = response.json()
-            items = data.get('value', [])
-            results.extend(items)
             
-            # Check if there are more results
-            next_link = data.get('@odata.nextLink')
-            
-            # Clear params for subsequent requests as they're included in the nextLink
-            params = {}
-            
-            # Break if we've reached the limit
-            if len(results) >= limit:
-                break
+            items_in_page = len(data.get('value', []))
+            logger.info(f"Received {items_in_page} items in pagination response")
         
+            # Add files from subsequent pages
+            for item in data.get('value', []):
+                item_name = item.get('name', 'unnamed')
+                is_file = 'file' in item
+                is_folder = 'folder' in item
+                item_type = "folder" if is_folder else "file" if is_file else "unknown"
+                
+                logger.info(f"Processing paginated item: {item_name} (type: {item_type})")
+                
+                # Only include files (skip folders)
+                if is_file:
+                    logger.info(f"Adding paginated file to results: {item_name}")
+                    results.append(item)
+                    if len(results) >= limit:
+                        logger.info(f"Reached limit of {limit} files, stopping pagination")
+                        break
+        
+        # Try listing all drives as a fallback
+        if not results:
+            logger.info("No files found in default approach, trying to list all drives")
+            drives_url = f"{GRAPH_API_ENDPOINT}/me/drives"
+            drives_response = requests.get(drives_url, headers=headers)
+            if drives_response.status_code == 200:
+                drives_data = drives_response.json()
+                drives = drives_data.get('value', [])
+                logger.info(f"Found {len(drives)} drives")
+                
+                # Try to access each drive directly
+                for drive in drives:
+                    drive_id = drive.get('id')
+                    drive_name = drive.get('name', 'Unnamed Drive')
+                    logger.info(f"Found drive: {drive_name} (id: {drive_id})")
+                    
+                    # Try different approaches for this drive based on the documentation
+                    approaches = [
+                        # Standard approach for drive root children
+                        f"{GRAPH_API_ENDPOINT}/drives/{drive_id}/root/children",
+                        # Alternative approach using drive items
+                        f"{GRAPH_API_ENDPOINT}/drives/{drive_id}/items/root/children",
+                        # Special folders approach
+                        f"{GRAPH_API_ENDPOINT}/drives/{drive_id}/special/documents/children"
+                    ]
+                    
+                    for approach_url in approaches:
+                        logger.info(f"Trying to access drive {drive_name} using URL: {approach_url}")
+                        approach_response = requests.get(approach_url, headers=headers)
+                        
+                        if approach_response.status_code == 200:
+                            approach_data = approach_response.json()
+                            approach_items = approach_data.get('value', [])
+                            logger.info(f"Found {len(approach_items)} items using {approach_url}")
+                            
+                            # Process items from this approach
+                            for item in approach_items:
+                                item_name = item.get('name', 'unnamed')
+                                is_file = 'file' in item
+                                is_folder = 'folder' in item
+                                item_type = "folder" if is_folder else "file" if is_file else "unknown"
+                                logger.info(f"Drive item: {item_name} (type: {item_type})")
+                                
+                                # Add files to results
+                                if is_file:
+                                    logger.info(f"Adding drive file to results: {item_name}")
+                                    results.append(item)
+                                    
+                            # If we found items, no need to try other approaches for this drive
+                            if approach_items:
+                                break
+                        else:
+                            logger.info(f"Failed with approach {approach_url}: {approach_response.status_code}")
+            
+            # Try additional approaches based on the Microsoft documentation
+            if not results:
+                # Try different approaches for accessing files
+                additional_approaches = [
+                    # Try using the /items endpoint
+                    f"{GRAPH_API_ENDPOINT}/me/drive/items/root/children",
+                    # Try using the special folders approach
+                    f"{GRAPH_API_ENDPOINT}/me/drive/special/documents/children",
+                    # Try using the path-based approach
+                    f"{GRAPH_API_ENDPOINT}/me/drive/root:/Documents:/children",
+                    # Try using the delta endpoint
+                    f"{GRAPH_API_ENDPOINT}/me/drive/root/delta"
+                ]
+                
+                for idx, approach_url in enumerate(additional_approaches):
+                    logger.info(f"Trying additional approach #{idx+1}: {approach_url}")
+                    approach_response = requests.get(approach_url, headers=headers)
+                    
+                    if approach_response.status_code == 200:
+                        approach_data = approach_response.json()
+                        approach_items = approach_data.get('value', [])
+                        logger.info(f"Found {len(approach_items)} items using approach #{idx+1}")
+                        
+                        for item in approach_items:
+                            item_name = item.get('name', 'unnamed')
+                            is_file = 'file' in item
+                            if is_file:
+                                logger.info(f"Adding item to results: {item_name}")
+                                results.append(item)
+                        
+                        # If we found items, no need to try other approaches
+                        if approach_items:
+                            break
+                    else:
+                        logger.info(f"Failed with approach #{idx+1}: {approach_response.status_code}")
+                        
+            # Try uploading a test file if no files are found
+            if not results:
+                logger.info("No files found in OneDrive. This could be because the account is new or empty.")
+                logger.info("You may need to upload files to OneDrive first before they can be ingested.")
+        
+        final_count = len(results[:limit])
+        logger.info(f"Returning {final_count} files from OneDrive")
         return results[:limit]  # Limit to the first 'limit' results
         
+    except requests.exceptions.HTTPError as e:
+        logger.error(f"HTTP error fetching files: {e}")
+        if hasattr(e, 'response'):
+            logger.error(f"Response status code: {e.response.status_code}")
+            logger.error(f"Response content: {e.response.text}")
+        logger.error(traceback.format_exc())
+        return []
     except Exception as e:
         logger.error(f"Error fetching files: {e}")
         logger.error(traceback.format_exc())
@@ -259,8 +422,6 @@ def batch_ingest_onedrive_documents(
         - errors: List of errors encountered
         - duration: Total duration of ingestion in seconds
     """
-    if verbose:
-        logging.getLogger().setLevel(logging.DEBUG)    
     
     # Create temporary directory for files
     temp_dir = tempfile.mkdtemp(prefix="onedrive_ingest_")
@@ -389,7 +550,7 @@ def batch_ingest_onedrive_documents(
             try:
                 if os.path.exists(temp_file):
                     os.unlink(temp_file)
-                    logger.debug(f"Temporary file deleted: {temp_file}")
+                    logger.info(f"Temporary file deleted: {temp_file}")
             except Exception as e:
                 logger.warning(f"Error deleting temporary file {temp_file}: {e}")
                 
@@ -419,6 +580,60 @@ def batch_ingest_onedrive_documents(
         result["success"] = False
         
     return result
+
+
+def flush_batch(batch_documents: List[Dict], user_id: str, result: Dict, file_registry: FileRegistry, syncstatus: SyncStatus = None) -> None:
+    """
+    Process a batch of documents for ingestion.
+    
+    Args:
+        batch_documents: List of documents to process
+        user_id: User identifier
+        result: Dictionary to update with results
+        file_registry: FileRegistry instance
+        syncstatus: SyncStatus object to track progress
+    """
+    if not batch_documents:
+        return
+        
+    try:
+        # Prepare documents for ingestion
+        documents_to_ingest = []
+        for doc in batch_documents:
+            tmp_path = doc["tmp_path"]
+            metadata = doc["metadata"]
+            
+            # Create document for ingestion
+            document = Document(
+                path=metadata["path"],
+                metadata=metadata,
+                user_id=user_id
+            )
+            
+            # Load content from temporary file
+            document.load_from_file(tmp_path)
+            
+            # Add to list for batch ingestion
+            documents_to_ingest.append(document)
+            
+        # Ingest the batch
+        if documents_to_ingest:
+            logger.info(f"Ingesting batch of {len(documents_to_ingest)} documents")
+            ingest_documents_batch(documents_to_ingest)
+            
+            # Update registry and statistics
+            for doc in documents_to_ingest:
+                file_registry.add_file(doc.path)
+                result["items_ingested"] += 1
+                
+                if syncstatus:
+                    syncstatus.processed_documents += 1
+                    
+    except Exception as e:
+        logger.error(f"Error processing batch: {e}")
+        logger.error(traceback.format_exc())
+        result["errors"].append(f"Batch processing error: {str(e)}")
+
 
 
 def main():

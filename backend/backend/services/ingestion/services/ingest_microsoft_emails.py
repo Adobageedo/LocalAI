@@ -15,12 +15,13 @@ import time
 from typing import List, Dict, Any, Optional, Tuple
 import msal
 import requests
-from backend.services.ingestion.services.ingest_google_emails import parse_email_date
 
 # Ajouter le chemin racine du projet aux chemins d'import
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..')))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..',)))
 
 # Importer les modules nécessaires
+from backend.services.ingestion.services.ingest_google_emails import parse_email_date
+
 from backend.services.ingestion.core.ingest_core import flush_batch
 from backend.services.storage.file_registry import FileRegistry
 from backend.core.config import OUTLOOK_CLIENT_ID, OUTLOOK_CLIENT_SECRET, OUTLOOK_TENANT_ID, OUTLOOK_TOKEN_PATH
@@ -523,7 +524,7 @@ def main():
     parser.add_argument("--query", help="Requête de recherche Outlook (OData)")
     parser.add_argument("--force-reingest", action="store_true", help="Forcer la réingestion même si l'email existe déjà")
     parser.add_argument("--no-attachments", action="store_true", help="Ne pas sauvegarder les pièces jointes")
-    parser.add_argument("--user-id", default="hupTIQvuO4R3BxklIWs1AqbKDP13", help="Identifiant de l'utilisateur")
+    parser.add_argument("--user-id", default="6NtmIVkebWgJWs6cyjtjKVO4Wxp1", help="Identifiant de l'utilisateur")
     parser.add_argument("--batch-size", type=int, default=10, help="Nombre de documents à traiter dans chaque lot")
     parser.add_argument("--min-date", help="Date minimale pour filtrer les emails (format YYYY-MM-DD)")
     

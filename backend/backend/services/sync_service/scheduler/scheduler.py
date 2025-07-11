@@ -7,8 +7,14 @@ import time
 import threading
 import logging
 import traceback
+import os
+import sys
 from datetime import datetime, timedelta
 from typing import Callable, Dict, List, Any
+
+# Fix import path by adding the project root to sys.path
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..', '..'))
+sys.path.append(project_root)
 
 from backend.core.logger import log
 

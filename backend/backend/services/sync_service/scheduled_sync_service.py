@@ -7,7 +7,10 @@ from datetime import datetime
 import json
 import os
 import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))  
+
+# Fix import path by adding the project root to sys.path
+project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+sys.path.append(project_root)
 
 from backend.services.sync_service.scheduler.scheduler import ScheduledJobManager
 from backend.services.sync_service.core.sync_manager import SyncManager
