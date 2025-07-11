@@ -445,7 +445,30 @@ Your response should sound natural and match the user's typical communication st
 """
             except Exception as e:
                 logger.error(f"Error retrieving writing style: {str(e)}")
-        prompt = f"""
+        # Create different prompts based on the action type
+        if action.lower() == "forward":
+            prompt = f"""
+You are an intelligent email assistant tasked with drafting a professional forward of the following email:
+FROM: {sender}
+TO: {recipients}
+SUBJECT: {subject}
+---
+{body}
+
+{conversation_history}
+
+{style_guidance}
+
+Please draft a brief introduction for forwarding this email. Your introduction should:
+1. Explain why this email is being forwarded
+2. Provide any necessary context for the recipients
+3. Be concise and professional
+
+Include a subject line prefixed with "Subject:" (typically "Fwd: {subject}") and the body of your introduction after that.
+Do not include the original email in your response as it will be automatically appended.
+"""
+        else:
+            prompt = f"""
 You are an intelligent email assistant tasked with drafting a professional {action} to the following email:
 FROM: {sender}
 TO: {recipients}
@@ -624,7 +647,7 @@ Include a subject line prefixed with "Subject:" and the body of the email after 
             Dict with details of the sent reply
         """
         try:
-            email_id = email.get("email_id", "")
+            email_id = email.get("conversation_id", "") or email.get("email_id", "")
             if not email_id:
                 return {"success": False, "error": "No email ID provided"}
                 
@@ -660,21 +683,100 @@ Include a subject line prefixed with "Subject:" and the body of the email after 
             }
 
             
+    def generate_forward_content(
+        self,
+        email: Dict[str, Any],
+        recipients: List[str],
+        use_rag: bool = False,
+        temperature: float = 0.7,
+        metadata_filter: Optional[Dict[str, Any]] = None,
+        user_id: Optional[str] = None,
+        provider: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Generate content for forwarding an email using LLM, optionally enhanced with RAG.
+        
+        Args:
+            email: The email to forward
+            recipients: List of recipient email addresses
+            use_rag: Whether to use RAG to enhance the forward content
+            temperature: Temperature for LLM generation (higher = more creative)
+            metadata_filter: Optional filter for RAG document retrieval
+            user_id: User ID for document collection filtering
+            provider: Email provider (gmail, outlook, etc.) for writing style analysis
+            
+        Returns:
+            Dict with generated forward content and metadata
+        """
+        try:
+            # Create prompt for email forwarding
+            prompt = self._create_email_response_prompt(email, "forward", "", provider)
+            
+            # Add recipient context to the prompt
+            recipient_context = f"\nYou are forwarding this email to: {', '.join(recipients)}"
+            prompt += recipient_context
+            prompt += "\n\nPlease include a brief introduction explaining why you're forwarding this email and any context the recipients should know."
+            
+            # Generate content using RAG if requested
+            if use_rag:
+                result = get_rag_response_modular(
+                    question=prompt,
+                    use_retrieval=True,
+                    temperature=temperature,
+                    metadata_filter=metadata_filter,
+                    user_id=user_id or self.user_id
+                )
+                response = result.get("answer", "")
+            else:
+                result = get_rag_response_modular(
+                    question=prompt,
+                    use_retrieval=False,
+                    temperature=temperature,
+                    user_id=user_id or self.user_id
+                )
+                response = result.get("answer", "")
+            
+            # Extract subject and body from the response
+            components = self.extract_email_components(response)
+            
+            return {
+                "response": response,
+                "subject": components.get("subject", f"Fwd: {email.get('subject', '')}"),
+                "body": components.get("body", ""),
+                "recipients": recipients,
+                "cc": []
+            }
+        except Exception as e:
+            logger.error(f"Error generating forward content: {str(e)}")
+            return {
+                "response": f"Error generating forward content: {str(e)}",
+                "subject": f"Fwd: {email.get('subject', '')}",
+                "body": "",
+                "recipients": recipients,
+                "cc": []
+            }
+
     def forward_email(
         self,
         email_content: Dict[str, Any],
         recipients: List[str],
         additional_comment: Optional[str] = None,
-        provider: Optional[str] = None
+        provider: Optional[str] = None,
+        use_llm: bool = True,
+        use_rag: bool = False,
+        temperature: float = 0.7
     ) -> Dict[str, Any]:
         """
-        Forward an email to new recipients.
+        Forward an email to new recipients, optionally using LLM to generate forwarding content.
         
         Args:
             email_content: Dictionary containing the email data to forward
             recipients: List of recipient email addresses
             additional_comment: Optional comment to add before the forwarded content
             provider: Email provider (gmail, outlook, etc.)
+            use_llm: Whether to use LLM to generate forwarding content
+            use_rag: Whether to use RAG to enhance the forward content (only if use_llm is True)
+            temperature: Temperature for LLM generation (higher = more creative)
             
         Returns:
             Dict with details of the forwarded email
@@ -683,7 +785,7 @@ Include a subject line prefixed with "Subject:" and the body of the email after 
             if not provider:
                 return {"success": False, "error": "Email provider not specified"}
                 
-            email_id = email_content.get("email_id", "")
+            email_id = email_content.get("conversation_id", "") or email_content.get("email_id", "")
             if not email_id:
                 return {"success": False, "error": "No email ID provided"}
                 
@@ -691,6 +793,26 @@ Include a subject line prefixed with "Subject:" and the body of the email after 
             handler = self.provider_handlers.get(provider.lower())
             if not handler:
                 return {"success": False, "error": f"Unsupported email provider: {provider}"}
+            
+            # If using LLM to generate forwarding content
+            if use_llm:
+                try:
+                    # Generate forwarding content using LLM
+                    generated_content = self.generate_forward_content(
+                        email=email_content,
+                        recipients=recipients,
+                        use_rag=use_rag,
+                        temperature=temperature,
+                        provider=provider
+                    )
+                    
+                    # Use the generated content as the additional comment
+                    additional_comment = generated_content.get("body", "")
+                    
+                    logger.info(f"Successfully generated forwarding content using LLM")
+                except Exception as e:
+                    logger.error(f"Error generating forwarding content with LLM: {str(e)}")
+                    # Continue with the original additional_comment if LLM generation fails
                 
             # Forward the email using the appropriate handler
             result = handler.forward_email(
@@ -919,13 +1041,26 @@ def main():
         )
         print(f"Reply Result: {reply_result}")
         
-        # Test forwarding email
+        # Test forwarding email with LLM-generated content
         forward_result = gmail_agent.forward_email(
+            email_content={"email_id": TEST_EMAIL_ID, "subject": "Original test email", "body": "This is the content of the original email to forward.", "sender": "original@example.com"},
+            recipients=[TEST_RECIPIENT],
+            provider='gmail',
+            use_llm=True,
+            use_rag=False,
+            temperature=0.7
+        )
+        print(f"Forward Result with LLM: {forward_result}")
+        
+        # Test forwarding email without LLM
+        forward_result_no_llm = gmail_agent.forward_email(
             email_content={"email_id": TEST_EMAIL_ID},
             recipients=[TEST_RECIPIENT],
-            provider='gmail'
+            provider='gmail',
+            use_llm=False,
+            additional_comment="Forwarding this email for your information."
         )
-        print(f"Forward Result: {forward_result}")
+        print(f"Forward Result without LLM: {forward_result_no_llm}")
         
         # Test flagging email
         flag_result = gmail_agent.update_email_flags(
@@ -968,13 +1103,26 @@ def main():
         )
         print(f"Reply Result: {reply_result}")
         
-        # Test forwarding email
+        # Test forwarding email with LLM-generated content
         forward_result = outlook_agent.forward_email(
+            email_content={"email_id": TEST_EMAIL_ID, "subject": "Original test email", "body": "This is the content of the original email to forward.", "sender": "original@example.com"},
+            recipients=[TEST_RECIPIENT],
+            provider='outlook',
+            use_llm=True,
+            use_rag=False,
+            temperature=0.7
+        )
+        print(f"Forward Result with LLM: {forward_result}")
+        
+        # Test forwarding email without LLM
+        forward_result_no_llm = outlook_agent.forward_email(
             email_content={"email_id": TEST_EMAIL_ID},
             recipients=[TEST_RECIPIENT],
-            provider='outlook'
+            provider='outlook',
+            use_llm=False,
+            additional_comment="Forwarding this email for your information."
         )
-        print(f"Forward Result: {forward_result}")
+        print(f"Forward Result without LLM: {forward_result_no_llm}")
         
         # Test flagging email
         flag_result = outlook_agent.update_email_flags(

@@ -274,7 +274,7 @@ class EmailProcessor:
                 "classification": classification_result,
                 "action_taken": None  # Will be populated if auto-action is taken
             }
-            
+
             # Take action if requested
             if auto_action and classification_result:
                 action_result = self.auto_processor.process_email_action(

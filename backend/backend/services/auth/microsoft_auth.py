@@ -22,41 +22,42 @@ from backend.core.logger import log
 
 logger = log.bind(name="backend.services.auth.microsoft_auth")
 
-SCOPES = ['Mail.Read', 'User.Read', 'Mail.ReadWrite', 'Mail.Send']
+SCOPES = ['Mail.Read', 'User.Read', 'Mail.ReadWrite', 'Mail.Send', 'Files.Read', 'Files.ReadWrite']
 
 def get_outlook_token(user_id: str) -> Optional[Dict]:
     """
     Authentifie l'utilisateur et renvoie un token d'accès à Microsoft Graph.
     Args:
-        client_id: ID client Azure
-        client_secret: Secret client Azure
-        tenant_id: ID du tenant Azure
         user_id: Identifiant de l'utilisateur
     Returns:
         Token d'accès ou None en cas d'erreur
     """
     client_id = OUTLOOK_CLIENT_ID
-    client_secret = OUTLOOK_CLIENT_SECRET
-    tenant_id = OUTLOOK_TENANT_ID
-    
+    #client_secret = OUTLOOK_CLIENT_SECRET
+    #tenant_id = OUTLOOK_TENANT_ID
     try:
         # Utilisation de la fonction de chargement du token depuis credentials_manager
         cache_data = load_microsoft_token(user_id)
         token_cache = msal.SerializableTokenCache()
+        
         if cache_data:
             token_cache.deserialize(cache_data)
+        
+        # First try with PublicClientApplication for cached tokens
         app = msal.PublicClientApplication(
             client_id=client_id,
             authority=f"https://login.microsoftonline.com/common",
             token_cache=token_cache
         )
+        
+        # Try to get an account from the cache
         accounts = app.get_accounts()
         result = None
+        
+        # If we have accounts in the cache, try to get a token silently
         if accounts:
-            logger.info(f"Compte trouvé dans le cache : {accounts[0].get('username', 'compte inconnu')}")
             result = app.acquire_token_silent(SCOPES, account=accounts[0])
         if not result:
-            logger.info("Aucun token valide trouvé, lancement de l'authentification interactive")
             result = app.acquire_token_interactive(
                 scopes=SCOPES,
                 prompt="select_account"
