@@ -22,13 +22,56 @@ from backend.core.logger import log
 logger = log.bind(name="backend.services.ingestion.services.ingest_onedrive_documents")
 
 # Internal imports
-from backend.services.auth.microsoft_auth import get_outlook_token
+from backend.services.auth.microsoft_auth import get_drive_service
 from backend.services.ingestion.core.ingest_core import flush_batch
 from backend.services.storage.file_registry import FileRegistry
 from backend.services.db.models import SyncStatus
 
 # Microsoft Graph API endpoint
 GRAPH_API_ENDPOINT = "https://graph.microsoft.com/v1.0"
+
+def _is_recent_file(file_metadata: Dict, days_filter: int) -> bool:
+    """
+    Check if a file is recent based on its creation or modification date.
+    
+    Args:
+        file_metadata: OneDrive file metadata
+        days_filter: Number of days to consider as recent
+        
+    Returns:
+        True if the file was created or modified within the specified number of days, False otherwise
+    """
+    if not days_filter:
+        return True  # No filter means all files are considered recent
+        
+    try:
+        # Get current time and calculate the cutoff date
+        now = datetime.datetime.now(datetime.timezone.utc)
+        cutoff_date = now - datetime.timedelta(days=days_filter)
+        
+        # Check last modified date
+        last_modified_str = file_metadata.get('lastModifiedDateTime')
+        if last_modified_str:
+            # Parse ISO 8601 date format
+            last_modified = datetime.datetime.fromisoformat(last_modified_str.replace('Z', '+00:00'))
+            if last_modified >= cutoff_date:
+                return True
+                
+        # Check creation date
+        created_str = file_metadata.get('createdDateTime')
+        if created_str:
+            # Parse ISO 8601 date format
+            created = datetime.datetime.fromisoformat(created_str.replace('Z', '+00:00'))
+            if created >= cutoff_date:
+                return True
+                
+        # If we get here, the file is older than the specified number of days
+        return False
+        
+    except Exception as e:
+        logger.warning(f"Error checking file date: {e}. Considering file as recent.")
+        return True  # In case of error, include the file to be safe
+
 
 def compute_onedrive_file_hash(file_metadata: Dict, file_content: Optional[bytes] = None) -> str:
     """
@@ -156,7 +199,7 @@ def download_onedrive_file(access_token: str, file_id: str, file_metadata: Dict)
         return None
 
 
-def fetch_onedrive_files(access_token: str, query: str = None, limit: int = 100, folder_id: str = None) -> List[Dict[str, Any]]:
+def fetch_onedrive_files(access_token: str, query: str = None, limit: int = 100, folder_id: str = None, days_filter: int = None) -> List[Dict[str, Any]]:
     """
     Fetch files from OneDrive using Microsoft Graph API.
     
@@ -164,7 +207,8 @@ def fetch_onedrive_files(access_token: str, query: str = None, limit: int = 100,
         access_token: Microsoft Graph API access token
         query: Search query to filter files
         limit: Maximum number of files to return
-        folder_id: ID of the folder to explore (optional)
+        folder_id: ID of the folder to explore (optional, defaults to root)
+        days_filter: Only return files created or modified in the last N days
         
     Returns:
         List of file metadata dictionaries
@@ -177,203 +221,109 @@ def fetch_onedrive_files(access_token: str, query: str = None, limit: int = 100,
             'Authorization': f'Bearer {access_token}',
             'Accept': 'application/json'
         }
-        logger.info("Headers configured with access token")
         
-        # Construct the base URL for OneDrive files based on Microsoft Graph API documentation
-        if folder_id:
-            # If folder_id is provided, get files from that specific folder
-            url = f"{GRAPH_API_ENDPOINT}/me/drive/items/{folder_id}/children"
-            logger.info(f"Using folder-specific URL: {url}")
-        else:
-            # Try the recommended endpoint for accessing root folder items
-            url = f"{GRAPH_API_ENDPOINT}/me/drive/root/children"
-            logger.info(f"Using root folder URL: {url}")
-        
-        # Add search query if provided
+        # If search query is provided, use the search endpoint
         if query:
-            # Use search endpoint instead
             url = f"{GRAPH_API_ENDPOINT}/me/drive/root/search(q='{query}')"
             logger.info(f"Using search URL with query '{query}': {url}")
-        
-        # Add parameters for pagination and fields
-        params = {
-            '$top': min(100, limit),
-            '$select': 'id,name,file,folder,lastModifiedDateTime,createdDateTime,size,webUrl,parentReference'
-        }
-        
-        # Make the initial request
-        logger.info(f"Making request to: {url}")
-        response = requests.get(url, headers=headers, params=params)
-        
-        # Log response details for infoging
-        logger.info(f"Response status code: {response.status_code}")
-        
-        # Handle error responses
-        if response.status_code != 200:
-            logger.error(f"Error response: {response.status_code} - {response.text}")
-            return []
             
-        data = response.json()
-        logger.info(f"Response data keys: {list(data.keys())}")
-        
-        # Process results
-        results = []
-        items = data.get('value', [])
-        items_in_response = len(items)
-        logger.info(f"Received {items_in_response} items in response")
-        
-        for item in items:
-            # Log item details for infoging
-            item_name = item.get('name', 'unnamed')
-            item_id = item.get('id', 'no-id')
-            is_folder = 'folder' in item
-            is_file = 'file' in item
-            item_type = "folder" if is_folder else "file" if is_file else "unknown"
+            params = {
+                '$top': min(100, limit),
+                '$select': 'id,name,file,folder,lastModifiedDateTime,createdDateTime,size,webUrl,parentReference'
+            }
             
-            logger.info(f"Processing item: {item_name} (type: {item_type}, id: {item_id})")
+            response = requests.get(url, headers=headers, params=params)
+            response.raise_for_status()
             
-            # Skip folders unless we're explicitly looking at folder contents
-            if is_folder and not folder_id:
-                logger.info(f"Skipping folder: {item_name}")
-                continue
-                
-            # Only include files (skip folders in search results)
-            if is_file:
-                logger.info(f"Adding file to results: {item_name}")
-                results.append(item)
-            else:
-                logger.info(f"Skipping non-file item: {item_name}")
-        
-        # Handle pagination if there are more results
-        while '@odata.nextLink' in data and len(results) < limit:
-            next_link = data['@odata.nextLink']
-            logger.info(f"Following pagination link: {next_link}")
-            
-            response = requests.get(next_link, headers=headers)
-            if response.status_code != 200:
-                logger.error(f"Error in pagination response: {response.status_code} - {response.text}")
-                break
-                
             data = response.json()
+            items = data.get('value', [])
             
-            items_in_page = len(data.get('value', []))
-            logger.info(f"Received {items_in_page} items in pagination response")
-        
-            # Add files from subsequent pages
-            for item in data.get('value', []):
-                item_name = item.get('name', 'unnamed')
-                is_file = 'file' in item
-                is_folder = 'folder' in item
-                item_type = "folder" if is_folder else "file" if is_file else "unknown"
-                
-                logger.info(f"Processing paginated item: {item_name} (type: {item_type})")
-                
-                # Only include files (skip folders)
-                if is_file:
-                    logger.info(f"Adding paginated file to results: {item_name}")
+            # Process search results (only include files)
+            results = []
+            for item in items:
+                if 'file' in item:
+                    # Apply date filter if specified
+                    if days_filter and not _is_recent_file(item, days_filter):
+                        logger.info(f"Skipping file {item.get('name', 'unnamed')} - older than {days_filter} days")
+                        continue
+                        
                     results.append(item)
                     if len(results) >= limit:
-                        logger.info(f"Reached limit of {limit} files, stopping pagination")
                         break
-        
-        # Try listing all drives as a fallback
-        if not results:
-            logger.info("No files found in default approach, trying to list all drives")
-            drives_url = f"{GRAPH_API_ENDPOINT}/me/drives"
-            drives_response = requests.get(drives_url, headers=headers)
-            if drives_response.status_code == 200:
-                drives_data = drives_response.json()
-                drives = drives_data.get('value', [])
-                logger.info(f"Found {len(drives)} drives")
-                
-                # Try to access each drive directly
-                for drive in drives:
-                    drive_id = drive.get('id')
-                    drive_name = drive.get('name', 'Unnamed Drive')
-                    logger.info(f"Found drive: {drive_name} (id: {drive_id})")
-                    
-                    # Try different approaches for this drive based on the documentation
-                    approaches = [
-                        # Standard approach for drive root children
-                        f"{GRAPH_API_ENDPOINT}/drives/{drive_id}/root/children",
-                        # Alternative approach using drive items
-                        f"{GRAPH_API_ENDPOINT}/drives/{drive_id}/items/root/children",
-                        # Special folders approach
-                        f"{GRAPH_API_ENDPOINT}/drives/{drive_id}/special/documents/children"
-                    ]
-                    
-                    for approach_url in approaches:
-                        logger.info(f"Trying to access drive {drive_name} using URL: {approach_url}")
-                        approach_response = requests.get(approach_url, headers=headers)
-                        
-                        if approach_response.status_code == 200:
-                            approach_data = approach_response.json()
-                            approach_items = approach_data.get('value', [])
-                            logger.info(f"Found {len(approach_items)} items using {approach_url}")
-                            
-                            # Process items from this approach
-                            for item in approach_items:
-                                item_name = item.get('name', 'unnamed')
-                                is_file = 'file' in item
-                                is_folder = 'folder' in item
-                                item_type = "folder" if is_folder else "file" if is_file else "unknown"
-                                logger.info(f"Drive item: {item_name} (type: {item_type})")
-                                
-                                # Add files to results
-                                if is_file:
-                                    logger.info(f"Adding drive file to results: {item_name}")
-                                    results.append(item)
-                                    
-                            # If we found items, no need to try other approaches for this drive
-                            if approach_items:
-                                break
-                        else:
-                            logger.info(f"Failed with approach {approach_url}: {approach_response.status_code}")
             
-            # Try additional approaches based on the Microsoft documentation
-            if not results:
-                # Try different approaches for accessing files
-                additional_approaches = [
-                    # Try using the /items endpoint
-                    f"{GRAPH_API_ENDPOINT}/me/drive/items/root/children",
-                    # Try using the special folders approach
-                    f"{GRAPH_API_ENDPOINT}/me/drive/special/documents/children",
-                    # Try using the path-based approach
-                    f"{GRAPH_API_ENDPOINT}/me/drive/root:/Documents:/children",
-                    # Try using the delta endpoint
-                    f"{GRAPH_API_ENDPOINT}/me/drive/root/delta"
-                ]
+            # Handle pagination for search results
+            while '@odata.nextLink' in data and len(results) < limit:
+                next_link = data['@odata.nextLink']
+                logger.info(f"Following pagination link: {next_link}")
                 
-                for idx, approach_url in enumerate(additional_approaches):
-                    logger.info(f"Trying additional approach #{idx+1}: {approach_url}")
-                    approach_response = requests.get(approach_url, headers=headers)
-                    
-                    if approach_response.status_code == 200:
-                        approach_data = approach_response.json()
-                        approach_items = approach_data.get('value', [])
-                        logger.info(f"Found {len(approach_items)} items using approach #{idx+1}")
-                        
-                        for item in approach_items:
-                            item_name = item.get('name', 'unnamed')
-                            is_file = 'file' in item
-                            if is_file:
-                                logger.info(f"Adding item to results: {item_name}")
-                                results.append(item)
-                        
-                        # If we found items, no need to try other approaches
-                        if approach_items:
+                response = requests.get(next_link, headers=headers)
+                response.raise_for_status()
+                
+                data = response.json()
+                items = data.get('value', [])
+                
+                for item in items:
+                    if 'file' in item:
+                        results.append(item)
+                        if len(results) >= limit:
                             break
-                    else:
-                        logger.info(f"Failed with approach #{idx+1}: {approach_response.status_code}")
-                        
-            # Try uploading a test file if no files are found
-            if not results:
-                logger.info("No files found in OneDrive. This could be because the account is new or empty.")
-                logger.info("You may need to upload files to OneDrive first before they can be ingested.")
+            
+            logger.info(f"Returning {len(results)} files from search results")
+            return results[:limit]
         
-        final_count = len(results[:limit])
-        logger.info(f"Returning {final_count} files from OneDrive")
-        return results[:limit]  # Limit to the first 'limit' results
+        # If not searching, use recursive directory structure to get all files
+        # Determine the root folder ID
+        root_id = folder_id if folder_id else 'root'
+        
+        # Get the complete directory structure
+        url = f"{GRAPH_API_ENDPOINT}/me/drive/items/{root_id}/children"
+        if root_id == 'root':
+            url = f"{GRAPH_API_ENDPOINT}/me/drive/root/children"
+        
+        logger.info(f"Getting files from: {url}")
+        
+        # Initialize results list
+        results = []
+        
+        # Function to recursively get all files
+        def get_all_files(url, max_items=limit):
+            nonlocal results
+            
+            response = requests.get(url, headers=headers)
+            response.raise_for_status()
+            
+            data = response.json()
+            items = data.get('value', [])
+            
+            # Process items at this level
+            for item in items:
+                if 'file' in item:
+                    # Apply date filter if specified
+                    if days_filter and not _is_recent_file(item, days_filter):
+                        logger.info(f"Skipping file {item.get('name', 'unnamed')} - older than {days_filter} days")
+                        continue
+                        
+                    # It's a file, add it to results
+                    results.append(item)
+                    if len(results) >= max_items:
+                        return
+                elif 'folder' in item and len(results) < max_items:
+                    # It's a folder, recursively get its contents
+                    folder_id = item.get('id')
+                    folder_url = f"{GRAPH_API_ENDPOINT}/me/drive/items/{folder_id}/children"
+                    get_all_files(folder_url, max_items)
+                    if len(results) >= max_items:
+                        return
+            
+            # Handle pagination at this level
+            if '@odata.nextLink' in data and len(results) < max_items:
+                get_all_files(data['@odata.nextLink'], max_items)
+        
+        # Start recursive file collection
+        get_all_files(url, limit)
+        
+        logger.info(f"Retrieved {len(results)} files recursively from OneDrive")
+        return results[:limit]
         
     except requests.exceptions.HTTPError as e:
         logger.error(f"HTTP error fetching files: {e}")
@@ -396,7 +346,8 @@ def batch_ingest_onedrive_documents(
     verbose: bool = False,
     user_id: str = "",
     batch_size: int = 10,
-    syncstatus: SyncStatus = None
+    syncstatus: SyncStatus = None,
+    days_filter: int = 2
 ) -> Dict[str, Any]:
     """
     Ingest documents from OneDrive into Qdrant in batches for better performance.
@@ -411,6 +362,7 @@ def batch_ingest_onedrive_documents(
         user_id: User identifier
         batch_size: Batch size for ingestion to optimize performance
         syncstatus: SyncStatus object to track progress
+        days_filter: Only ingest files created or modified in the last N days (default: 2)
         
     Returns:
         Dictionary containing ingestion statistics:
@@ -450,7 +402,7 @@ def batch_ingest_onedrive_documents(
     
     try:
         # Get Microsoft Graph API access token
-        token_data = get_outlook_token(user_id)
+        token_data = get_drive_service(user_id)
         if not token_data or "access_token" not in token_data:
             error_msg = "Failed to get Microsoft access token"
             logger.error(error_msg)
@@ -462,7 +414,7 @@ def batch_ingest_onedrive_documents(
         logger.info("Microsoft Graph API access token obtained successfully")
         
         # Fetch files from OneDrive
-        files = fetch_onedrive_files(access_token, query, limit, folder_id)
+        files = fetch_onedrive_files(access_token, query, limit, folder_id, days_filter)
         result["total_files_found"] = len(files)
         
         if syncstatus:
@@ -581,61 +533,6 @@ def batch_ingest_onedrive_documents(
         
     return result
 
-
-def flush_batch(batch_documents: List[Dict], user_id: str, result: Dict, file_registry: FileRegistry, syncstatus: SyncStatus = None) -> None:
-    """
-    Process a batch of documents for ingestion.
-    
-    Args:
-        batch_documents: List of documents to process
-        user_id: User identifier
-        result: Dictionary to update with results
-        file_registry: FileRegistry instance
-        syncstatus: SyncStatus object to track progress
-    """
-    if not batch_documents:
-        return
-        
-    try:
-        # Prepare documents for ingestion
-        documents_to_ingest = []
-        for doc in batch_documents:
-            tmp_path = doc["tmp_path"]
-            metadata = doc["metadata"]
-            
-            # Create document for ingestion
-            document = Document(
-                path=metadata["path"],
-                metadata=metadata,
-                user_id=user_id
-            )
-            
-            # Load content from temporary file
-            document.load_from_file(tmp_path)
-            
-            # Add to list for batch ingestion
-            documents_to_ingest.append(document)
-            
-        # Ingest the batch
-        if documents_to_ingest:
-            logger.info(f"Ingesting batch of {len(documents_to_ingest)} documents")
-            ingest_documents_batch(documents_to_ingest)
-            
-            # Update registry and statistics
-            for doc in documents_to_ingest:
-                file_registry.add_file(doc.path)
-                result["items_ingested"] += 1
-                
-                if syncstatus:
-                    syncstatus.processed_documents += 1
-                    
-    except Exception as e:
-        logger.error(f"Error processing batch: {e}")
-        logger.error(traceback.format_exc())
-        result["errors"].append(f"Batch processing error: {str(e)}")
-
-
-
 def main():
     """
     Main entry point of the script.
@@ -646,8 +543,9 @@ def main():
     parser.add_argument('--folder-id', default=None, help='ID of the OneDrive folder to explore (optional)')
     parser.add_argument('--force-reingest', action='store_true', help='Force re-ingestion even if the file already exists')
     parser.add_argument('--verbose', action='store_true', help='Verbose mode')
-    parser.add_argument('--user-id', default="", help='User identifier')
+    parser.add_argument('--user-id', default="test", help='User identifier')
     parser.add_argument('--batch-size', type=int, default=10, help='Batch size for ingestion')
+    parser.add_argument('--days-filter', type=int, default=2, help='Only ingest files created or modified in the last N days (default: 2, 0 for no filter)')
     
     args = parser.parse_args()
     
@@ -659,7 +557,8 @@ def main():
         force_reingest=args.force_reingest,
         verbose=args.verbose,
         user_id=args.user_id,
-        batch_size=args.batch_size
+        batch_size=args.batch_size,
+        days_filter=args.days_filter
     )
     
     # Display final results
