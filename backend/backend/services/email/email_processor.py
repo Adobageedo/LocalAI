@@ -19,7 +19,7 @@ from typing import List, Dict, Optional, Any
 
 from backend.services.auth.credentials_manager import check_google_credentials, check_microsoft_credentials
 from backend.services.auth.google_auth import get_gmail_service
-from backend.services.auth.microsoft_auth import get_outlook_token
+from backend.services.auth.microsoft_auth import get_outlook_service
 from backend.core.logger import log
 from backend.services.email.classification import EmailClassifier, EmailAutoProcessor
 from backend.services.db.email_manager import EmailManager

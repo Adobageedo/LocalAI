@@ -30,6 +30,7 @@ from backend.services.ingestion.services.ingest_google_emails import batch_inges
 from backend.services.ingestion.services.ingest_microsoft_emails import ingest_outlook_emails_to_qdrant
 from backend.services.ingestion.services.ingest_google_storage import batch_ingest_gdrive_documents
 from backend.services.ingestion.services.ingest_personal_storage import batch_ingest_user_documents
+from backend.services.ingestion.services.ingest_onedrive import batch_ingest_onedrive_documents
 
 # Import credits manager for ingestion limits
 from backend.services.sync_service.core.credits_manager import UserCreditsManager
@@ -186,58 +187,50 @@ class SyncManager:
     def sync_provider(self, user_id: str, provider_name: str):
         """Synchronize emails for a specific user and provider."""
         try:
-            # Get date threshold for this user based on credits
-            date_threshold = datetime.now() - timedelta(days=2)
+            # Get provider-specific configuration
+            provider_config = self.config.get('sync', {}).get(provider_name, {})
             
-            # Create a sync status record
-            syncstatus = SyncStatus(user_id=user_id, source_type=provider_name, total_documents=50)
-            syncstatus.upsert_status(status="in_progress", progress=0.0)
+            # Create SyncStatus object for tracking
+            syncstatus = SyncStatus(
+                user_id=user_id,
+                provider=provider_name,
+                status="in_progress",
+                start_time=datetime.now(),
+                total_documents=0,
+                processed_documents=0
+            )
             
-            # Dispatch to provider-specific sync method
+            # Determine which sync method to call based on provider
             if provider_name == "gmail":
-                # Get Gmail-specific config
-                gmail_config = self.config.get('sync', {}).get('gmail', {})
-                query = gmail_config.get('query')
-                
-                # Sync Gmail emails
-                self._sync_gmail(user_id, query, date_threshold, syncstatus)
-                
-                # Process and classify emails after sync
-                self._process_emails_after_sync(user_id, "gmail", syncstatus)
-                
+                self._sync_gmail(user_id, syncstatus=syncstatus)
             elif provider_name == "outlook":
-                # Get Outlook-specific config
-                outlook_config = self.config.get('sync', {}).get('outlook', {})
-                query = outlook_config.get('query')
-                
-                # Sync Outlook emails
-                self._sync_outlook(user_id, query, date_threshold, syncstatus)
-                
-                # Process and classify emails after sync
-                self._process_emails_after_sync(user_id, "outlook", syncstatus)
-                
+                self._sync_outlook(user_id, syncstatus=syncstatus)
             elif provider_name == "personal_storage":
-                # Sync personal storage
-                self._sync_personal_storage(user_id, syncstatus)
-                
+                self._sync_personal_storage(user_id, syncstatus=syncstatus)
             elif provider_name == "gdrive":
-                # Get Google Drive-specific config
-                gdrive_config = self.config.get('sync', {}).get('gdrive', {})
-                query = gdrive_config.get('query')
-                limit = gdrive_config.get('limit', 100)
-                force_reingest = gdrive_config.get('force_reingest', False)
+                self._sync_gdrive(user_id, syncstatus=syncstatus)
+            elif provider_name == "onedrive":
+                self._sync_onedrive(user_id, syncstatus=syncstatus)
+            else:
+                logger.warning(f"Unknown provider: {provider_name}")
+                return
                 
-                # Sync Google Drive documents
-                self._sync_gdrive(user_id, query, None, limit, force_reingest, syncstatus)
+            # Process emails after sync (for email providers)
+            if provider_name in ["gmail", "outlook"]:
+                self._process_emails_after_sync(user_id, provider_name, syncstatus)
+                
+            # Update sync status
+            syncstatus.status = "completed"
             
-            # Mark sync as completed
-            syncstatus.upsert_status(status="completed", progress=1.0)
+            logger.info(f"Sync completed for {user_id} with provider {provider_name}")
             
         except Exception as e:
             logger.error(f"Error syncing {provider_name} for user {user_id}: {str(e)}", exc_info=True)
             # Mark sync as failed
             if 'syncstatus' in locals():
                 syncstatus.upsert_status(status="failed", progress=1.0)
+            logger.error(traceback.format_exc())
+
     
     def _sync_gmail(self, user_id: str, query: str = None, date_threshold: Optional[datetime] = None, syncstatus: SyncStatus = None) -> int:
         """Synchronize Gmail emails for a specific user.
@@ -316,6 +309,7 @@ class SyncManager:
             
             # Call the Outlook ingestion function with the user_id, query and file registry
             ingest_outlook_emails_to_qdrant(
+                folders=folders,
                 user_id=user_id,
                 query=query,
                 limit=limit,
@@ -363,25 +357,25 @@ class SyncManager:
                 logger.error(f"Failed to sync personal storage for user {user_id}: {e}", exc_info=True)
 
     def _sync_gdrive(self, user_id: str, query: str = None, folder_id: str = None, 
-                        limit: int = 10, force_reingest: bool = False, syncstatus: SyncStatus = None) -> Dict[str, Any]:
+                        syncstatus: SyncStatus = None) -> Dict[str, Any]:
         """Synchronize Google Drive documents for a specific user.
-            
+        
         Args:
             user_id: User identifier
             query: Google Drive search query
             folder_id: ID of folder to sync (optional)
             limit: Maximum number of files to sync
-            force_reingest: Whether to force re-ingestion of existing files
-            
-        Returns:
-            Dict with sync results including counts and errors
+            force_reingest: Whether to force reingestion of all documents
+            syncstatus: Optional SyncStatus object for tracking
         """
         try:
             # Get provider-specific config
             provider_config = self.config.get('sync', {}).get('gdrive', {})
+            limit = provider_config.get('limit', 50)
             batch_size = provider_config.get('batch_size', 10)
-            skip_duplicate_check = provider_config.get('skip_duplicate_check', False)
+            force_reingest = provider_config.get('force_reingest', force_reingest)
             verbose = provider_config.get('verbose', False)
+            days_filter = provider_config.get('days_filter', 2)  # Default to 2 days
                 
             # Call the Google Drive ingestion function
             result = batch_ingest_gdrive_documents(
@@ -392,7 +386,8 @@ class SyncManager:
                 verbose=verbose,
                 user_id=user_id,
                 batch_size=batch_size,
-                syncstatus=syncstatus
+                syncstatus=syncstatus,
+                days_filter=days_filter
             )
             
             # Safely access result dictionary keys
@@ -414,6 +409,59 @@ class SyncManager:
                 "errors": [error_msg]
             }
 
+    def _sync_onedrive(self, user_id: str, query: str = None, folder_id: str = None,
+                         limit: int = 10, force_reingest: bool = False, syncstatus: SyncStatus = None) -> Dict[str, Any]:
+        """Synchronize OneDrive documents for a specific user.
+        
+        Args:
+            user_id: User identifier
+            query: OneDrive search query
+            folder_id: ID of folder to sync (optional)
+            limit: Maximum number of files to sync
+            force_reingest: Whether to force reingestion of all documents
+            syncstatus: Optional SyncStatus object for tracking
+        """
+        try:
+            # Get OneDrive sync configuration
+            provider_config = self.config.get('sync', {}).get('onedrive', {})
+            limit = provider_config.get('limit', 50)
+            batch_size = provider_config.get('batch_size', 10)
+            force_reingest = provider_config.get('force_reingest', force_reingest)
+            verbose = provider_config.get('verbose', False)
+            days_filter = provider_config.get('days_filter', 2)  # Default to 2 days
+                
+            # Call the OneDrive ingestion function
+            result = batch_ingest_onedrive_documents(
+                query=query,
+                limit=limit,
+                folder_id=folder_id,
+                force_reingest=force_reingest,
+                verbose=verbose,
+                user_id=user_id,
+                batch_size=batch_size,
+                syncstatus=syncstatus,
+                days_filter=days_filter
+            )
+            
+            # Safely access result dictionary keys
+            files_ingested = result.get('items_ingested', 0)
+            files_skipped = result.get('files_skipped', 0)
+                
+            logger.info(f"OneDrive sync completed for user {user_id}: "
+                        f"{files_ingested} ingested, {files_skipped} skipped")
+                
+            return result
+                
+        except Exception as e:
+            error_msg = f"OneDrive sync error for {user_id}: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            return {
+                "success": False,
+                "files_ingested": 0,
+                "files_skipped": 0,
+                "errors": [error_msg]
+            }
+    
     def _process_emails_after_sync(self, user_id: str, provider_name: str, syncstatus: Optional[SyncStatus] = None) -> Dict[str, Any]:
         """Process and classify emails after synchronization.
         
