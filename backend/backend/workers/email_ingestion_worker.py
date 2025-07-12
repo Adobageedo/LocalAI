@@ -12,7 +12,7 @@ from datetime import datetime
 
 from backend.core.logger import log
 from backend.services.auth.google_auth import get_gmail_service
-from backend.services.auth.microsoft_auth import get_outlook_token
+from backend.services.auth.microsoft_auth import get_outlook_service
 from backend.adapters.imap_adapter import IMAPAdapter
 from backend.services.rag.rag_service import rag_service
 
@@ -229,7 +229,7 @@ class EmailIngestionWorker:
         max_emails = task.params.get("max_emails", 50)
         
         # Obtenir le token Outlook
-        token = await asyncio.to_thread(get_outlook_token, user_id)
+        token = await asyncio.to_thread(get_outlook_service, user_id)
         
         if not token:
             raise ValueError(f"Impossible d'obtenir le token Outlook pour {user_id}")

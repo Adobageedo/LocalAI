@@ -179,7 +179,50 @@ def download_drive_file(drive_service, file_id: str, file_metadata: Dict) -> Opt
         return None
 
 
-def fetch_drive_files(drive_service, query: str = None, limit: int = 10, folder_id: str = None) -> List[Dict]:
+def _is_recent_file(file_metadata: Dict, days_filter: int) -> bool:
+    """
+    Vérifie si un fichier a été créé ou modifié dans les derniers jours spécifiés.
+    
+    Args:
+        file_metadata: Métadonnées du fichier Google Drive
+        days_filter: Nombre de jours pour le filtre (0 = pas de filtre)
+        
+    Returns:
+        True si le fichier est récent ou si days_filter est 0, False sinon
+    """
+    if days_filter <= 0:
+        return True
+        
+    try:
+        # Obtenir la date actuelle avec timezone UTC
+        now = datetime.datetime.now(datetime.timezone.utc)
+        cutoff_date = now - datetime.timedelta(days=days_filter)
+        
+        # Vérifier la date de modification
+        modified_time_str = file_metadata.get('modifiedTime')
+        if modified_time_str:
+            # Format Google Drive: 2023-04-26T15:30:45.123Z
+            modified_time = datetime.datetime.fromisoformat(modified_time_str.replace('Z', '+00:00'))
+            if modified_time >= cutoff_date:
+                return True
+                
+        # Vérifier la date de création
+        created_time_str = file_metadata.get('createdTime')
+        if created_time_str:
+            created_time = datetime.datetime.fromisoformat(created_time_str.replace('Z', '+00:00'))
+            if created_time >= cutoff_date:
+                return True
+                
+        # Si on arrive ici, le fichier est plus ancien que le filtre
+        return False
+        
+    except Exception as e:
+        # En cas d'erreur de parsing de date, on inclut le fichier par précaution
+        logger.warning(f"Erreur lors de la vérification de date: {e}")
+        return True
+
+
+def fetch_drive_files(drive_service, query: str = None, limit: int = 10, folder_id: str = None, days_filter: int = None) -> List[Dict]:
     """
     Récupère la liste des fichiers depuis Google Drive.
     
@@ -225,7 +268,13 @@ def fetch_drive_files(drive_service, query: str = None, limit: int = 10, folder_
             if not page_token or len(results) >= limit:
                 break
         
-        return results[:limit]  # Limiter aux premiers résultats
+        # Appliquer le filtre de date si spécifié
+        if days_filter and days_filter > 0:
+            filtered_results = [file for file in results if _is_recent_file(file, days_filter)]
+            logger.info(f"Filtre de date appliqué: {len(filtered_results)}/{len(results)} fichiers conservés (derniers {days_filter} jours)")
+            return filtered_results[:limit]
+        else:
+            return results[:limit]  # Limiter aux premiers résultats
         
     except Exception as e:
         logger.error(f"Erreur lors de la récupération des fichiers: {e}")
@@ -240,7 +289,8 @@ def batch_ingest_gdrive_documents(
     verbose: bool = False,
     user_id: str = "",
     batch_size: int = 10,
-    syncstatus: SyncStatus = None
+    syncstatus: SyncStatus = None,
+    days_filter: int = 2
 ) -> Dict[str, Any]:
     """
     Ingère les documents depuis Google Drive vers Qdrant par lots pour de meilleures performances.
@@ -254,8 +304,9 @@ def batch_ingest_gdrive_documents(
         verbose: Mode verbeux pour plus de logs
         user_id: Identifiant de l'utilisateur
         batch_size: Taille des lots d'ingestion pour optimiser les performances
-        collection: Collection Qdrant cible (par défaut user_id)
-        
+        syncstatus: Objet de statut de synchronisation pour le suivi de progression
+        days_filter: N'ingérer que les fichiers créés ou modifiés dans les N derniers jours (défaut: 2, 0 pour désactiver)
+    
     Returns:
         Dictionnaire contenant les statistiques d'ingestion:
         - success: Booléen indiquant si l'ingestion a réussi
@@ -298,8 +349,9 @@ def batch_ingest_gdrive_documents(
         drive_service = get_drive_service(user_id)
         logger.info("Service Google Drive initialisé avec succès")
         
-        # Récupérer les fichiers depuis Google Drive
-        files = fetch_drive_files(drive_service, query, limit, folder_id)
+        # Récupérer les fichiers depuis Google Drive avec filtre de date
+        logger.info(f"Récupération des fichiers avec filtre de {days_filter} jours")
+        files = fetch_drive_files(drive_service, query, limit, folder_id, days_filter)
         result["total_files_found"] = len(files)
         syncstatus.total_documents = len(files)
         if not files:
@@ -362,7 +414,7 @@ def batch_ingest_gdrive_documents(
                 
                 # Traiter le lot si la taille maximale est atteinte
                 if len(batch_documents) >= batch_size:
-                    flush_batch(batch_documents, user_id, result, file_registry, syncstatus)
+                    flush_batch(batch_documents, user_id, result, file_registry,syncstatus)
                     result["batches"] += 1
                     logger.info(f"Lot #{result['batches']} traité. Total ingéré: {result['items_ingested']}")
                     
@@ -375,7 +427,7 @@ def batch_ingest_gdrive_documents(
         # Traiter le dernier lot s'il reste des documents
         if batch_documents:
             logger.info(f"Traitement du dernier lot de {len(batch_documents)} documents")
-            flush_batch(batch_documents, user_id, result, file_registry, syncstatus)
+            flush_batch(batch_documents, user_id, result, file_registry,syncstatus)
             result["batches"] += 1
             
         # Nettoyer les fichiers temporaires
@@ -426,6 +478,7 @@ def main():
     parser.add_argument('--verbose', action='store_true', help='Mode verbeux')
     parser.add_argument('--user-id', default="7EShftbbQ4PPTS4hATplexbrVHh2", help='Identifiant de l\'utilisateur')
     parser.add_argument('--batch-size', type=int, default=10, help='Taille des lots pour l\'ingétion')
+    parser.add_argument('--days-filter', type=int, default=2, help='N\'ingérer que les fichiers créés ou modifiés dans les N derniers jours (défaut: 2, 0 pour désactiver)')
     parser.add_argument('--test-connectivity', action='store_true', help='Tester la connectivité avec Google Drive')
     
     args = parser.parse_args()
@@ -438,7 +491,8 @@ def main():
         force_reingest=args.force_reingest,
         verbose=args.verbose,
         user_id=args.user_id,
-        batch_size=args.batch_size
+        batch_size=args.batch_size,
+        days_filter=args.days_filter
     )
     
     # Afficher les résultats finaux

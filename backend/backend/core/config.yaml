@@ -17,7 +17,7 @@ retrieval:
   vectorstore:
     path: ./data/vectorstore      # Path to vector store
     type: qdrant                  # qdrant, faiss, chroma, etc.
-    host: qdrant
+    host: localhost
     port: 6333
     collection: rag_documents1536
   filter_fallback: false           # Fallback to no-filter if filtered results are empty
@@ -127,6 +127,34 @@ sync:
     no_attachments: false
     # Forcer la réingestion des emails déjà traités
     force_reingest: false
+    
+  # Configuration de la synchronisation OneDrive
+  onedrive:
+    enabled: true
+    # Nombre maximum de fichiers à récupérer
+    limit: 50
+    # Taille des lots pour l'ingestion
+    batch_size: 10
+    # Forcer la réingestion des fichiers déjà traités
+    force_reingest: false
+    # Verbosité des logs
+    verbose: false
+    # Filtre de date (jours) - n'ingérer que les fichiers créés ou modifiés dans les N derniers jours
+    days_filter: 2
+    
+  # Configuration de la synchronisation Google Drive
+  gdrive:
+    enabled: true
+    # Nombre maximum de fichiers à récupérer
+    limit: 50
+    # Taille des lots pour l'ingestion
+    batch_size: 10
+    # Forcer la réingestion des fichiers déjà traités
+    force_reingest: false
+    # Verbosité des logs
+    verbose: false
+    # Filtre de date (jours) - n'ingérer que les fichiers créés ou modifiés dans les N derniers jours
+    days_filter: 2
 
   # Configuration du traitement des emails après synchronisation
   email_processing:

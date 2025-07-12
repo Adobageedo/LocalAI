@@ -10,7 +10,7 @@ import json
 from .constants import BASE_DIR
 
 # Configuration
-LOG_LEVEL = logging.INFO
+LOG_LEVEL = logging.DEBUG
 LOG_FORMAT = "<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>"
 
 # Répertoire pour les logs
@@ -67,7 +67,7 @@ def setup_logging():
                 "compression": "zip",
             }
         ],
-        levels=[{"name": "INFO", "color": "green"}]
+        levels=[{"name": "DEBUG"}]
     )
     
     # Intercepter les logs de logging standard

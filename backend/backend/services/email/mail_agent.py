@@ -15,8 +15,8 @@ from backend.services.db.email_manager import EmailManager
 from backend.services.rag.retrieve_rag_information_modular import get_rag_response_modular
 from backend.core.logger import log
 from backend.core.config import CONFIG
-from backend.services.auth.google_auth import GoogleEmail
-from backend.services.auth.microsoft_auth import MicrosoftEmail
+from backend.core.adapters.google_email import GoogleEmail
+from backend.core.adapters.microsoft_email import MicrosoftEmail
 
 # Setup logger
 logger = log.bind(name="backend.services.email.agent")

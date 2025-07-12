@@ -21,12 +21,10 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.
 
 # Importer les modules nécessaires
 from backend.services.ingestion.services.ingest_google_emails import parse_email_date
-
 from backend.services.ingestion.core.ingest_core import flush_batch
 from backend.services.storage.file_registry import FileRegistry
-from backend.core.config import OUTLOOK_CLIENT_ID, OUTLOOK_CLIENT_SECRET, OUTLOOK_TENANT_ID, OUTLOOK_TOKEN_PATH
 from backend.core.logger import log
-from backend.services.auth.microsoft_auth import get_outlook_token
+from backend.services.auth.microsoft_auth import get_outlook_service
 from backend.services.ingestion.core.model import Email, EmailAttachment, EmailContent, EmailMetadata
 from backend.services.ingestion.core.utils import generate_email_id
 from backend.services.db.models import SyncStatus
@@ -315,7 +313,7 @@ def ingest_outlook_emails_to_qdrant(
     
     try:
         # Récupérer le token Outlook
-        token_result = get_outlook_token(user_id)
+        token_result = get_outlook_service(user_id)
         if not token_result or "access_token" not in token_result:
             raise Exception("Échec de l'authentification à Outlook")
         

@@ -648,7 +648,7 @@ from backend.services.sync_service.core.sync_manager import SyncManager
 
 class SyncRequest(BaseModel):
     """Request model for starting a synchronization for a user"""
-    provider: Optional[str] = Field(None, description="Optional provider name to sync (gmail, outlook, gdrive, personal_storage). If not provided, all providers for the user will be synchronized.")
+    provider: Optional[str] = Field(None, description="Optional provider name to sync (gmail, outlook, gdrive, onedrive, personal_storage). If not provided, all providers for the user will be synchronized.")
     force_reingest: bool = Field(False, description="Whether to force reingestion of all documents")
 
 from fastapi.background import BackgroundTasks
@@ -752,7 +752,7 @@ async def sync_for_user(request: SyncRequest, background_tasks: BackgroundTasks,
         
         # If provider specified, sync only that provider
         if request.provider:
-            valid_providers = ["gmail", "outlook", "gdrive", "personal_storage", "microsoft","google"]
+            valid_providers = ["gmail", "outlook", "gdrive", "onedrive", "personal_storage", "microsoft", "google"]
             if request.provider not in valid_providers:
                 return JSONResponse(
                     status_code=status.HTTP_400_BAD_REQUEST,
