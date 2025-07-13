@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status, Response
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from typing import List, Optional, Any, Dict, Union
 from pydantic import BaseModel, UUID4, Field, EmailStr
 from uuid import UUID
@@ -1029,11 +1029,12 @@ async def delete_user(user_id: str, current_user=Depends(get_current_user)):
         )
 
 @router.post("/prompt", response_model=PromptResponse)
-def prompt_ia(data: dict, user=Depends(get_current_user)):
-    user_id = user.get("uid")
+def prompt_ia(data: dict, user=Depends(get_current_user), request: Request = None):
+    # Get user_id from authenticated user, fallback to test for development
+    user_id = user.get("uid") if user else "test"    
     question = data.get("question")
     if not question:
-        raise HTTPException(status_code=400, detail="Champ 'question' requis.")
+        raise HTTPException(status_code=400, detail="Question field is required.")
 
     # New optional parameters
     temperature = data.get("temperature")
@@ -1046,7 +1047,7 @@ def prompt_ia(data: dict, user=Depends(get_current_user)):
     llm_instruction = ""
     user_question = data.get("question")
     question = f"{llm_instruction}\n\n{user_question}"
-    rag_result = get_rag_response_modular(question, user_id=user_id,conversation_history=conversation_history)
+    rag_result = get_rag_response_modular(question, user_id=user_id,conversation_history=conversation_history,use_retrieval=False)
 
     # Extract filenames cited in the answer (e.g., [contract.pdf])
     import re, os
@@ -1067,6 +1068,9 @@ def prompt_ia(data: dict, user=Depends(get_current_user)):
 @router.post("/generate-title", response_model=TitleResponse)
 async def generate_conversation_title(data: dict, user=Depends(get_current_user)):
     """Generate a title for a conversation based on the first user message"""
+    # Log the authenticated user for debugging
+    user_id = user.get("uid") if user else "dev-user"
+    logger.debug(f"Generating title for user: {user_id}")
     # Extract the message from the request
     message = data.get("message")
     if not message:

@@ -543,7 +543,7 @@ def main():
     parser.add_argument('--folder-id', default=None, help='ID of the OneDrive folder to explore (optional)')
     parser.add_argument('--force-reingest', action='store_true', help='Force re-ingestion even if the file already exists')
     parser.add_argument('--verbose', action='store_true', help='Verbose mode')
-    parser.add_argument('--user-id', default="test", help='User identifier')
+    parser.add_argument('--user-id', default="7EShftbbQ4PPTS4hATplexbrVHh2", help='User identifier')
     parser.add_argument('--batch-size', type=int, default=10, help='Batch size for ingestion')
     parser.add_argument('--days-filter', type=int, default=2, help='Only ingest files created or modified in the last N days (default: 2, 0 for no filter)')
     

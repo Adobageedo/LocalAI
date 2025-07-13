@@ -130,4 +130,66 @@ def get_calendar_service(user_id: str) -> Optional[Dict]:
     token = get_microsoft_token(user_id, CALENDAR_SCOPES)
     if token:
         return token
+
+def check_microsoft_auth_services(user_id: str) -> Dict[str, Any]:
+    """
+    Check if the user is authenticated with Microsoft and which services they have access to.
     
+    Args:
+        user_id: The user ID to check authentication for
+        
+    Returns:
+        Dictionary with authentication status and available services
+    """
+    result = {
+        "authenticated": False,
+        "services": []
+    }
+    
+    try:
+        # Load the token cache data
+        cache_data = load_microsoft_token(user_id)
+        if not cache_data:
+            return result
+            
+        # Parse the token cache to check for valid tokens and scopes
+        target_json = json.loads(cache_data)
+        
+        # Check if there are any valid access tokens
+        access_tokens = target_json.get("AccessToken", {})
+        if not access_tokens:
+            return result
+            
+        result["authenticated"] = True
+        
+        # Check which services the user has access to based on scopes
+        for token_dict in access_tokens.values():
+            token_scopes = token_dict.get("target", "")
+            if not token_scopes:
+                continue
+                
+            token_scopes = set(token_scopes.split())
+            token_scopes.discard("offline_access")
+            token_scopes.discard("profile")
+            token_scopes.discard("openid")
+            
+            # Check for Outlook email access
+            outlook_required = set(OUTLOOK_SCOPES)
+            if all(scope in token_scopes for scope in outlook_required):
+                result["services"].append("outlook")
+            
+            # Check for OneDrive access
+            drive_required = set(DRIVE_SCOPES)
+            if all(scope in token_scopes for scope in drive_required):
+                result["services"].append("onedrive")
+            
+            # Check for Outlook Calendar access
+            calendar_required = set(CALENDAR_SCOPES)
+            if all(scope in token_scopes for scope in calendar_required):
+                result["services"].append("outlook_calendar")
+        
+        logger.debug(f"Microsoft auth check for user {user_id}: {result}")
+        return result
+    except Exception as e:
+        logger.error(f"Error checking Microsoft authentication for user {user_id}: {str(e)}")
+        return result

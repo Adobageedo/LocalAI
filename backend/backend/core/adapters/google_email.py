@@ -2,12 +2,14 @@ import os
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
 import base64
+import datetime
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import Dict, List, Optional, Any, Union
 from googleapiclient.errors import HttpError
 from backend.services.auth.google_auth import get_gmail_service
 from backend.core.logger import log
+from backend.core.adapters.provider_change_tracker import ProviderChangeTracker
 
 logger = log.bind(name="backend.core.adapters.google_email")
 
@@ -117,6 +119,23 @@ class GoogleEmail:
             thread_id = created_draft.get('threadId', 'unknown-thread')
             
             logger.info(f"Email sent successfully with message ID: {message_id}")
+            
+            # Track the email creation in the provider_changes table
+            ProviderChangeTracker.log_email_add(
+                provider='gmail',
+                user_id=self.user_id,
+                email_id=message_id,
+                subject=subject,
+                sender='me',  # Since this is a sent email
+                extra_details={
+                    'recipients': recipients,
+                    'cc': cc if cc else [],
+                    'bcc': bcc if bcc else [],
+                    'thread_id': thread_id,
+                    'has_html': html_content is not None,
+                    'timestamp': datetime.datetime.now().isoformat()
+                }
+            )
             
             return {
                 "success": True,
@@ -486,6 +505,42 @@ class GoogleEmail:
             ).execute()
             
             logger.info(f"Email {email_id} moved to label: {destination_folder}")
+            
+            # Get email subject for better tracking
+            email_subject = "Unknown Subject"
+            try:
+                msg = self.gmail_service.users().messages().get(
+                    userId='me', 
+                    id=email_id,
+                    format='metadata',
+                    metadataHeaders=['subject']
+                ).execute()
+                
+                headers = msg.get('payload', {}).get('headers', [])
+                for header in headers:
+                    if header['name'].lower() == 'subject':
+                        email_subject = header['value']
+                        break
+            except Exception as e:
+                logger.warning(f"Could not retrieve email subject for tracking: {e}")
+            
+            # Track the email move in the provider_changes table
+            try:
+                ProviderChangeTracker.log_email_modify(
+                    provider='gmail',
+                    user_id=self.user_id,
+                    email_id=email_id,
+                    subject=email_subject,
+                    extra_details={
+                        'action': 'move',
+                        'destination_folder': destination_folder,
+                        'destination_label_id': label_id,
+                        'preserved_labels': preserve_labels,
+                        'timestamp': datetime.datetime.now().isoformat()
+                    }
+                )
+            except Exception as tracking_error:
+                logger.error(f"Failed to track email move: {tracking_error}")
             
             return {
                 "success": True,

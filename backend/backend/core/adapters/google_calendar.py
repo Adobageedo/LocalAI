@@ -18,8 +18,8 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from backend.services.auth.google_auth import get_calendar_service
-
 from backend.core.logger import log
+from backend.core.adapters.provider_change_tracker import ProviderChangeTracker
 
 # Retry decorator for handling transient API errors
 def retry_with_backoff(max_retries: int = 3, initial_backoff: float = 1, 
@@ -313,6 +313,27 @@ class GoogleCalendar:
                 'html_link': created_event.get('htmlLink', '')
             }
             
+            # Track the calendar event creation in the provider_changes table
+            try:
+                ProviderChangeTracker.log_calendar_event_add(
+                    provider='google',
+                    user_id=self.user_id,
+                    event_id=processed_event['id'],
+                    event_summary=processed_event['summary'],
+                    extra_details={
+                        'description': processed_event['description'],
+                        'start_time': processed_event['start'],
+                        'end_time': processed_event['end'],
+                        'location': processed_event['location'],
+                        'attendees_count': len(processed_event['attendees']),
+                        'calendar_id': calendar_id,
+                        'html_link': processed_event['html_link'],
+                        'timestamp': datetime.datetime.now().isoformat()
+                    }
+                )
+            except Exception as tracking_error:
+                logger.error(f"Failed to track calendar event creation: {tracking_error}")
+            
             return {
                 "success": True,
                 "event": processed_event
@@ -437,6 +458,43 @@ class GoogleCalendar:
                 'html_link': updated_event.get('htmlLink', '')
             }
             
+            # Track the calendar event update in the provider_changes table
+            try:
+                # Determine what fields were updated
+                updated_fields = []
+                if summary is not None:
+                    updated_fields.append('summary')
+                if description is not None:
+                    updated_fields.append('description')
+                if location is not None:
+                    updated_fields.append('location')
+                if start_time is not None:
+                    updated_fields.append('start_time')
+                if end_time is not None:
+                    updated_fields.append('end_time')
+                if attendees is not None:
+                    updated_fields.append('attendees')
+                
+                ProviderChangeTracker.log_calendar_event_update(
+                    provider='google',
+                    user_id=self.user_id,
+                    event_id=processed_event['id'],
+                    event_summary=processed_event['summary'],
+                    extra_details={
+                        'description': processed_event['description'],
+                        'start_time': processed_event['start'],
+                        'end_time': processed_event['end'],
+                        'location': processed_event['location'],
+                        'attendees_count': len(processed_event['attendees']),
+                        'calendar_id': calendar_id,
+                        'html_link': processed_event['html_link'],
+                        'updated_fields': updated_fields,
+                        'timestamp': datetime.datetime.now().isoformat()
+                    }
+                )
+            except Exception as tracking_error:
+                logger.error(f"Failed to track calendar event update: {tracking_error}")
+            
             return {
                 "success": True,
                 "event": processed_event
@@ -478,6 +536,16 @@ class GoogleCalendar:
             }
             
         try:
+            # First, get the event details before deletion for tracking purposes
+            event_details = None
+            try:
+                event_details = self.calendar_service.events().get(
+                    calendarId=calendar_id,
+                    eventId=event_id
+                ).execute()
+            except Exception as get_error:
+                logger.warning(f"Could not retrieve event details before deletion: {get_error}")
+            
             # Delete the event
             self.calendar_service.events().delete(
                 calendarId=calendar_id,
@@ -485,6 +553,36 @@ class GoogleCalendar:
             ).execute()
             
             logger.info(f"Event {event_id} deleted from calendar {calendar_id}")
+            
+            # Track the calendar event deletion in the provider_changes table
+            try:
+                extra_details = {
+                    'calendar_id': calendar_id,
+                    'timestamp': datetime.datetime.now().isoformat()
+                }
+                
+                # Add event details if we were able to retrieve them
+                if event_details:
+                    extra_details.update({
+                        'summary': event_details.get('summary', 'Unknown'),
+                        'start_time': event_details.get('start', {}).get('dateTime', 
+                                     event_details.get('start', {}).get('date')),
+                        'end_time': event_details.get('end', {}).get('dateTime', 
+                                   event_details.get('end', {}).get('date')),
+                        'location': event_details.get('location', ''),
+                        'attendees_count': len(event_details.get('attendees', []))
+                    })
+                
+                ProviderChangeTracker.log_calendar_event_delete(
+                    provider='google',
+                    user_id=self.user_id,
+                    event_id=event_id,
+                    event_summary=event_details.get('summary', 'Unknown') if event_details else 'Unknown',
+                    extra_details=extra_details
+                )
+            except Exception as tracking_error:
+                logger.error(f"Failed to track calendar event deletion: {tracking_error}")
+            
             return {
                 "success": True
             }
