@@ -1031,7 +1031,7 @@ async def delete_user(user_id: str, current_user=Depends(get_current_user)):
 @router.post("/prompt", response_model=PromptResponse)
 def prompt_ia(data: dict, user=Depends(get_current_user), request: Request = None):
     # Get user_id from authenticated user, fallback to test for development
-    user_id = user.get("uid") if user else "test"    
+    user_id = user.get("uid") if user else "test"   
     question = data.get("question")
     if not question:
         raise HTTPException(status_code=400, detail="Question field is required.")
@@ -1066,7 +1066,7 @@ def prompt_ia(data: dict, user=Depends(get_current_user), request: Request = Non
     }
 
 @router.post("/generate-title", response_model=TitleResponse)
-async def generate_conversation_title(data: dict, user=Depends(get_current_user)):
+async def generate_conversation_title(data: dict, user: dict = Depends(get_current_user)):
     """Generate a title for a conversation based on the first user message"""
     # Log the authenticated user for debugging
     user_id = user.get("uid") if user else "dev-user"

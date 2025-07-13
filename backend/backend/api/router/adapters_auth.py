@@ -10,7 +10,7 @@ import json
 import base64
 from email.utils import parsedate_to_datetime
 from datetime import datetime, timezone
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, HTTPException, Request, status, BackgroundTasks
 from fastapi.responses import StreamingResponse, JSONResponse, HTMLResponse
 from google_auth_oauthlib.flow import Flow
@@ -21,6 +21,8 @@ from backend.services.auth.credentials_manager import (load_google_token, save_m
                                check_google_credentials, check_microsoft_credentials, delete_microsoft_token, delete_google_token)
 # Configuration
 from backend.core.config import load_config,GMAIL_CLIENT_ID,GMAIL_CLIENT_SECRET,GMAIL_REDIRECT_URI,GMAIL_TOKEN_PATH,OUTLOOK_CLIENT_ID,OUTLOOK_TOKEN_PATH,GMAIL_AUTH_URI,GMAIL_TOKEN_URI
+from backend.services.auth.google_auth import check_google_auth_services
+from backend.services.auth.microsoft_auth import check_microsoft_auth_services
 
 # Initialisation du router et du logger
 # Note: Le préfixe /api est maintenant défini dans main.py
@@ -844,3 +846,64 @@ async def check_sync_status(sync_id: str, user=Depends(get_current_user)):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={"success": False, "error": str(e)}
         )
+
+@router.get("/provider/")
+async def get_user_connected_capabilities(user=Depends(get_current_user)) -> Dict[str, Any]:
+    """
+    Get the list of capabilities that the user has access to, along with provider information.
+    
+    Args:
+        user_id: The user ID to check capabilities for
+        
+    Returns:
+        Dictionary with capabilities list, provider mapping, and provider capabilities
+    """
+    user_id = user.get("uid")
+    result = {
+        "capabilities": [],
+        "providers": {},
+        "provider_capabilities": {}
+    }
+    
+    # Check Google authentication and services
+    google = check_google_auth_services(user_id)
+    if google["authenticated"]:
+        result["provider_capabilities"]["google"] = []
+        
+        if "gmail" in google["services"]:
+            result["capabilities"].append("email")
+            result["providers"]["email"] = "gmail"
+            result["provider_capabilities"]["google"].append("email")
+        
+        if "gdrive" in google["services"]:
+            result["capabilities"].append("cloud_storage")
+            result["providers"]["cloud_storage"] = "gdrive"
+            result["provider_capabilities"]["google"].append("cloud_storage")
+        
+        if "gcalendar" in google["services"]:
+            result["capabilities"].append("calendar")
+            result["providers"]["calendar"] = "gcalendar"
+            result["provider_capabilities"]["google"].append("calendar")
+    else:
+        # Check Microsoft authentication and services
+        microsoft = check_microsoft_auth_services(user_id)
+        if microsoft["authenticated"]:
+            result["provider_capabilities"]["microsoft"] = []
+            
+            if "outlook" in microsoft["services"]:
+                result["capabilities"].append("email")
+                result["providers"]["email"] = "outlook"
+                result["provider_capabilities"]["microsoft"].append("email")
+            
+            if "onedrive" in microsoft["services"]:
+                result["capabilities"].append("cloud_storage")
+                result["providers"]["cloud_storage"] = "onedrive"
+                result["provider_capabilities"]["microsoft"].append("cloud_storage")
+            
+            if "outlook_calendar" in microsoft["services"]:
+                result["capabilities"].append("calendar")
+                result["providers"]["calendar"] = "outlook_calendar"
+                result["provider_capabilities"]["microsoft"].append("calendar")
+        
+    logger.info(f"User {user_id} has connected capabilities: {result['capabilities']} with providers: {result['providers']}")
+    return result
