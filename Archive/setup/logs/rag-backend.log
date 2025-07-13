@@ -1,6 +1,0 @@
-INFO:sentence_transformers.SentenceTransformer:Load pretrained SentenceTransformer: intfloat/e5-base-v2
-INFO:httpx:HTTP Request: GET http://localhost:6333 "HTTP/1.1 200 OK"
-INFO:httpx:HTTP Request: GET http://localhost:6333/collections/rag_documents768 "HTTP/1.1 200 OK"
-INFO:httpx:HTTP Request: POST http://localhost:6333/collections/rag_documents768/points/scroll "HTTP/1.1 200 OK"
-INFO:httpx:HTTP Request: PUT http://localhost:6333/collections/rag_documents768/points?wait=true "HTTP/1.1 200 OK"
-INFO:httpx:HTTP Request: PUT http://localhost:6333/collections/rag_documents768/points?wait=true "HTTP/1.1 200 OK"

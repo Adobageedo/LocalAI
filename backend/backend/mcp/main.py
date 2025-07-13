@@ -8,12 +8,12 @@ import sys
 import uvicorn
 from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
-from backend.core.logger import log
 
 # Add parent directory to path for imports
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 
 from backend.mcp.mcp_router import router as mcp_router
+from backend.core.logger import log
 
 # Setup logger
 logger = log.bind(name="backend.mcp.main")

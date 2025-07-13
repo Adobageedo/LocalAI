@@ -20,6 +20,7 @@ from google.oauth2.credentials import Credentials
 
 from backend.services.auth.google_auth import get_google_service
 from backend.core.logger import log
+from backend.core.adapters.provider_change_tracker import ProviderChangeTracker
 
 # Retry decorator for handling transient API errors
 def retry_with_backoff(max_retries: int = 3, initial_backoff: float = 1, 
@@ -372,6 +373,22 @@ class GoogleDrive:
             }
             
             logger.info(f"Uploaded file: {file_name} with ID: {processed_file['id']}")
+            
+            # Track the file addition in the provider_changes table
+            ProviderChangeTracker.log_document_add(
+                provider='gdrive',
+                user_id=self.user_id,
+                doc_id=processed_file['id'],
+                doc_name=processed_file['name'],
+                path=file_path,
+                extra_details={
+                    'size': processed_file.get('size', 0),
+                    'web_url': processed_file.get('web_view_link', ''),
+                    'mime_type': processed_file.get('mime_type', ''),
+                    'parent_id': parent_id
+                }
+            )
+            
             return {
                 "success": True,
                 "file": processed_file
@@ -512,6 +529,15 @@ class GoogleDrive:
             except HttpError:
                 file_name = "Unknown file"
                 
+            # Get more detailed metadata if possible for better tracking
+            file_metadata_details = {}
+            try:
+                metadata_result = self.get_file_metadata(file_id)
+                if metadata_result["success"]:
+                    file_metadata_details = metadata_result["file"]
+            except Exception as e:
+                logger.warning(f"Could not retrieve detailed metadata for file {file_id} before deletion: {e}")
+            
             if permanently:
                 # Permanently delete the file
                 self.service.files().delete(fileId=file_id).execute()
@@ -520,6 +546,28 @@ class GoogleDrive:
                 # Move file to trash
                 self.service.files().update(fileId=file_id, body={'trashed': True}).execute()
                 logger.info(f"Moved file to trash: {file_name} (ID: {file_id})")
+            
+            # Track the file deletion in the provider_changes table
+            extra_details = {
+                'permanently_deleted': permanently
+            }
+            
+            # Add any additional metadata we have
+            if file_metadata_details:
+                extra_details.update({
+                    'size': file_metadata_details.get('size', 0),
+                    'mime_type': file_metadata_details.get('mime_type', ''),
+                    'is_folder': file_metadata_details.get('is_folder', False),
+                    'web_url': file_metadata_details.get('web_view_link', '')
+                })
+            
+            ProviderChangeTracker.log_document_remove(
+                provider='gdrive',
+                user_id=self.user_id,
+                doc_id=file_id,
+                doc_name=file_name,
+                extra_details=extra_details
+            )
                 
             return {
                 "success": True,
