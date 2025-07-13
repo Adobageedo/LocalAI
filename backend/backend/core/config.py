@@ -54,7 +54,11 @@ from backend.core.constants import (
     DEFAULT_USED_CREDITS,
     DEFAULT_MAX_DOCUMENT_AGE_DAYS,
     OLLAMA_BASE_URL,
-    OLLAMA_MODEL
+    OLLAMA_MODEL,
+    SUPABASE_URL,
+    SUPABASE_ANON_KEY,
+    SUPABASE_SERVICE_KEY,
+    SUPABASE_JWT_SECRET,
 )
 
 logger = log.bind(name="backend.core.config")

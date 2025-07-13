@@ -116,4 +116,50 @@ def get_drive_service(user_id):
     return get_google_service("drive", "v3", DRIVE_SCOPES, user_id)
 
 def get_calendar_service(user_id):
-    return get_google_service("calendar", "v3", CALENDAR_SCOPES, user_id)    
+    return get_google_service("calendar", "v3", CALENDAR_SCOPES, user_id)
+
+def check_google_auth_services(user_id):
+    """
+    Check if the user is authenticated with Google and which services they have access to.
+    
+    Args:
+        user_id: The user ID to check authentication for
+        
+    Returns:
+        Dictionary with authentication status and available services
+    """
+    result = {
+        "authenticated": False,
+        "services": []
+    }
+    
+    try:
+        # Load the token and check if it's valid
+        creds = load_google_token(user_id)
+        logger.debug(f"Google token for user {user_id}: {creds} and valid: {creds.valid}")
+        if creds and creds.valid:
+            result["authenticated"] = True
+            
+            # Check which services the user has access to based on scopes
+            token_scopes = set(creds.scopes or [])
+            
+            # Check for Gmail access
+            gmail_required = set(GMAIL_SCOPES)
+            if all(scope in token_scopes for scope in gmail_required):
+                result["services"].append("gmail")
+            
+            # Check for Drive access
+            drive_required = set(DRIVE_SCOPES)
+            if all(scope in token_scopes for scope in drive_required):
+                result["services"].append("gdrive")
+            
+            # Check for Calendar access
+            calendar_required = set(CALENDAR_SCOPES)
+            if all(scope in token_scopes for scope in calendar_required):
+                result["services"].append("gcalendar")
+        
+        logger.debug(f"Google auth check for user {user_id}: {result}")
+        return result
+    except Exception as e:
+        logger.error(f"Error checking Google authentication for user {user_id}: {str(e)}")
+        return result

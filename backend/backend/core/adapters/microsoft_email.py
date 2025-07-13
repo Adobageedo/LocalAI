@@ -10,10 +10,12 @@ import msal
 import requests
 import time
 import base64
+import datetime
 from pathlib import Path
 from typing import Optional, Dict, List, Any, Union
 from backend.core.logger import log
 from backend.services.auth.microsoft_auth import get_outlook_service
+from backend.core.adapters.provider_change_tracker import ProviderChangeTracker
 
 logger = log.bind(name="backend.core.adapters.microsoft_email")
 
@@ -135,13 +137,45 @@ class MicrosoftEmail:
             )
             response.raise_for_status()
             
-            # Return success without message ID
-            logger.info("Email sent successfully")
+            # Get the message ID if possible from the response
+            message_id = "unknown-id"
+            thread_id = "unknown-thread"
+            try:
+                message_data = response.json()
+                if 'id' in message_data:
+                    message_id = message_data['id']
+                if 'conversationId' in message_data:
+                    thread_id = message_data['conversationId']
+            except Exception as e:
+                logger.warning(f"Could not extract message ID from response: {e}")
+                
+            logger.info(f"Email sent successfully with message ID: {message_id}")
+            
+            # Track the email creation in the provider_changes table
+            try:
+                ProviderChangeTracker.log_email_add(
+                    provider='outlook',
+                    user_id=self.user_id,
+                    email_id=message_id,
+                    subject=subject,
+                    sender='me',  # Since this is a sent email
+                    extra_details={
+                        'recipients': recipients,
+                        'cc': cc if cc else [],
+                        'bcc': bcc if bcc else [],
+                        'thread_id': thread_id,
+                        'has_html': html_content is not None,
+                        'timestamp': datetime.datetime.now().isoformat()
+                    }
+                )
+            except Exception as tracking_error:
+                logger.error(f"Failed to track email creation: {tracking_error}")
+                
             return {
                 "success": True,
-                "message_id": "unknown-id",
-                "thread_id": "unknown-thread",
-                "warning": "Email sent but message ID not retrieved"
+                "message_id": message_id,
+                "thread_id": thread_id,
+                "warning": message_id == "unknown-id" and "Email sent but message ID not retrieved" or None
             }
             
         except Exception as e:
@@ -411,6 +445,35 @@ class MicrosoftEmail:
                 
                 logger.info(f"Email {email_id} moved to folder: {destination_folder}")
                 
+                # Get email subject for better tracking
+                email_subject = "Unknown Subject"
+                try:
+                    # Get email metadata
+                    email_url = f"{self.graph_endpoint}/me/messages/{email_id}?$select=subject"
+                    email_response = requests.get(email_url, headers=self._get_headers())
+                    email_response.raise_for_status()
+                    email_data = email_response.json()
+                    email_subject = email_data.get('subject', 'Unknown Subject')
+                except Exception as e:
+                    logger.warning(f"Could not retrieve email subject for tracking: {e}")
+                
+                # Track the email move in the provider_changes table
+                try:
+                    ProviderChangeTracker.log_email_modify(
+                        provider='outlook',
+                        user_id=self.user_id,
+                        email_id=email_id,
+                        subject=email_subject,
+                        extra_details={
+                            'action': 'move',
+                            'destination_folder': destination_folder,
+                            'destination_folder_id': folder_id,
+                            'timestamp': datetime.datetime.now().isoformat()
+                        }
+                    )
+                except Exception as tracking_error:
+                    logger.error(f"Failed to track email move: {tracking_error}")
+                
                 return {
                     "success": True,
                     "message": f"Email moved to {destination_folder} successfully",
@@ -433,6 +496,36 @@ class MicrosoftEmail:
                     move_data = move_response.json()
                     
                     logger.info(f"Email {email_id} moved to well-known folder: {destination_folder}")
+                    
+                    # Get email subject for better tracking
+                    email_subject = "Unknown Subject"
+                    try:
+                        # Get email metadata
+                        email_url = f"{self.graph_endpoint}/me/messages/{email_id}?$select=subject"
+                        email_response = requests.get(email_url, headers=self._get_headers())
+                        email_response.raise_for_status()
+                        email_data = email_response.json()
+                        email_subject = email_data.get('subject', 'Unknown Subject')
+                    except Exception as e:
+                        logger.warning(f"Could not retrieve email subject for tracking: {e}")
+                    
+                    # Track the email move in the provider_changes table
+                    try:
+                        ProviderChangeTracker.log_email_modify(
+                            provider='outlook',
+                            user_id=self.user_id,
+                            email_id=email_id,
+                            subject=email_subject,
+                            extra_details={
+                                'action': 'move',
+                                'destination_folder': destination_folder,
+                                'destination_folder_id': target_folder,
+                                'is_well_known_folder': True,
+                                'timestamp': datetime.datetime.now().isoformat()
+                            }
+                        )
+                    except Exception as tracking_error:
+                        logger.error(f"Failed to track email move: {tracking_error}")
                     
                     return {
                         "success": True,

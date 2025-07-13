@@ -19,6 +19,7 @@ from requests.exceptions import RequestException
 
 from backend.services.auth.microsoft_auth import get_drive_service
 from backend.core.logger import log
+from backend.core.adapters.provider_change_tracker import ProviderChangeTracker
 
 # Retry decorator for handling transient API errors
 def retry_with_backoff(max_retries: int = 3, initial_backoff: float = 1, 
@@ -421,6 +422,22 @@ class OneDrive:
                 'is_folder': False
             }
             logger.info(f"Uploaded file: {file_name} with ID: {processed_file['id']}")
+            
+            # Track the file addition in the provider_changes table
+            ProviderChangeTracker.log_document_add(
+                provider='onedrive',
+                user_id=self.user_id,
+                doc_id=processed_file['id'],
+                doc_name=processed_file['name'],
+                path=file_path,
+                extra_details={
+                    'size': processed_file.get('size', 0),
+                    'web_url': processed_file.get('web_view_link', ''),
+                    'mime_type': processed_file.get('mime_type', ''),
+                    'parent_id': parent_id
+                }
+            )
+            
             return {
                 "success": True,
                 "file": processed_file
@@ -526,6 +543,15 @@ class OneDrive:
                 "error": "Not authenticated"
             }
         try:
+            # Get file metadata before deletion to include in the change log
+            file_metadata = None
+            try:
+                metadata_result = self.get_file_metadata(file_id)
+                if metadata_result["success"]:
+                    file_metadata = metadata_result["file"]
+            except Exception as e:
+                logger.warning(f"Could not retrieve metadata for file {file_id} before deletion: {e}")
+            
             headers = {
                 "Authorization": f"Bearer {self.access_token}"
             }
@@ -533,6 +559,26 @@ class OneDrive:
             resp = requests.delete(endpoint, headers=headers)
             if resp.status_code == 204:
                 logger.info(f"Deleted file or folder: {file_id}")
+                
+                # Track the file deletion in the provider_changes table
+                file_name = file_metadata.get("name", "Unknown") if file_metadata else "Unknown"
+                extra_details = {}
+                if file_metadata:
+                    extra_details = {
+                        "size": file_metadata.get("size", 0),
+                        "mime_type": file_metadata.get("mime_type", ""),
+                        "is_folder": file_metadata.get("is_folder", False),
+                        "permanently_deleted": permanently
+                    }
+                
+                ProviderChangeTracker.log_document_remove(
+                    provider="onedrive",
+                    user_id=self.user_id,
+                    doc_id=file_id,
+                    doc_name=file_name,
+                    extra_details=extra_details
+                )
+                
                 return {
                     "success": True,
                     "message": f"Deleted: {file_id}"

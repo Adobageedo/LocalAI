@@ -14,6 +14,7 @@ from typing import Dict, List, Optional, Any, Union, Callable
 
 from backend.services.auth.microsoft_auth import get_calendar_service
 from backend.core.logger import log
+from backend.core.adapters.provider_change_tracker import ProviderChangeTracker
 
 # Retry decorator for handling transient API errors
 def retry_with_backoff(max_retries: int = 3, initial_backoff: float = 1, 
@@ -393,6 +394,29 @@ class OutlookCalendar:
             }
             
             logger.info(f"Created event: {processed_event['summary']}")
+            
+            # Track the calendar event creation in the provider_changes table
+            try:
+                ProviderChangeTracker.log_calendar_event_add(
+                    provider='outlook',
+                    user_id=self.user_id,
+                    event_id=processed_event['id'],
+                    event_summary=processed_event['summary'],
+                    extra_details={
+                        'description': processed_event['description'],
+                        'start_time': processed_event['start'],
+                        'end_time': processed_event['end'],
+                        'location': processed_event['location'],
+                        'attendees_count': len(processed_event['attendees']),
+                        'calendar_id': calendar_id or 'primary',
+                        'html_link': processed_event['html_link'],
+                        'is_all_day': processed_event['is_all_day'],
+                        'timestamp': datetime.datetime.now().isoformat()
+                    }
+                )
+            except Exception as tracking_error:
+                logger.error(f"Failed to track calendar event creation: {tracking_error}")
+            
             return {
                 "success": True,
                 "event": processed_event
@@ -551,6 +575,45 @@ class OutlookCalendar:
             }
             
             logger.info(f"Updated event: {processed_event['summary']}")
+            
+            # Track the calendar event update in the provider_changes table
+            try:
+                # Determine what fields were updated
+                updated_fields = []
+                if summary is not None:
+                    updated_fields.append('summary')
+                if description is not None:
+                    updated_fields.append('description')
+                if location is not None:
+                    updated_fields.append('location')
+                if start_time is not None:
+                    updated_fields.append('start_time')
+                if end_time is not None:
+                    updated_fields.append('end_time')
+                if attendees is not None:
+                    updated_fields.append('attendees')
+                
+                ProviderChangeTracker.log_calendar_event_update(
+                    provider='outlook',
+                    user_id=self.user_id,
+                    event_id=processed_event['id'],
+                    event_summary=processed_event['summary'],
+                    extra_details={
+                        'description': processed_event['description'],
+                        'start_time': processed_event['start'],
+                        'end_time': processed_event['end'],
+                        'location': processed_event['location'],
+                        'attendees_count': len(processed_event['attendees']),
+                        'calendar_id': calendar_id or 'primary',
+                        'html_link': processed_event['html_link'],
+                        'is_all_day': processed_event['is_all_day'],
+                        'updated_fields': updated_fields,
+                        'timestamp': datetime.datetime.now().isoformat()
+                    }
+                )
+            except Exception as tracking_error:
+                logger.error(f"Failed to track calendar event update: {tracking_error}")
+            
             return {
                 "success": True,
                 "event": processed_event
@@ -597,6 +660,18 @@ class OutlookCalendar:
                 calendar_path = f"/me/calendars/{calendar_id}"
             else:
                 calendar_path = "/me/calendar"
+            
+            # First, get the event details before deletion for tracking purposes
+            event_details = None
+            try:
+                event_response = requests.get(
+                    f"{self.graph_endpoint}{calendar_path}/events/{event_id}",
+                    headers=self._get_headers()
+                )
+                event_response.raise_for_status()
+                event_details = event_response.json()
+            except Exception as get_error:
+                logger.warning(f"Could not retrieve event details before deletion: {get_error}")
                 
             # Make the API request to delete the event
             response = requests.delete(
@@ -608,6 +683,35 @@ class OutlookCalendar:
             # For successful deletion, Microsoft Graph API returns 204 No Content
             if response.status_code == 204:
                 logger.info(f"Successfully deleted event {event_id}")
+                
+                # Track the calendar event deletion in the provider_changes table
+                try:
+                    extra_details = {
+                        'calendar_id': calendar_id or 'primary',
+                        'timestamp': datetime.datetime.now().isoformat()
+                    }
+                    
+                    # Add event details if we were able to retrieve them
+                    if event_details:
+                        extra_details.update({
+                            'subject': event_details.get('subject', 'Unknown'),
+                            'start_time': event_details.get('start', {}).get('dateTime'),
+                            'end_time': event_details.get('end', {}).get('dateTime'),
+                            'location': event_details.get('location', {}).get('displayName', ''),
+                            'is_all_day': event_details.get('isAllDay', False),
+                            'attendees_count': len(event_details.get('attendees', []))
+                        })
+                    
+                    ProviderChangeTracker.log_calendar_event_delete(
+                        provider='outlook',
+                        user_id=self.user_id,
+                        event_id=event_id,
+                        event_summary=event_details.get('subject', 'Unknown') if event_details else 'Unknown',
+                        extra_details=extra_details
+                    )
+                except Exception as tracking_error:
+                    logger.error(f"Failed to track calendar event deletion: {tracking_error}")
+                
                 return {
                     "success": True
                 }

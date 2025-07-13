@@ -79,3 +79,10 @@ POSTGRES_DB=os.getenv("POSTGRES_DB", "")
 POSTGRES_HOST=os.getenv("POSTGRES_HOST", "")
 POSTGRES_PORT=os.getenv("POSTGRES_PORT", "")
 STORAGE_PATH=os.getenv("STORAGE_PATH", "")
+
+# Supabase configuration
+SUPABASE_URL=os.getenv("SUPABASE_URL", "")
+SUPABASE_ANON_KEY=os.getenv("SUPABASE_ANON_KEY", "")
+SUPABASE_SERVICE_KEY=os.getenv("SUPABASE_SERVICE_KEY", "")
+SUPABASE_JWT_SECRET=os.getenv("SUPABASE_JWT_SECRET", "")
+SUPABASE_ENABLE_AUTH=os.getenv("SUPABASE_ENABLE_AUTH", "true").lower() == "true"

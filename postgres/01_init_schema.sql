@@ -137,3 +137,23 @@ CREATE TABLE IF NOT EXISTS user_preferences (
 CREATE INDEX IF NOT EXISTS idx_email_content_user_id ON email_content(user_id);
 CREATE INDEX IF NOT EXISTS idx_email_content_conversation_id ON email_content(conversation_id);
 CREATE INDEX IF NOT EXISTS idx_email_content_sent_date ON email_content(sent_date);
+
+-- Table to track provider changes (modifications to documents, emails, etc.)
+CREATE TABLE IF NOT EXISTS provider_changes (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    change_date TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    provider VARCHAR(50) NOT NULL,  -- 'gdrive', 'gmail', 'outlook', 'onedrive', 'personal-storage', 'google-calendar', 'outlook-calendar'
+    user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    change_type VARCHAR(20) NOT NULL,  -- 'add', 'remove', 'modify', 'create'
+    item_id VARCHAR(255),  -- ID of the email or document that was modified/created
+    details JSONB,  -- Additional details about the change
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+-- Indexes for provider_changes table
+CREATE INDEX idx_provider_changes_user_id ON provider_changes(user_id);
+CREATE INDEX idx_provider_changes_provider ON provider_changes(provider);
+CREATE INDEX idx_provider_changes_change_date ON provider_changes(change_date);
+CREATE INDEX idx_provider_changes_change_type ON provider_changes(change_type);
+
+COMMENT ON TABLE provider_changes IS 'Tracks all changes made to provider data (documents, emails, etc.)';

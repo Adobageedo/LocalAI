@@ -187,24 +187,36 @@ class SyncManager:
     def sync_provider(self, user_id: str, provider_name: str):
         """Synchronize emails for a specific user and provider."""
         try:
-            # Get provider-specific configuration
-            provider_config = self.config.get('sync', {}).get(provider_name, {})
+            # Get date threshold for this user based on credits
+            date_threshold = datetime.now() - timedelta(days=2)
             
-            # Create SyncStatus object for tracking
-            syncstatus = SyncStatus(
-                user_id=user_id,
-                provider=provider_name,
-                status="in_progress",
-                start_time=datetime.now(),
-                total_documents=0,
-                processed_documents=0
-            )
+            # Create a sync status record
+            syncstatus = SyncStatus(user_id=user_id, source_type=provider_name, total_documents=50)
+            syncstatus.upsert_status(status="in_progress", progress=0.0)
             
             # Determine which sync method to call based on provider
             if provider_name == "gmail":
-                self._sync_gmail(user_id, syncstatus=syncstatus)
+                # Get Gmail-specific config
+                gmail_config = self.config.get('sync', {}).get('gmail', {})
+                query = gmail_config.get('query')
+                
+                # Sync Gmail emails
+                self._sync_gmail(user_id, query, date_threshold, syncstatus)
+                
+                # Process and classify emails after sync
+                self._process_emails_after_sync(user_id, "gmail", syncstatus)
+                
             elif provider_name == "outlook":
-                self._sync_outlook(user_id, syncstatus=syncstatus)
+                # Get Outlook-specific config
+                outlook_config = self.config.get('sync', {}).get('outlook', {})
+                query = outlook_config.get('query')
+                
+                # Sync Outlook emails
+                self._sync_outlook(user_id, query, date_threshold, syncstatus)
+                
+                # Process and classify emails after sync
+                self._process_emails_after_sync(user_id, "outlook", syncstatus)
+                
             elif provider_name == "personal_storage":
                 self._sync_personal_storage(user_id, syncstatus=syncstatus)
             elif provider_name == "gdrive":
