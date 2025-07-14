@@ -5,25 +5,18 @@ Module pour l'authentification Google OAuth2 (Gmail, Drive, etc.).
 import os
 import sys
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
-import base64
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
-from typing import Dict, List, Optional, Any, Union
 from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
+from google_auth_oauthlib.flow import InstalledAppFlow, Flow
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
-
+import base64
+import json
 from backend.core.config import (
-    GMAIL_CLIENT_ID,
-    GMAIL_CLIENT_SECRET,
-    GMAIL_REDIRECT_URI,
-    GMAIL_AUTH_URI,
-    GMAIL_TOKEN_URI,
-    GMAIL_AUTH_PROVIDER_X509_CERT_URL
+    GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_AUTH_URI, GMAIL_TOKEN_URI,
+    GMAIL_REDIRECT_URI, GMAIL_SCOPES, GDRIVE_SCOPES, GCALENDAR_SCOPES, GMAIL_AUTH_PROVIDER_X509_CERT_URL
 )
-from backend.services.auth.credentials_manager import load_google_token, save_google_token
+from backend.services.auth.credentials_manager import load_google_token, save_google_token, check_google_credentials
 from backend.core.logger import log
 
 logger = log.bind(name="backend.services.auth.google_auth")
@@ -94,29 +87,90 @@ def get_google_service(service_name, version, scopes, user_id):
 
     return build(service_name, version, credentials=creds)
 
-# Scopes spécifiques
-GMAIL_SCOPES = [
-    'https://www.googleapis.com/auth/gmail.readonly',
-    'https://www.googleapis.com/auth/gmail.modify',
-    'https://www.googleapis.com/auth/gmail.labels',
-    'https://www.googleapis.com/auth/gmail.compose',
-    'https://www.googleapis.com/auth/gmail.send'
-]
-DRIVE_SCOPES = [
-    'https://www.googleapis.com/auth/drive'
-]
-CALENDAR_SCOPES = [
-    'https://www.googleapis.com/auth/calendar'
-]
-
 def get_gmail_service(user_id):
     return get_google_service("gmail", "v1", GMAIL_SCOPES, user_id)
 
 def get_drive_service(user_id):
-    return get_google_service("drive", "v3", DRIVE_SCOPES, user_id)
+    return get_google_service("drive", "v3", GDRIVE_SCOPES, user_id)
 
 def get_calendar_service(user_id):
-    return get_google_service("calendar", "v3", CALENDAR_SCOPES, user_id)
+    return get_google_service("calendar", "v3", GCALENDAR_SCOPES, user_id)
+
+def get_google_auth_url_for_scope(user_id, requested_scope):
+    """
+    Generate a Google OAuth URL for the requested scope. If the user already has a token,
+    include the existing scopes to preserve them.
+    
+    Args:
+        user_id: The user ID to check authentication for
+        requested_scope: The service scope requested ("gmail", "drive", "calendar")
+        
+    Returns:
+        Dictionary with authentication status, auth_url if needed, and current scopes
+    """
+    result = {
+        "authenticated": False,
+        "auth_url": None,
+        "current_scopes": [],
+        "requested_service": requested_scope
+    }
+    
+    # Map the requested scope to the appropriate scope list
+    if requested_scope == "gmail":
+        selected_scopes = GMAIL_SCOPES
+        service_name = "gmail"
+    elif requested_scope == "drive":
+        selected_scopes = GDRIVE_SCOPES
+        service_name = "drive"
+    elif requested_scope == "calendar":
+        selected_scopes = GCALENDAR_SCOPES
+        service_name = "calendar"
+    else:
+        # Default to Gmail scopes if no specific scope is requested
+        selected_scopes = GMAIL_SCOPES
+        service_name = "gmail"
+    
+    # Check if the user already has a valid token
+    creds_status = check_google_credentials(user_id)
+    
+    if creds_status["authenticated"] and creds_status["valid"]:
+        # Load the token to check scopes
+        creds = load_google_token(user_id)
+        if creds and creds.valid:
+            token_scopes = set(creds.scopes or [])
+            result["current_scopes"] = list(token_scopes)
+            selected_scopes = list(token_scopes.union(set(selected_scopes)))
+            if selected_scopes == token_scopes:
+                result["authenticated"] = True
+                return result
+    # Generate OAuth URL with the appropriate scopes
+    flow = Flow.from_client_config(
+        {
+            "web": {
+                "client_id": GMAIL_CLIENT_ID,
+                "client_secret": GMAIL_CLIENT_SECRET,
+                "auth_uri": GMAIL_AUTH_URI,
+                "token_uri": GMAIL_TOKEN_URI,
+            }
+        },
+        scopes=selected_scopes,
+        redirect_uri=GMAIL_REDIRECT_URI + "api/auth/google/callback"
+    )
+    
+    # Encode user_id and scope in the state parameter as JSON
+    state_data = json.dumps({"user_id": user_id, "scope": selected_scopes})
+    state_encoded = base64.urlsafe_b64encode(state_data.encode()).decode()
+    
+    auth_url, _ = flow.authorization_url(
+        access_type='offline',
+        include_granted_scopes='false',  # Include granted scopes for better token management
+        state=state_encoded
+    )
+    
+    result["auth_url"] = auth_url
+    logger.debug(f"[GOOGLE AUTH] Generated auth URL for {service_name} with scopes: {selected_scopes}")
+    
+    return result
 
 def check_google_auth_services(user_id):
     """
@@ -132,7 +186,7 @@ def check_google_auth_services(user_id):
         "authenticated": False,
         "services": []
     }
-    
+    check_google_credentials(user_id)
     try:
         # Load the token and check if it's valid
         creds = load_google_token(user_id)
@@ -149,12 +203,12 @@ def check_google_auth_services(user_id):
                 result["services"].append("gmail")
             
             # Check for Drive access
-            drive_required = set(DRIVE_SCOPES)
+            drive_required = set(GDRIVE_SCOPES)
             if all(scope in token_scopes for scope in drive_required):
                 result["services"].append("gdrive")
             
             # Check for Calendar access
-            calendar_required = set(CALENDAR_SCOPES)
+            calendar_required = set(GCALENDAR_SCOPES)
             if all(scope in token_scopes for scope in calendar_required):
                 result["services"].append("gcalendar")
         
