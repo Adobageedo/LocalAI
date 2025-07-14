@@ -59,6 +59,13 @@ from backend.core.constants import (
     SUPABASE_ANON_KEY,
     SUPABASE_SERVICE_KEY,
     SUPABASE_JWT_SECRET,
+    GMAIL_SCOPES,
+    GDRIVE_SCOPES,
+    GCALENDAR_SCOPES,
+    OUTLOOK_SCOPES,
+    ONEDRIVE_SCOPES,
+    OUTLOOK_CALENDAR_SCOPES,
+    OUTLOOK_REDIRECT_URI
 )
 
 logger = log.bind(name="backend.core.config")

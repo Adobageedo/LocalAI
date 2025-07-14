@@ -16,7 +16,8 @@ from typing import Optional, Dict, List, Any, Union
 from backend.core.config import (
     OUTLOOK_CLIENT_ID,
     OUTLOOK_CLIENT_SECRET,
-    OUTLOOK_TENANT_ID
+    OUTLOOK_TENANT_ID,
+    OUTLOOK_SCOPES, ONEDRIVE_SCOPES, OUTLOOK_CALENDAR_SCOPES, OUTLOOK_REDIRECT_URI
 )
 from backend.services.auth.credentials_manager import load_microsoft_token, save_microsoft_token
 from backend.core.logger import log
@@ -110,12 +111,6 @@ def get_microsoft_token(user_id: str, required_scopes: list) -> Optional[Dict]:
         traceback.print_exc()
         return None
 
-OUTLOOK_SCOPES = ['Mail.Read', 'User.Read', 'Mail.ReadWrite', 'Mail.Send']
-
-DRIVE_SCOPES = ['Files.ReadWrite.All']
-
-CALENDAR_SCOPES = ['Calendars.Read', 'Calendars.ReadWrite']
-
 def get_outlook_service(user_id: str) -> Optional[Dict]:
     token = get_microsoft_token(user_id, OUTLOOK_SCOPES)
     if token:
@@ -130,6 +125,85 @@ def get_calendar_service(user_id: str) -> Optional[Dict]:
     token = get_microsoft_token(user_id, CALENDAR_SCOPES)
     if token:
         return token
+
+def get_microsoft_auth_url_for_scope(user_id: str, requested_scope: str) -> Dict[str, Any]:
+    """
+    Generate a Microsoft OAuth URL for the requested scope. If the user already has a token,
+    include the existing scopes to preserve them.
+    
+    Args:
+        user_id: The user ID to check authentication for
+        requested_scope: The service scope requested ("mail", "files", "calendar")
+        
+    Returns:
+        Dictionary with authentication status, auth_url if needed, and current scopes
+    """
+
+    result = {
+        "authenticated": False,
+        "auth_url": None,
+        "current_scopes": [],
+        "requested_service": requested_scope
+    }
+    
+    # Map the requested scope to the appropriate scope list
+    if requested_scope == "mail":
+        selected_scopes = OUTLOOK_SCOPES
+    elif requested_scope == "files":
+        selected_scopes = ONEDRIVE_SCOPES
+    elif requested_scope == "calendar":
+        selected_scopes = OUTLOOK_CALENDAR_SCOPES
+    else:
+        selected_scopes = OUTLOOK_SCOPES
+    logger.debug(f"Selected scopes: {selected_scopes}")
+    # Load the token to check scopes
+    cache_data = load_microsoft_token(user_id)
+    if cache_data:
+        try:
+            target_json = json.loads(cache_data)
+            for token_dict in target_json.get("AccessToken", {}).values():
+                token_scopes = token_dict.get("target", "")
+                if token_scopes:
+                    token_scopes = set(token_scopes.split())
+                    token_scopes.discard("offline_access")
+                    token_scopes.discard("profile")
+                    token_scopes.discard("openid")
+                    result["current_scopes"] = list(token_scopes)
+                    selected_scopes = list(token_scopes.union(set(selected_scopes)))
+                    if selected_scopes == token_scopes:
+                        result["authenticated"] = True
+                        return result
+        except Exception as e:
+            logger.error(f"Error parsing token cache: {str(e)}")
+    logger.debug(f"Current scopes: {result['current_scopes']}")
+    # Generate OAuth URL with the appropriate scopes
+    redirect_uri = OUTLOOK_REDIRECT_URI + "api/auth/microsoft/callback"
+    # Create token cache
+    token_cache = msal.SerializableTokenCache()
+    cache_data = load_microsoft_token(user_id)
+    if cache_data:
+        token_cache.deserialize(cache_data)
+    # Create MSAL application
+    app = msal.PublicClientApplication(
+        client_id=OUTLOOK_CLIENT_ID,
+        authority="https://login.microsoftonline.com/common",
+        token_cache=token_cache
+    )
+    
+    # Encode user_id and scope in the state parameter as JSON
+    state_data = json.dumps({"user_id": user_id, "redirect_uri": redirect_uri, "scope": selected_scopes})
+    state_encoded = base64.urlsafe_b64encode(state_data.encode()).decode()
+    
+    # Generate auth URL
+    auth_url = app.get_authorization_request_url(
+        scopes=selected_scopes,
+        redirect_uri=redirect_uri,
+        state=state_encoded,
+        prompt="select_account"
+    )
+    
+    result["auth_url"] = auth_url
+    return result
 
 def check_microsoft_auth_services(user_id: str) -> Dict[str, Any]:
     """
@@ -179,12 +253,12 @@ def check_microsoft_auth_services(user_id: str) -> Dict[str, Any]:
                 result["services"].append("outlook")
             
             # Check for OneDrive access
-            drive_required = set(DRIVE_SCOPES)
+            drive_required = set(ONEDRIVE_SCOPES)
             if all(scope in token_scopes for scope in drive_required):
                 result["services"].append("onedrive")
             
             # Check for Outlook Calendar access
-            calendar_required = set(CALENDAR_SCOPES)
+            calendar_required = set(OUTLOOK_CALENDAR_SCOPES)
             if all(scope in token_scopes for scope in calendar_required):
                 result["services"].append("outlook_calendar")
         
