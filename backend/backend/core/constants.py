@@ -72,6 +72,7 @@ OUTLOOK_CLIENT_ID=os.getenv("OUTLOOK_CLIENT_ID", "")
 OUTLOOK_CLIENT_SECRET=os.getenv("OUTLOOK_CLIENT_SECRET", "")
 OUTLOOK_TENANT_ID=os.getenv("OUTLOOK_TENANT_ID", "")
 OUTLOOK_TOKEN_PATH=os.getenv("OUTLOOK_TOKEN_PATH", "")
+OUTLOOK_REDIRECT_URI=os.getenv("OUTLOOK_REDIRECT_URI", "")
 
 POSTGRES_USER=os.getenv("POSTGRES_USER", "")
 POSTGRES_PASSWORD=os.getenv("POSTGRES_PASSWORD", "")
@@ -86,3 +87,21 @@ SUPABASE_ANON_KEY=os.getenv("SUPABASE_ANON_KEY", "")
 SUPABASE_SERVICE_KEY=os.getenv("SUPABASE_SERVICE_KEY", "")
 SUPABASE_JWT_SECRET=os.getenv("SUPABASE_JWT_SECRET", "")
 SUPABASE_ENABLE_AUTH=os.getenv("SUPABASE_ENABLE_AUTH", "true").lower() == "true"
+
+OUTLOOK_SCOPES = ['Mail.Read', 'User.Read', 'Mail.ReadWrite', 'Mail.Send']
+ONEDRIVE_SCOPES = ['Files.ReadWrite.All']
+OUTLOOK_CALENDAR_SCOPES = ['Calendars.Read', 'Calendars.ReadWrite']
+
+GMAIL_SCOPES = [
+    'https://www.googleapis.com/auth/gmail.readonly',
+    'https://www.googleapis.com/auth/gmail.modify',
+    'https://www.googleapis.com/auth/gmail.labels',
+    'https://www.googleapis.com/auth/gmail.compose',
+    'https://www.googleapis.com/auth/gmail.send'
+]
+GDRIVE_SCOPES = [
+    'https://www.googleapis.com/auth/drive'
+]
+GCALENDAR_SCOPES = [
+    'https://www.googleapis.com/auth/calendar'
+]

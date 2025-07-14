@@ -32,6 +32,7 @@ from .router.llm_chat_router import router as conversation_router
 from .router.file_management_google import router as file_management_google_router
 from .router.sync_router import router as sync_router
 from .router.email_router import router as email_router
+from .router.auth import router as auth_router
 
 # Configuration des préfixes API centralisée
 app.include_router(adapters_auth_router, prefix="/api/sources")
@@ -40,6 +41,7 @@ app.include_router(conversation_router, prefix="/api")  # conversation_router al
 app.include_router(file_management_google_router, prefix="/api/db")
 app.include_router(sync_router, prefix="/api/sync")
 app.include_router(email_router, prefix="/api/email")
+app.include_router(auth_router, prefix="/api/auth")
 # Add middleware
 # 1. Compression for better network performance
 app.add_middleware(GZipMiddleware, minimum_size=1000)

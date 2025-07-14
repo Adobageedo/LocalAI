@@ -32,7 +32,7 @@ def load_google_token(user_id):
         
         token_path = GMAIL_TOKEN_PATH.replace("user_id", user_id)
         token_path = os.path.join(BASE_DIR, token_path)
-        logger.debug(f"Tentative de chargement du token Google pour {user_id} depuis {token_path}")
+        #logger.debug(f"Tentative de chargement du token Google pour {user_id} depuis {token_path}")
         
         if not os.path.exists(token_path):
             logger.debug(f"Fichier de token non trouvé: {token_path}")
@@ -41,7 +41,7 @@ def load_google_token(user_id):
         with open(token_path, 'rb') as token:
             credentials = pickle.load(token)
             
-        logger.debug(f"Token Google chargé avec succès pour {user_id}")
+        #logger.debug(f"Token Google chargé avec succès pour {user_id}")
         return credentials
     except Exception as e:
         logger.error(f"Erreur lors du chargement du token Google pour {user_id}: {str(e)}")
@@ -62,7 +62,7 @@ def save_google_token(user_id, credentials):
         from backend.core.config import GMAIL_TOKEN_PATH
         token_path = GMAIL_TOKEN_PATH.replace("user_id", user_id)
         token_path = os.path.join(BASE_DIR, token_path)
-        logger.debug(f"Sauvegarde du token Google pour {user_id} dans {token_path}")
+        #logger.debug(f"Sauvegarde du token Google pour {user_id} dans {token_path}")
         
         # Créer le répertoire parent s'il n'existe pas
         os.makedirs(os.path.dirname(token_path), exist_ok=True)
@@ -70,7 +70,7 @@ def save_google_token(user_id, credentials):
         with open(token_path, 'wb') as token:
             pickle.dump(credentials, token)
             
-        logger.debug(f"Token Google sauvegardé avec succès pour {user_id}")
+        #logger.debug(f"Token Google sauvegardé avec succès pour {user_id}")
         return True
     except Exception as e:
         logger.error(f"Erreur lors de la sauvegarde du token Google pour {user_id}: {str(e)}")
@@ -124,13 +124,13 @@ def check_google_credentials(user_id):
                     creds.refresh(Request())
                     save_google_token(user_id, creds)
                     result["valid"] = True
-                    logger.debug(f"Token Google rafraîchi avec succès pour {user_id}")
+                    #logger.debug(f"Token Google rafraîchi avec succès pour {user_id}")
                 except Exception as refresh_error:
                     result["error"] = f"Error refreshing token: {str(refresh_error)}"
                     logger.error(f"Erreur lors du rafraîchissement du token Google pour {user_id}: {str(refresh_error)}")
             else:
                 result["error"] = "Token expired and no refresh token available"
-        
+        #logger.debug(f"Résultat de la vérification des credentials Google pour {user_id}: {result}")
         return result
     except Exception as e:
         result["error"] = str(e)
@@ -151,7 +151,7 @@ def load_microsoft_token(user_id):
         from backend.core.config import OUTLOOK_TOKEN_PATH
         token_path = OUTLOOK_TOKEN_PATH.replace("user_id", user_id)
         token_path = os.path.join(BASE_DIR, token_path)
-        logger.debug(f"Tentative de chargement du token Microsoft pour {user_id} depuis {token_path}")
+        #logger.debug(f"Tentative de chargement du token Microsoft pour {user_id} depuis {token_path}")
         
         if not os.path.exists(token_path):
             logger.debug(f"Fichier de token non trouvé: {token_path}")
@@ -160,7 +160,7 @@ def load_microsoft_token(user_id):
         with open(token_path, 'r') as token_file:
             token_cache = json.load(token_file)
             
-        logger.debug(f"Token Microsoft chargé avec succès pour {user_id}")
+        #logger.debug(f"Token Microsoft chargé avec succès pour {user_id}")
         return token_cache
     except Exception as e:
         logger.error(f"Erreur lors du chargement du token Microsoft pour {user_id}: {str(e)}")
@@ -181,7 +181,8 @@ def save_microsoft_token(user_id, token_cache):
         from backend.core.config import OUTLOOK_TOKEN_PATH
         token_path = OUTLOOK_TOKEN_PATH.replace("user_id", user_id)
         token_path = os.path.join(BASE_DIR, token_path)
-        logger.debug(f"Sauvegarde du token Microsoft pour {user_id} dans {token_path}")
+        
+        #logger.debug(f"Sauvegarde du token Microsoft pour {user_id} dans {token_path}")
         
         # Créer le répertoire parent s'il n'existe pas
         os.makedirs(os.path.dirname(token_path), exist_ok=True)
@@ -189,7 +190,7 @@ def save_microsoft_token(user_id, token_cache):
         with open(token_path, 'w') as token_file:
             json.dump(token_cache, token_file)
             
-        logger.debug(f"Token Microsoft sauvegardé avec succès pour {user_id}")
+        #logger.debug(f"Token Microsoft sauvegardé avec succès pour {user_id}")
         return True
     except Exception as e:
         logger.error(f"Erreur lors de la sauvegarde du token Microsoft pour {user_id}: {str(e)}")
