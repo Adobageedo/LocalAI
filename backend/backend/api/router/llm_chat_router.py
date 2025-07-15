@@ -1,10 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
-from typing import List, Optional, Any, Dict, Union
+from fastapi.responses import StreamingResponse
+from typing import List, Optional, Any, Dict, Union, AsyncGenerator
 from pydantic import BaseModel, UUID4, Field, EmailStr
 from uuid import UUID
 from datetime import datetime
 import os
 import sys
+import json
+import asyncio
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
 from backend.services.auth.middleware.auth import get_current_user
 from backend.services.rag.retrieve_rag_information_modular import get_rag_response_modular
@@ -1029,7 +1032,7 @@ async def delete_user(user_id: str, current_user=Depends(get_current_user)):
         )
 
 @router.post("/prompt", response_model=PromptResponse)
-def prompt_ia(data: dict, user=Depends(get_current_user), request: Request = None):
+async def prompt_ia(data: dict, user=Depends(get_current_user), request: Request = None):
     # Get user_id from authenticated user, fallback to test for development
     user_id = user.get("uid") if user else "test"   
     question = data.get("question")
@@ -1042,28 +1045,90 @@ def prompt_ia(data: dict, user=Depends(get_current_user), request: Request = Non
     use_retrieval = data.get("use_retrieval")
     include_profile_context = data.get("include_profile_context")
     conversation_history = data.get("conversation_history")
+    stream = data.get("stream", False)  # New parameter to enable streaming
 
     # Add instruction to the prompt for the LLM to cite sources as [filename.ext]
     llm_instruction = ""
     user_question = data.get("question")
     question = f"{llm_instruction}\n\n{user_question}"
-    rag_result = get_rag_response_modular(question, user_id=user_id,conversation_history=conversation_history,use_retrieval=False)
-
-    # Extract filenames cited in the answer (e.g., [contract.pdf])
-    import re, os
-    answer = rag_result.get("answer", "")
-    sources = rag_result.get("sources_info", [])
     
-    # Return the response
-    return {
-        "answer": answer,
-        "sources": sources,
-        "temperature": temperature,
-        "model": model,
-        "use_retrieval": use_retrieval,
-        "include_profile_context": include_profile_context,
-        "conversation_history": conversation_history
-    }
+    # Handle streaming response if requested
+    if stream:
+        async def stream_generator():
+            try:
+                # Get streaming response from RAG - this returns an async generator
+                rag_stream_generator = get_rag_response_modular(
+                    question, 
+                    user_id=user_id,
+                    conversation_history=conversation_history,
+                    use_retrieval=use_retrieval,
+                    stream=True
+                )
+                
+                # Ensure we're getting an async generator
+                if not hasattr(rag_stream_generator, '__aiter__'):
+                    # If not async iterable, return an error
+                    error_msg = "Stream response is not an async iterable"
+                    logger.error(error_msg)
+                    error_data = json.dumps({"error": error_msg})
+                    yield f"data: {error_data}\n\n"
+                    yield "data: [DONE]\n\n"
+                    return
+                
+                # Stream each chunk as it comes
+                collected_sources = []
+                async for chunk in rag_stream_generator:
+                    if "chunk" in chunk:
+                        # Send text chunk
+                        chunk_data = json.dumps({"text": chunk["chunk"]})
+                        yield f"data: {chunk_data}\n\n"
+                    elif "sources" in chunk:
+                        # Store sources for later use
+                        collected_sources = chunk['sources']
+                        sources_data = json.dumps({"sources": collected_sources})
+                        yield f"data: {sources_data}\n\n"
+                    elif "error" in chunk:
+                        # Send error message
+                        error_data = json.dumps({"error": chunk["error"]})
+                        yield f"data: {error_data}\n\n"
+                
+                # End the stream
+                yield "data: [DONE]\n\n"
+                
+            except Exception as e:
+                logger.error(f"Error in streaming response: {e}")
+                error_data = json.dumps({"error": str(e)})
+                yield f'data: {error_data}\n\n'
+                yield "data: [DONE]\n\n"
+        
+        # Return a streaming response
+        return StreamingResponse(
+            stream_generator(),
+            media_type="text/event-stream"
+        )
+    else:
+        # Non-streaming response (original behavior)
+        rag_result = get_rag_response_modular(
+            question, 
+            user_id=user_id,
+            conversation_history=conversation_history,
+            use_retrieval=use_retrieval
+        )
+
+        # Extract answer and sources
+        answer = rag_result.get("answer", "")
+        sources = rag_result.get("sources_info", [])
+        
+        # Return the response
+        return {
+            "answer": answer,
+            "sources": sources,
+            "temperature": temperature,
+            "model": model,
+            "use_retrieval": use_retrieval,
+            "include_profile_context": include_profile_context,
+            "conversation_history": conversation_history
+        }
 
 @router.post("/generate-title", response_model=TitleResponse)
 async def generate_conversation_title(data: dict, user: dict = Depends(get_current_user)):
