@@ -27,9 +27,21 @@ DB_HOST = POSTGRES_HOST
 DB_PORT = POSTGRES_PORT
 
 # Models
+class Source(BaseModel):
+    filename: str
+    source: str
+    conversation_id: Optional[str] = None
+    page_content: Optional[str] = None
+    url: Optional[str] = None
+
 class PromptResponse(BaseModel):
     answer: str
-    sources: List[str]
+    sources: List[Union[Source, str]] = []  # Accept both Source objects and strings for backward compatibility
+    temperature: Optional[float] = None
+    model: Optional[str] = None
+    use_retrieval: Optional[bool] = None
+    include_profile_context: Optional[bool] = None
+    conversation_history: Optional[List[Dict[str, Any]]] = None
 
 class TitleResponse(BaseModel):
     title: str
