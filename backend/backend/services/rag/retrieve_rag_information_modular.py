@@ -12,12 +12,40 @@ from backend.core.logger import log
 
 logger = log.bind(name="backend.services.rag.retrieve_rag_information_modular")
 # Replace [doc_id] with [filename] in the answer
+import urllib.parse
+
+def get_download_url_from_source(source: str, conversation_id: str = None, api_base_url: str = "http://localhost:8000") -> str:
+    if not source or "|" not in source:
+        return None
+
+    raw_path = source
+
+    if raw_path.startswith("/personal_storage/"):
+        clean_path = raw_path[len("/personal_storage/"):]
+        return f"{api_base_url}/db/download?path={urllib.parse.quote(clean_path)}"
+
+    elif raw_path.startswith("/google_storage/"):
+        parts = raw_path.strip("/").split("/")
+        if len(parts) >= 3:
+            file_id = parts[2]
+            return f"https://drive.google.com/file/d/{file_id}/view"
+
+    elif raw_path.startswith("/google_email/"):
+        return f"https://mail.google.com/mail/u/0/#inbox/{conversation_id}"
+
+    elif raw_path.startswith("/microsoft_email/"):
+        return f"https://outlook.office.com/mail/inbox/id/{conversation_id}"
+
+    return None
+
 def replace_doc_ids_with_filenames(answer: str, mapping: dict) -> str:
     pattern = r"\[([^\[\]]+)\]"
     def repl(match):
         doc_id = match.group(1)
         return f"[{mapping.get(doc_id, {}).get('filename', doc_id)}]"
     return re.sub(pattern, repl, answer)
+
+
 
 def get_rag_response_modular(question: str, metadata_filter=None, top_k=None, user_id=None, temperature=0.7, use_retrieval=True, conversation_history=None, stream=False) -> Union[dict, AsyncGenerator[Dict[str, str], None]]:
     """
@@ -76,7 +104,8 @@ def get_rag_response_modular(question: str, metadata_filter=None, top_k=None, us
                     "filename": filename,
                     "source": source,
                     "conversation_id": metadata.get("conversation_id", "Unknown"),
-                    "page_content": page_content
+                    "page_content": page_content,
+                    "url": get_download_url_from_source(source, metadata.get("conversation_id", "Unknown"))
                 }
 
         # Handle streaming vs non-streaming
@@ -97,14 +126,18 @@ def get_rag_response_modular(question: str, metadata_filter=None, top_k=None, us
                     
                     # After streaming is complete, extract sources
                     used_doc_ids = set(re.findall(r"\[([^\[\]]+)\]", full_answer))
-                    logger.info(f"Used doc IDs: {full_answer}")
                     sources_info = [
-                        f"{info['filename']}|{info['source']}|{info['conversation_id']}|{info['page_content']}"
+                        {
+                            "filename": info['filename'],
+                            "source": info['source'],
+                            "conversation_id": info['conversation_id'],
+                            "page_content": info['page_content'],
+                            "url": info['url']
+                        }
                         for doc_id, info in doc_id_to_info.items()
                         if doc_id in used_doc_ids and "source" in info
                     ]
                     yield {"sources": sources_info}
-                    logger.info(f"Sources info: {sources_info}")
                 except Exception as e:
                     logger.error(f"Error during streaming LLM invocation: {e}")
                     yield {"error": f"[Error during LLM invocation: {e}]"}
@@ -116,21 +149,27 @@ def get_rag_response_modular(question: str, metadata_filter=None, top_k=None, us
                 result = llm.invoke(full_prompt)
                 answer = result.content.strip() if hasattr(result, "content") else str(result).strip()
             except Exception as e:
+                logger.error(f"Error during non-streaming LLM invocation: {e}")
                 answer = f"[Error during LLM invocation: {e}]"
-
-        used_doc_ids = set(re.findall(r"\[([^\[\]]+)\]", answer))
-        answer = replace_doc_ids_with_filenames(answer, doc_id_to_info)
-
-        # Now filter doc_id_to_info to only include those
-        # Return both filename and source path as strings
-        sources_info = [
-            f"{info['filename']}|{info['source']}|{info['conversation_id']}|{info['page_content']}"
-            for doc_id, info in doc_id_to_info.items()
-            if doc_id in used_doc_ids and "source" in info
-        ]
-        
+                
+            # Replace doc IDs with filenames
+            answer_with_filenames = replace_doc_ids_with_filenames(answer, doc_id_to_info)
+            
+            # Extract sources
+            used_doc_ids = set(re.findall(r"\[([^\[\]]+)\]", answer))
+            sources_info = [
+                {
+                    "filename": info['filename'],
+                    "source": info['source'],
+                    "conversation_id": info['conversation_id'],
+                    "page_content": info['page_content'],
+                    "url": info['url']
+                }
+                for doc_id, info in doc_id_to_info.items()
+                if doc_id in used_doc_ids and "source" in info
+            ]      
         return {
-            "answer": answer,
+            "answer": answer_with_filenames,
             "context": context,
             "documents": docs,
             "sources_info": sources_info,  # <-- new field with mappings
