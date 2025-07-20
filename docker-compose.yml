@@ -1,34 +1,21 @@
 services:
-  # Frontend en mode développement avec Node 20
-  frontend:
-    image: node:20-alpine
-    container_name: rag-frontend
-    working_dir: /app
+  # Front_LocalAI - Next.js Frontend
+  front_localai:
+    build:
+      context: ./Front_LocalAI
+      dockerfile: docker/Dockerfile
+      target: development
+    container_name: front-localai
     volumes:
-      - ./rag-frontend:/app
-      - frontend_node_modules:/app/node_modules
+      - ./Front_LocalAI:/app
+      - /app/node_modules
     ports:
-      - "5173:5173"
-    environment:
-      - NODE_ENV=development
-      # Utiliser les adresses internes Docker au lieu de localhost
-      - VITE_NEXTCLOUD_URL=http://nextcloud
-      - VITE_NEXTCLOUD_USERNAME=admin
-      - VITE_NEXTCLOUD_PASSWORD=admin_password
-      - VITE_SUPABASE_URL=http://localhost:9000
-      - VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTl9.Quy04IFG2K7mCjIW2EU4ixoivlpsVR2yFB2v6n5GPLs
-      # Désactiver les dépendances natives de Rollup
-      - ROLLUP_SKIP_NODEJS_NATIVE_WRAPPERS=true
-      # Configuration pour Vite/Rollup
-      - CHOKIDAR_USEPOLLING=true
-      - WATCHPACK_POLLING=true
-    command: >
-      sh -c "mkdir -p node_modules && 
-             npm ci --prefer-offline --no-audit && 
-             npm run dev -- --host 0.0.0.0"
+      - "3000:3000"  # Default Next.js port
+    env_file:
+      - ./Front_LocalAI/.env.local
+    restart: unless-stopped
     networks:
       - rag-network
-
   # Qdrant - Base de données vectorielle pour RAG
   qdrant:
     image: qdrant/qdrant
@@ -105,7 +92,6 @@ networks:
     driver: bridge
 
 volumes:
-  frontend_node_modules:
   qdrant_data:  # Stockage persistant pour Qdrant
   postgres_data:
     driver: local
