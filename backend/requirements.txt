@@ -65,3 +65,4 @@ email-validator
 # openpyxl  # Excel files
 # pandas  # CSV and data processing
 loguru
+supabase
