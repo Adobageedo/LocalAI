@@ -12,8 +12,10 @@ interface EmailData {
 interface OfficeContextType {
   isOfficeReady: boolean;
   currentEmail: EmailData | null;
+  mailboxMode: 'read' | 'compose' | null;
   loadEmailContext: () => void;
   insertTemplate: (template: string) => Promise<void>;
+  improveText: (text: string) => Promise<void>;
   error: string | null;
 }
 
@@ -34,6 +36,7 @@ interface OfficeProviderProps {
 export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
   const [isOfficeReady, setIsOfficeReady] = useState(false);
   const [currentEmail, setCurrentEmail] = useState<EmailData | null>(null);
+  const [mailboxMode, setMailboxMode] = useState<'read' | 'compose' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -42,6 +45,16 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
         if (info.host === Office.HostType.Outlook) {
           console.log('Office.js initialized successfully');
           setIsOfficeReady(true);
+          
+          // Detect mailbox mode
+          const mailboxItem = Office.context.mailbox.item;
+          if (mailboxItem) {
+            // Check if we're in compose mode or read mode
+            const currentMode = mailboxItem.itemType === Office.MailboxEnums.ItemType.Message ? 'read' : 'compose';
+            console.log('Detected mailbox mode:', currentMode);
+            setMailboxMode(currentMode);
+          }
+          
           loadEmailContext();
         }
       });
@@ -49,6 +62,7 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
       // Development mode without Office.js
       console.log('Office.js not available - running in development mode');
       setIsOfficeReady(true);
+      setMailboxMode('read'); // Default to read mode for development
       // Mock email data for development
       setCurrentEmail({
         subject: 'Sample Email Subject',
@@ -238,45 +252,73 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
     }
   };
 
+  const improveText = async (text: string) => {
+    if (typeof Office === 'undefined') {
+      console.log('Would improve text:', text);
+      return;
+    }
+
+    try {
+      const item = Office.context.mailbox.item;
+      if (item && mailboxMode === 'compose') {
+        // Get the current body
+        item.body.getAsync('text', (result) => {
+          if (result.status === Office.AsyncResultStatus.Succeeded) {
+            // For now, just replace the body with the improved text
+            // In a real implementation, this would call the AI API to improve the text
+            item.body.setAsync(text, { coercionType: 'text' });
+          }
+        });
+      } else {
+        console.error('Not in compose mode or no email item available');
+      }
+    } catch (error) {
+      console.error('Error improving text:', error);
+      throw error;
+    }
+  };
+
   const value = {
     isOfficeReady,
     currentEmail,
+    mailboxMode,
     loadEmailContext,
     insertTemplate,
+    improveText,
     error
   };
 
   // Show loading state while Office is initializing
-  if (!isOfficeReady) {
-    return (
-      <div style={{ 
-        display: 'flex', 
-        flexDirection: 'column',
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        height: '100vh',
-        padding: '20px',
-        textAlign: 'center'
-      }}>
-        <div style={{ marginBottom: '16px', fontSize: '16px' }}>
-          Initializing Office Add-in...
-        </div>
-        {error && (
-          <div style={{ 
-            color: '#d13438', 
-            fontSize: '14px',
-            marginTop: '8px',
-            padding: '8px',
-            backgroundColor: '#fdf2f2',
-            border: '1px solid #f5c6cb',
-            borderRadius: '4px'
-          }}>
-            {error}
-          </div>
-        )}
-      </div>
-    );
-  }
+  // if (!isOfficeReady) {
+  //   return (
+  //     <div style={{ 
+  //       display: 'flex', 
+  //       flexDirection: 'column',
+  //       alignItems: 'center', 
+  //       justifyContent: 'center', 
+  //       height: '100vh',
+  //       padding: '20px',
+  //       textAlign: 'center'
+  //     }}>
+  //       <div style={{ marginBottom: '16px', fontSize: '16px' }}>
+  //         Initializing Office Add-in...
+  //       </div>
+  //       {error && (
+  //         <div style={{ 
+  //           color: '#d13438', 
+  //           fontSize: '14px',
+  //           marginTop: '8px',
+  //           padding: '8px',
+  //           backgroundColor: '#fdf2f2',
+  //           border: '1px solid #f5c6cb',
+  //           borderRadius: '4px'
+  //         }}>
+  //           {error}
+  //         </div>
+  //       )}
+  //     </div>
+  //   );
+  // }
 
   return (
     <OfficeContext.Provider value={value}>

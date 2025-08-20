@@ -1,13 +1,13 @@
 import React from 'react';
-import { initializeIcons } from '@fluentui/react/lib/Icons';
+import { Stack } from '@fluentui/react';
+import { initializeIcons } from '@fluentui/font-icons-mdl2';
 import { AuthProvider } from './contexts/AuthContext';
 import { OfficeProvider } from './contexts/OfficeContext';
-import { useAuth } from './contexts/AuthContext';
-import Header from './components/Header';
+import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import ReadMode from './components/ReadMode';
+import ComposeMode from './components/ComposeMode';
 import AuthSection from './components/AuthSection';
-import EmailSync from './components/EmailSync';
-import EmailContext from './components/EmailContext';
-import TemplateGenerator from './components/TemplateGenerator';
+import { useAuth } from './contexts/AuthContext';
 import './App.css';
 
 // Initialize Fluent UI icons
@@ -17,15 +17,17 @@ function AppContent() {
   const { user } = useAuth();
 
   return (
-    <div className="App">
-      <Header />
-      <div className="container">
+    <Router>
+      <Stack className="App" tokens={{ childrenGap: 15 }} styles={{ root: { padding: 15 } }}>
         <AuthSection />
-        {user && user.email && <EmailSync userEmail={user.email} />}
-        <EmailContext />
-        <TemplateGenerator />
-      </div>
-    </div>
+        <Routes>
+          <Route path="/" element={<Navigate to="/read" replace />} />
+          <Route path="/read" element={<ReadMode />} />
+          <Route path="/compose" element={<ComposeMode />} />
+          <Route path="*" element={<Navigate to="/read" replace />} />
+        </Routes>
+      </Stack>
+    </Router>
   );
 }
 
