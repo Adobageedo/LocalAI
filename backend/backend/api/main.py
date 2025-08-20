@@ -24,10 +24,14 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 # 2. CORS for frontend communication
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://localhost:3000",  # HTTPS frontend in development
+        "http://localhost:3000",   # HTTP frontend in development
+        "*"                       # Allow all origins for testing
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-User-Uid", "*"],
 )
 
 # Health check endpoint at the application root

@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Icon Generator</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        canvas { border: 1px solid #ccc; margin: 10px 0; }
+        .output { margin: 20px 0; word-break: break-all; }
+        button { padding: 10px; margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Icon Generator for Outlook Add-in</h1>
+    
+    <div>
+        <h2>64x64 Icon</h2>
+        <canvas id="canvas64" width="64" height="64"></canvas>
+        <div>
+            <button onclick="downloadPNG('canvas64', 'icon-64.png')">Download PNG</button>
+            <button onclick="copyDataURL('canvas64')">Copy Data URL</button>
+        </div>
+    </div>
+    
+    <div>
+        <h2>128x128 Icon</h2>
+        <canvas id="canvas128" width="128" height="128"></canvas>
+        <div>
+            <button onclick="downloadPNG('canvas128', 'icon-128.png')">Download PNG</button>
+            <button onclick="copyDataURL('canvas128')">Copy Data URL</button>
+        </div>
+    </div>
+    
+    <div class="output" id="output"></div>
+    
+    <script>
+        // Draw icons when page loads
+        window.onload = function() {
+            drawIcon('canvas64', 64);
+            drawIcon('canvas128', 128);
+        };
+        
+        // Draw the icon on a canvas
+        function drawIcon(canvasId, size) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            
+            // Background
+            ctx.fillStyle = '#0078D4'; // Microsoft blue
+            ctx.beginPath();
+            ctx.roundRect(0, 0, size, size, size * 0.125); // Rounded corners
+            ctx.fill();
+            
+            // Email template lines (white)
+            ctx.fillStyle = '#FFFFFF';
+            
+            // Header line
+            const lineHeight = size * 0.1;
+            const padding = size * 0.2;
+            
+            // Title line
+            ctx.beginPath();
+            ctx.roundRect(padding, padding, size - padding * 2, lineHeight, lineHeight / 2);
+            ctx.fill();
+            
+            // Content lines
+            for (let i = 0; i < 3; i++) {
+                ctx.beginPath();
+                const y = padding + lineHeight * 1.5 + (lineHeight + lineHeight / 2) * i;
+                const width = i === 2 ? (size - padding * 2) * 0.75 : size - padding * 2;
+                ctx.roundRect(padding, y, width, lineHeight, lineHeight / 2);
+                ctx.fill();
+            }
+        }
+        
+        // Download the canvas as PNG
+        function downloadPNG(canvasId, filename) {
+            const canvas = document.getElementById(canvasId);
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+        
+        // Copy data URL to clipboard
+        function copyDataURL(canvasId) {
+            const canvas = document.getElementById(canvasId);
+            const dataURL = canvas.toDataURL('image/png');
+            navigator.clipboard.writeText(dataURL);
+            
+            document.getElementById('output').textContent = 
+                `Data URL copied to clipboard for ${canvasId}: ${dataURL.substring(0, 100)}...`;
+        }
+    </script>
+</body>
+</html>

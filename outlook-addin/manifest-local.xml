@@ -6,8 +6,8 @@
   <DefaultLocale>en-US</DefaultLocale>
   <DisplayName DefaultValue="Email Template Generator"/>
   <Description DefaultValue="Generate AI-powered email templates based on context"/>
-  <IconUrl DefaultValue="https://127.0.0.1:8443/assets/icon-64.png"/>
-  <HighResolutionIconUrl DefaultValue="https://127.0.0.1:8443/assets/icon-128.png"/>
+  <IconUrl DefaultValue="https://localhost:3000/assets/icon-64.png"/>
+  <HighResolutionIconUrl DefaultValue="https://localhost:3000/assets/icon-128.png"/>
   <SupportUrl DefaultValue="https://127.0.0.1:8443/support"/>
   <AppDomains>
     <AppDomain>https://localhost:3000</AppDomain>

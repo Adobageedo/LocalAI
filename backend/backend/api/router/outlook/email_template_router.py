@@ -17,7 +17,7 @@ from .email_config import (
 )
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..')))
-from backend.services.auth.middleware.auth import get_current_user
+from backend.services.auth.middleware.auth_firebase import get_current_user
 from backend.services.rag.retrieve_rag_information_modular import get_rag_response_modular
 from backend.core.logger import log
 
@@ -31,7 +31,6 @@ class Source(BaseModel):
 
 class EmailTemplateRequest(BaseModel):
     authToken: Optional[str] = None
-    userId: str
     additionalInfo: Optional[str] = None
     tone: EmailTone = EmailTone.PROFESSIONAL
     subject: Optional[str] = None
@@ -54,11 +53,11 @@ class EmailTemplateResponse(BaseModel):
 router = APIRouter(prefix="/outlook", tags=["outlook"])
 
 @router.post("/prompt", response_model=EmailTemplateResponse)
-async def generate_email_template(data: EmailTemplateRequest, user:Depends(get_current_user), request: Request = None):
+async def generate_email_template(data: EmailTemplateRequest, user = Depends(get_current_user), request: Request = None):
     """Generate an email template based on email context and user preferences"""
     
     # Get user_id from authenticated user, fallback to userId from request for development
-    user_id = user.get("uid") if user else data.userId
+    user_id = user.get("uid") if user else "None"
     
     logger.info(f"Generating email template for user: {user_id}")
     logger.debug(f"Request data: tone={data.tone.value}, language={data.language.value}, use_rag={data.use_rag}, subject={data.subject}, from={data.from_email}")
