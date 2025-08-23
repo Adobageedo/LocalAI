@@ -9,7 +9,7 @@ from typing import List, Dict, Any, Optional, Union
 
 from backend.core.logger import log
 from backend.core.config import load_config
-from backend.services.rag.retrieval.llm_router import LLMRouter
+from backend.services.rag.retrieval.llm_router import LLM as RouterLLM
 
 logger = log.bind(name="backend.services.llm.llm")
 
@@ -43,7 +43,7 @@ class LLM:
         self.max_tokens = max_tokens or self.llm_config.get("max_tokens", 1000)
         
         # Get the provider for this instance
-        self.router = LLMRouter()
+        self.router = RouterLLM()
         self.llm = None  # Will be instantiated on first use
         
         logger.info(f"LLM initialized with model={self.model}, temperature={self.temperature}")
@@ -59,7 +59,7 @@ class LLM:
     def _ensure_llm_instance(self):
         """Ensure we have an LLM instance, creating one if needed"""
         if self.llm is None:
-            self.llm = self.router.route("")  # Empty query, we just need the instance
+            self.llm = self.router.rag_llm("")  # Empty query, we just need the instance
             logger.debug(f"LLM instance created: {type(self.llm).__name__}")
         return self.llm
     

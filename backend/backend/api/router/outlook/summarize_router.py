@@ -6,11 +6,19 @@ import os
 import sys
 import json
 import base64
+import io
+from typing import Optional, Dict, Any
+from fastapi import Request, Depends, HTTPException, status
+from PyPDF2 import PdfReader
+from docx import Document  # python-docx
+from openpyxl import load_workbook  # Excel
+from pptx import Presentation  # PowerPoint
+import asyncio
 from .email_config import SupportedLanguage
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..')))
 from backend.services.auth.middleware.auth_firebase import get_current_user
-from backend.services.rag.retrieve_rag_information_modular import get_rag_response_modular
+from backend.services.llm.llm import LLM
 from backend.core.logger import log
 
 logger = log.bind(name="backend.api.outlook.summarize_router")
@@ -46,7 +54,7 @@ class SummarizeRequest(BaseModel):
     body: Optional[str] = None  # Now optional to support file-only requests
     
     # Configuration
-    language: SupportedLanguage = SupportedLanguage.ENGLISH
+    language: SupportedLanguage = SupportedLanguage.ENGLISH.name
     summary_type: SummaryType = SummaryType.CONCISE
     use_rag: Optional[bool] = False
     processing_mode: Optional[ProcessingMode] = ProcessingMode.SERVER
@@ -142,7 +150,7 @@ async def summarize(
     request: Request,
     current_user: Optional[Dict[str, Any]] = Depends(get_current_user)
 ):
-    """Summarize email content or file attachment"""
+    """Summarize email content or file attachment using direct LLM"""
     try:
         # Log the request (excluding sensitive content)
         logger.info(f"Received summarize request for user {request_data.userId}, language: {request_data.language}, summary type: {request_data.summary_type}, processing mode: {request_data.processing_mode}")
@@ -157,43 +165,84 @@ async def summarize(
         
         # Determine what content we're working with
         is_file_request = request_data.file_name is not None
-        is_client_processed = request_data.processing_mode == ProcessingMode.CLIENT and request_data.extracted_text is not None
-        is_server_processed = request_data.processing_mode == ProcessingMode.SERVER and request_data.file_content is not None
         is_email_request = request_data.body is not None
         
         content_to_summarize = ""
         
         # Get the content to summarize based on processing mode
         if is_file_request:
-            if is_client_processed:
-                # Use pre-extracted text from client
-                logger.info(f"Using client-extracted text for {request_data.file_name}")
-                content_to_summarize = request_data.extracted_text
-            elif is_server_processed:
-                # Decode base64 file content
-                logger.info(f"Processing file server-side for {request_data.file_name}")
-                try:
-                    content_to_summarize = request_data.file_content
-                    # If you need to decode base64 and do server-side processing:
-                    # decoded_content = base64.b64decode(request_data.file_content).decode('utf-8', errors='replace')
-                    # content_to_summarize = decoded_content
-                except Exception as e:
-                    logger.error(f"Error decoding file content: {str(e)}")
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail=f"Failed to decode file content: {str(e)}"
+            logger.info(f"Processing file server-side for {request_data.file_name}")
+            try:
+                # Decode base64 into raw bytes
+                file_bytes = base64.b64decode(request_data.file_content)
+                file_name = request_data.file_name.lower()
+
+                if file_name.endswith(".pdf"):
+                    # Handle PDF
+                    pdf_file = io.BytesIO(file_bytes)
+                    reader = PdfReader(pdf_file)
+                    content_to_summarize = ""
+                    for page in reader.pages:
+                        text = page.extract_text()
+                        if text:
+                            content_to_summarize += text + "\n"
+
+                elif file_name.endswith(".docx"):
+                    # Handle Word documents
+                    doc_file = io.BytesIO(file_bytes)
+                    doc = Document(doc_file)
+                    content_to_summarize = "\n".join(
+                        [para.text for para in doc.paragraphs if para.text.strip()]
                     )
-            else:
-                # Handle case where file is requested but processing mode is unclear
-                if request_data.body:
-                    # Use body as fallback if provided
-                    logger.info("Using body content as fallback for file summarization")
-                    content_to_summarize = request_data.body
+
+                elif file_name.endswith(".xlsx"):
+                    # Handle Excel files
+                    excel_file = io.BytesIO(file_bytes)
+                    wb = load_workbook(excel_file, data_only=True)
+                    content_to_summarize = ""
+                    for sheet in wb.sheetnames:
+                        ws = wb[sheet]
+                        content_to_summarize += f"\n--- Sheet: {sheet} ---\n"
+                        for row in ws.iter_rows(values_only=True):
+                            row_text = " | ".join([str(cell) for cell in row if cell is not None])
+                            if row_text.strip():
+                                content_to_summarize += row_text + "\n"
+
+                elif file_name.endswith(".pptx"):
+                    # Handle PowerPoint files
+                    ppt_file = io.BytesIO(file_bytes)
+                    prs = Presentation(ppt_file)
+                    content_to_summarize = ""
+                    for i, slide in enumerate(prs.slides, start=1):
+                        slide_text = []
+                        for shape in slide.shapes:
+                            if hasattr(shape, "text"):
+                                if shape.text.strip():
+                                    slide_text.append(shape.text.strip())
+                        if slide_text:
+                            content_to_summarize += f"\n--- Slide {i} ---\n" + "\n".join(slide_text)
+
                 else:
-                    raise HTTPException(
-                        status_code=status.HTTP_400_BAD_REQUEST,
-                        detail="File request missing required content. Provide either extracted_text or file_content."
+                    # Assume plain-text-like file
+                    content_to_summarize = file_bytes.decode("utf-8", errors="replace")
+
+                logger.info("File content successfully extracted")
+                if content_to_summarize is None or content_to_summarize == "":
+                    return SummarizeResponse(
+                        summary="Impossible to summarize this file",
+                        sources=[],  # No sources when using direct LLM
+                        summary_type=request_data.summary_type,
+                        temperature=0.3,
+                        model="",  # Use the model name from LLM client
+                        use_retrieval=False  # Direct LLM doesn't use retrieval
                     )
+
+            except Exception as e:
+                logger.error(f"Error processing file {file_name}: {str(e)}")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Failed to extract text from {file_name}: {str(e)}"
+                )
         elif is_email_request:
             # Email summarization
             logger.info("Processing email content")
@@ -214,7 +263,7 @@ async def summarize(
 Content:
 {content_to_summarize}
 
-Provide a {request_data.summary_type.value} summary of this document in {request_data.language}."""
+Provide a {request_data.summary_type.value} summary of this document in this language: {request_data.language}."""
         else:
             # Email summarization
             system_prompt = f"You are a helpful assistant that summarizes email content. Provide a {request_data.summary_type.value} summary of the email content."
@@ -227,7 +276,7 @@ Provide a {request_data.summary_type.value} summary of this document in {request
 Email Content:
 {content_to_summarize}
 
-Provide a {request_data.summary_type.value} summary of this email in {request_data.language}."""
+Provide a {request_data.summary_type.value} summary of this email in this language: {request_data.language}."""
         
         # Add summary type specific instructions
         if request_data.summary_type == SummaryType.CONCISE:
@@ -238,29 +287,37 @@ Provide a {request_data.summary_type.value} summary of this email in {request_da
             user_prompt += "\n\nFormat the summary as bullet points, with each point representing a distinct piece of information."
         elif request_data.summary_type == SummaryType.ACTION_ITEMS:
             user_prompt += "\n\nExtract and list all action items, tasks, requests, and deadlines mentioned in the content."
+        # Create message for LLM service
+        messages = [{"role": "user", "content": content_to_summarize}]
         
-        # Call RAG system to generate summary
-        response = get_rag_response_modular(
-            system_prompt=system_prompt,
-            prompt=user_prompt,
-            query_embedding=None,
-            retrieval_embedding=None,
-            use_retrieval=request_data.use_rag,
-            include_profile_context=False,
-            temperature=0.3,  # Lower temperature for more factual summaries
-            user_id=current_user["uid"],
-        )
+        # Initialize LLM client with specified temperature
+        llm_client = LLM(temperature=0.3)  # Lower temperature for more factual summaries
         
-        summary = response.get("generated_text", "")
+        # Call LLM service to generate summary
+        try:
+            # Use the chat method with system prompt and user message
+            summary = await llm_client.chat(
+                messages=messages,
+                system_prompt=system_prompt
+            )
+            
+            # For logging purposes
+            logger.info(f"Generated summary using LLM service for user {current_user['uid']}")
+        except Exception as llm_error:
+            logger.error(f"Error calling LLM service: {str(llm_error)}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Error generating summary: {str(llm_error)}"
+            )
         
         # Return the summarized content
         return SummarizeResponse(
             summary=summary,
-            sources=response.get("sources", []),
+            sources=[],  # No sources when using direct LLM
             summary_type=request_data.summary_type,
             temperature=0.3,
-            model=response.get("model", None),
-            use_retrieval=request_data.use_rag
+            model=llm_client.model,  # Use the model name from LLM client
+            use_retrieval=False  # Direct LLM doesn't use retrieval
         )
         
     except Exception as e:

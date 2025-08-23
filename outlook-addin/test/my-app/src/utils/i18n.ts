@@ -70,6 +70,8 @@ export interface Translations {
   detailed: string;
   bulletPoints: string;
   actionItems: string;
+  emptySummary: string;
+  summaryType: string;
   
   // Status Messages
   officeNotReady: string;
@@ -140,7 +142,8 @@ const translations: Record<string, Translations> = {
     detailed: 'Detailed',
     bulletPoints: 'Bullet Points',
     actionItems: 'Action Items',
-
+    emptySummary: 'File cannot be processed',
+    summaryType: 'Summary Type',
     officeNotReady: 'Office.js not ready',
     initializingOffice: 'Initializing Office...',
   },
@@ -209,7 +212,8 @@ const translations: Record<string, Translations> = {
     detailed: 'Detallado',
     bulletPoints: 'Puntos en forma de balón',
     actionItems: 'Elementos de acción',
-    
+    emptySummary: 'No se pudo procesar el archivo',
+    summaryType: 'Tipo de resumen',
     officeNotReady: 'Office.js no está listo',
     initializingOffice: 'Inicializando Office...',
   },
@@ -273,12 +277,12 @@ const translations: Record<string, Translations> = {
     save: 'Sauvegarder',
     settings: 'Paramètres',
     close: 'Fermer',
-    
     concise: 'Concise',
     detailed: 'Détailé',
     bulletPoints: 'Points en forme de balle',
     actionItems: 'Points d\'action',
-    
+    emptySummary: 'Le fichier ne peut pas être traité',
+    summaryType: 'Type de résumé',
     officeNotReady: 'Office.js n\'est pas prêt',
     initializingOffice: 'Initialisation d\'Office...',
   },
@@ -342,11 +346,12 @@ const translations: Record<string, Translations> = {
     save: 'Speichern',
     settings: 'Einstellungen',
     close: 'Schließen',
-    
     concise: 'Kurz',
     detailed: 'Detailiert',
     bulletPoints: 'Bullet Points',
     actionItems: 'Action Items',
+    emptySummary: 'Datei kann nicht verarbeitet werden',
+    summaryType: 'Zusammenfassungstyp',
     officeNotReady: 'Office.js nicht bereit',
     initializingOffice: 'Office wird initialisiert...',
   },
@@ -410,11 +415,12 @@ const translations: Record<string, Translations> = {
     save: 'Salvar',
     settings: 'Configurações',
     close: 'Fechar',
-    
     concise: 'Conciso',
     detailed: 'Detalhado',
     bulletPoints: 'Bullet Points',
     actionItems: 'Action Items',
+    emptySummary: '',
+    summaryType: 'Tipo de resumo',
     officeNotReady: 'Office.js não está pronto',
     initializingOffice: 'Inicializando Office...',
   },
@@ -478,11 +484,12 @@ const translations: Record<string, Translations> = {
     save: 'Salva',
     settings: 'Impostazioni',
     close: 'Chiudi',
-    
     concise: 'Conciso',
     detailed: 'Dettagliato',
     bulletPoints: 'Bullet Points',
     actionItems: 'Action Items',
+    emptySummary: 'Non si può elaborare il file',
+    summaryType: 'Tipo di riassunto',
     officeNotReady: 'Office.js non pronto',
     initializingOffice: 'Inizializzazione Office...',
   },
@@ -546,11 +553,12 @@ const translations: Record<string, Translations> = {
     save: 'Opslaan',
     settings: 'Instellingen',
     close: 'Sluiten',
-    
     concise: 'Concise',
     detailed: 'Detailled',
     bulletPoints: 'Bullet Points',
     actionItems: 'Action Items',
+    emptySummary: 'Nicht verarbeitbar',
+    summaryType: 'Samenvatting Type',
     officeNotReady: 'Office.js niet klaar',
     initializingOffice: 'Office initialiseren...',
   },
@@ -619,6 +627,8 @@ const translations: Record<string, Translations> = {
     detailed: 'Подробный',
     bulletPoints: 'Bullet Points',
     actionItems: 'Action Items',
+    emptySummary: 'Файл не может быть обработан',
+    summaryType: 'Тип резюме',
     officeNotReady: 'Office.js не готов',
     initializingOffice: 'Инициализация Office...',
   },
@@ -686,6 +696,8 @@ const translations: Record<string, Translations> = {
     detailed: '詳細',
     bulletPoints: 'Bullet Points',
     actionItems: 'Action Items',
+    emptySummary: 'ファイルを処理できません',
+    summaryType: '要約タイプ',
     officeNotReady: 'Office.jsが準備できていません',
     initializingOffice: 'Office初期化中...',
   },
@@ -753,6 +765,8 @@ const translations: Record<string, Translations> = {
     detailed: '详细',
     bulletPoints: 'Bullet Points',
     actionItems: 'Action Items',
+    emptySummary: '',
+    summaryType: '摘要类型',
     officeNotReady: 'Office.js未就绪',
     initializingOffice: '正在初始化Office...',
   },
