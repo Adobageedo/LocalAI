@@ -47,7 +47,7 @@ def replace_doc_ids_with_filenames(answer: str, mapping: dict) -> str:
 
 
 
-def get_rag_response_modular(question: str, metadata_filter=None, top_k=None, user_id=None, temperature=0.7, use_retrieval=True, conversation_history=None, stream=False) -> Union[dict, AsyncGenerator[Dict[str, str], None]]:
+def get_rag_response_modular(question: str, metadata_filter=None, top_k=None, user_id=None, temperature=0.7, use_retrieval=True, conversation_history=None, stream=False, system_prompt=None) -> Union[dict, AsyncGenerator[Dict[str, str], None]]:
     """
     Fetch information from documents using the new modular retrieval architecture.
     - Uses config for split_prompt, rerank, use_hyde
@@ -83,7 +83,7 @@ def get_rag_response_modular(question: str, metadata_filter=None, top_k=None, us
         context = "\n\n".join([get_chunk_source(d) for d in docs])
         # Use system prompt from config if available
         prompt_template = (
-            config.get("system_prompt") or
+            system_prompt or
             "You are an assistant. Answer the question using only the passages below. For each source used in your answer, cite it by showing only the id in brackets, for example: [doc_id]. Never display any other information. If you don't know, say you don't know.\n\n" +
             "Conversation history: {conversation_history}\n\n" +
             "{context}\n\nQuestion: {question}\nAnswer:"
