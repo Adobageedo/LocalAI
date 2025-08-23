@@ -9,8 +9,8 @@ import {
 } from '@fluentui/react';
 import EmailSync from './EmailSync';
 import AuthSection from './AuthSection';
-import { useAuth } from '../contexts/AuthContext';
-import { useTranslations } from '../utils/i18n';
+import { useAuth } from '../../contexts/AuthContext';
+import { useTranslations } from '../../utils/i18n';
 
 interface SidebarProps {
   isOpen: boolean;

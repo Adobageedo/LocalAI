@@ -362,6 +362,7 @@ const translations: Record<string, Translations> = {
     // Tabbed Interface
     replyTab: 'Antworten',
     synthesizeTab: 'Synthetisieren',
+    composeTab: 'Verfassen',
     synthesizeAttachments: 'Anhänge Synthetisieren',
     noAttachments: 'Keine Anhänge in dieser E-Mail gefunden',
     processingFile: 'Datei wird verarbeitet...',
@@ -370,6 +371,13 @@ const translations: Record<string, Translations> = {
     synthesizeEmail: 'E-Mail zusammenfassen',
     summarizeEmail: 'E-Mail zusammenfassen',
     synthesizing: 'Zusammenfassung läuft...',
+    
+    // Compose
+    composeMessage: 'Neue Nachricht Verfassen',
+    composeWithAI: 'Mit KI Verfassen',
+    messageDrafted: 'Nachricht erfolgreich erstellt!',
+    composingMessage: 'Nachricht wird verfasst...',
+    composeInDevelopment: 'Diese Funktion befindet sich in der Entwicklung',
     
     loading: 'Laden...',
     error: 'Fehler',
@@ -431,6 +439,7 @@ const translations: Record<string, Translations> = {
     // Tabbed Interface
     replyTab: 'Responder',
     synthesizeTab: 'Sintetizar',
+    composeTab: 'Compor',
     synthesizeAttachments: 'Sintetizar Anexos',
     noAttachments: 'Nenhum anexo encontrado neste email',
     processingFile: 'Processando arquivo...',
@@ -439,6 +448,13 @@ const translations: Record<string, Translations> = {
     synthesizeEmail: 'Resumir E-mail',
     summarizeEmail: 'Resumir E-mail',
     synthesizing: 'Resumindo...',
+    
+    // Compose
+    composeMessage: 'Compor Nova Mensagem',
+    composeWithAI: 'Compor com IA',
+    messageDrafted: 'Mensagem redigida com sucesso!',
+    composingMessage: 'Compondo mensagem...',
+    composeInDevelopment: 'Este recurso está em desenvolvimento',
     
     loading: 'Carregando...',
     error: 'Erro',
@@ -500,6 +516,7 @@ const translations: Record<string, Translations> = {
     // Tabbed Interface
     replyTab: 'Rispondi',
     synthesizeTab: 'Sintetizza',
+    composeTab: 'Componi',
     synthesizeAttachments: 'Sintetizza Allegati',
     noAttachments: 'Nessun allegato trovato in questa email',
     processingFile: 'Elaborazione del file...',
@@ -508,6 +525,13 @@ const translations: Record<string, Translations> = {
     synthesizeEmail: 'Riassumi Email',
     summarizeEmail: 'Riassumi Email',
     synthesizing: 'Riassumendo...',
+    
+    // Compose
+    composeMessage: 'Componi Nuovo Messaggio',
+    composeWithAI: 'Componi con IA',
+    messageDrafted: 'Messaggio creato con successo!',
+    composingMessage: 'Creazione messaggio in corso...',
+    composeInDevelopment: 'Questa funzionalità è in fase di sviluppo',
     
     loading: 'Caricamento...',
     error: 'Errore',
@@ -569,6 +593,7 @@ const translations: Record<string, Translations> = {
     // Tabbed Interface
     replyTab: 'Antwoorden',
     synthesizeTab: 'Synthetiseren',
+    composeTab: 'Opstellen',
     synthesizeAttachments: 'Bijlagen Synthetiseren',
     noAttachments: 'Geen bijlagen gevonden in deze e-mail',
     processingFile: 'Bestand verwerken...',
@@ -577,6 +602,13 @@ const translations: Record<string, Translations> = {
     synthesizeEmail: 'E-mail Samenvatten',
     summarizeEmail: 'E-mail Samenvatten',
     synthesizing: 'Samenvatten...',
+    
+    // Compose
+    composeMessage: 'Nieuw Bericht Opstellen',
+    composeWithAI: 'Opstellen met AI',
+    messageDrafted: 'Bericht succesvol opgesteld!',
+    composingMessage: 'Bericht opstellen...',
+    composeInDevelopment: 'Deze functie is in ontwikkeling',
     
     loading: 'Laden...',
     error: 'Fout',
@@ -638,6 +670,7 @@ const translations: Record<string, Translations> = {
     // Tabbed Interface
     replyTab: 'Ответить',
     synthesizeTab: 'Синтезировать',
+    composeTab: 'Составить',
     synthesizeAttachments: 'Синтезировать Вложения',
     noAttachments: 'Вложения не найдены в этом письме',
     processingFile: 'Обработка файла...',
@@ -646,6 +679,13 @@ const translations: Record<string, Translations> = {
     synthesizeEmail: 'Обобщить Письмо',
     summarizeEmail: 'Обобщить Письмо',
     synthesizing: 'Обобщение...',
+    
+    // Compose
+    composeMessage: 'Составить Новое Сообщение',
+    composeWithAI: 'Составить с ИИ',
+    messageDrafted: 'Сообщение успешно составлено!',
+    composingMessage: 'Составление сообщения...',
+    composeInDevelopment: 'Эта функция находится в разработке',
     
     loading: 'Загрузка...',
     error: 'Ошибка',
@@ -708,6 +748,7 @@ const translations: Record<string, Translations> = {
     // Tabbed Interface
     replyTab: '返信',
     synthesizeTab: '合成',
+    composeTab: '作成',
     synthesizeAttachments: '添付ファイルを合成',
     noAttachments: 'このメールに添付ファイルはありません',
     processingFile: 'ファイル処理中...',
@@ -716,6 +757,13 @@ const translations: Record<string, Translations> = {
     synthesizeEmail: 'メールを要約',
     summarizeEmail: 'メールを要約',
     synthesizing: '要約中...',
+    
+    // Compose
+    composeMessage: '新規メッセージ作成',
+    composeWithAI: 'AIで作成',
+    messageDrafted: 'メッセージが正常に作成されました！',
+    composingMessage: 'メッセージ作成中...',
+    composeInDevelopment: 'この機能は開発中です',
     
     loading: '読み込み中...',
     error: 'エラー',
@@ -777,6 +825,7 @@ const translations: Record<string, Translations> = {
     // Tabbed Interface
     replyTab: '回复',
     synthesizeTab: '合成',
+    composeTab: '撰写',
     synthesizeAttachments: '合成附件',
     noAttachments: '此邮件中未找到附件',
     processingFile: '处理文件中...',
@@ -785,6 +834,13 @@ const translations: Record<string, Translations> = {
     synthesizeEmail: '邮件摘要',
     summarizeEmail: '邮件摘要',
     synthesizing: '摘要中...',
+    
+    // Compose
+    composeMessage: '撰写新消息',
+    composeWithAI: '使用AI撰写',
+    messageDrafted: '消息草稿已成功创建！',
+    composingMessage: '正在撰写消息...',
+    composeInDevelopment: '此功能正在开发中',
     
     loading: '加载中...',
     error: '错误',

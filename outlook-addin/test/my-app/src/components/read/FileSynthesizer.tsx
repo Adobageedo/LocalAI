@@ -20,10 +20,10 @@ import {
   Icon
 } from '@fluentui/react';
 import { DocumentText24Regular, Mail24Regular } from '@fluentui/react-icons';
-import { useAuth } from '../contexts/AuthContext';
-import { useOffice } from '../contexts/OfficeContext';
-import { authFetch } from '../utils/authFetch';
-import { useTranslations, getOutlookLanguage } from '../utils/i18n';
+import { useAuth } from '../../contexts/AuthContext';
+import { useOffice } from '../../contexts/OfficeContext';
+import { authFetch } from '../../utils/authFetch';
+import { useTranslations, getOutlookLanguage } from '../../utils/i18n';
 
 // Use HTTPS for backend API
 const API_BASE_URL = "https://localhost:8000/api";

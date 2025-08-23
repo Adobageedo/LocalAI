@@ -11,8 +11,8 @@ import {
   SpinnerSize
 } from '@fluentui/react';
 import { Person20Regular } from '@fluentui/react-icons';
-import { useAuth } from '../contexts/AuthContext';
-import { useTranslations } from '../utils/i18n';
+import { useAuth } from '../../contexts/AuthContext';
+import { useTranslations } from '../../utils/i18n';
 
 const AuthSection: React.FC = () => {
   const { user, login, register, logout, loading } = useAuth();
