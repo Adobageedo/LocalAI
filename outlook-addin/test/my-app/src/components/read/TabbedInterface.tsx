@@ -8,7 +8,7 @@ import {
 import { Mail24Regular, DocumentText24Regular } from '@fluentui/react-icons';
 import TemplateGenerator from './TemplateGenerator';
 import FileSynthesizer from './FileSynthesizer';
-import { useTranslations } from '../utils/i18n';
+import { useTranslations } from '../../utils/i18n';
 
 const TabbedInterface: React.FC = () => {
   const [selectedTab, setSelectedTab] = useState<string>('reply');

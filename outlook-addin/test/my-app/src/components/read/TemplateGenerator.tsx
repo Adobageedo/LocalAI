@@ -13,10 +13,10 @@ import {
   IDropdownOption
 } from '@fluentui/react';
 import { Sparkle20Regular } from '@fluentui/react-icons';
-import { useAuth } from '../contexts/AuthContext';
-import { useOffice } from '../contexts/OfficeContext';
-import { useTranslations, getOutlookLanguage } from '../utils/i18n';
-import { authFetch } from '../utils/authFetch';
+import { useAuth } from '../../contexts/AuthContext';
+import { useOffice } from '../../contexts/OfficeContext';
+import { useTranslations, getOutlookLanguage } from '../../utils/i18n';
+import { authFetch } from '../../utils/authFetch';
 
 // Use HTTPS for backend API
 const API_BASE_URL = "https://localhost:8000/api";

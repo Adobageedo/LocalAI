@@ -12,8 +12,8 @@ import {
   IDropdownOption
 } from '@fluentui/react';
 import { Edit24Regular } from '@fluentui/react-icons';
-import { useTranslations } from '../utils/i18n';
-import { useAuth } from '../contexts/AuthContext';
+import { useTranslations } from '../../utils/i18n';
+import { useAuth } from '../../contexts/AuthContext';
 
 const MessageComposer: React.FC = () => {
   const { user } = useAuth();

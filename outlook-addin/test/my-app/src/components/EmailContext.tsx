@@ -4,7 +4,7 @@ import { Mail20Regular, Person20Regular } from '@fluentui/react-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useOffice } from '../contexts/OfficeContext';
 import { useTranslations } from '../utils/i18n';
-import Sidebar from './Sidebar';
+import Sidebar from './sidebar/Sidebar';
 
 const EmailContext: React.FC = () => {
   const { user } = useAuth();

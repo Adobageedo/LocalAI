@@ -9,7 +9,7 @@ import {
   Stack,
   Text
 } from '@fluentui/react';
-import { useTranslations } from '../utils/i18n';
+import { useTranslations } from '../../utils/i18n';
 
 interface EmailSyncProps {
   userEmail: string;
