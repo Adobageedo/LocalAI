@@ -19,6 +19,14 @@
   background-color: #ffffff;
 }
 
+/* Authentication view styling */
+.App.auth-only .container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
 /* Ensure proper scrolling in taskpane */
 body {
   margin: 0;

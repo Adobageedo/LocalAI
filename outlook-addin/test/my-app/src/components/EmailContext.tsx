@@ -1,14 +1,16 @@
-import React from 'react';
-import { Stack, Text, Separator } from '@fluentui/react';
+import React, { useState } from 'react';
+import { Stack, Text, Separator, IconButton } from '@fluentui/react';
 import { Mail20Regular, Person20Regular } from '@fluentui/react-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useOffice } from '../contexts/OfficeContext';
 import { useTranslations } from '../utils/i18n';
+import Sidebar from './Sidebar';
 
 const EmailContext: React.FC = () => {
   const { user } = useAuth();
   const { currentEmail, loadEmailContext } = useOffice();
   const t = useTranslations();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   if (!user) {
     return null;
@@ -16,11 +18,19 @@ const EmailContext: React.FC = () => {
 
   return (
     <Stack tokens={{ childrenGap: 16 }} styles={{ root: { padding: '20px' } }}>
-      <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 8 }}>
-        <Mail20Regular style={{ fontSize: '18px', color: '#0078d4' }} />
-        <Text variant="mediumPlus" styles={{ root: { fontWeight: 600 } }}>
-          {t.emailContext}
-        </Text>
+      <Stack horizontal verticalAlign="center" horizontalAlign="space-between" styles={{ root: { width: '100%' } }}>
+        <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 8 }}>
+          <Mail20Regular style={{ fontSize: '18px', color: '#0078d4' }} />
+          <Text variant="mediumPlus" styles={{ root: { fontWeight: 600 } }}>
+            {t.emailContext}
+          </Text>
+        </Stack>
+        <IconButton 
+          iconProps={{ iconName: 'Settings' }} 
+          title={t.settings || "Settings"}
+          ariaLabel={t.settings || "Settings"}
+          onClick={() => setIsSidebarOpen(true)}
+        />
       </Stack>
 
       {currentEmail ? (
@@ -86,6 +96,10 @@ const EmailContext: React.FC = () => {
       )}
 
       <Separator />
+      <Sidebar 
+        isOpen={isSidebarOpen} 
+        onDismiss={() => setIsSidebarOpen(false)} 
+      />
     </Stack>
   );
 };
