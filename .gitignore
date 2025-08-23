@@ -22,15 +22,14 @@ set_heroku_env.sh
 *.env.*
 set_heroku_env.sh
 *.pickle
-rag-backend/outlook_token.json
-rag-backend/token.pickle
-rag-backend/update_vdb/data/file_registry.json
+**/outlook_token.json
+**/token.pickle
+**/file_registry.json
 rag-backend/data/*
 !rag-backend/data/.gitkeep
 **/__pycache__/
 *.pyc
 *config.js
-*.json
 **/data/
 rag-frontend/src/config.js
 *.cer
@@ -85,3 +84,25 @@ workbox-*.js
 workbox-*.js.map
 .next
 **/.next
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# testing
+/coverage
+
+# production
+/build
+
+# misc
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
