@@ -47,6 +47,7 @@ export interface Translations {
   // Tabbed Interface
   replyTab: string;
   synthesizeTab: string;
+  composeTab: string;
   synthesizeAttachments: string;
   noAttachments: string;
   processingFile: string;
@@ -55,6 +56,13 @@ export interface Translations {
   synthesizeEmail: string;
   summarizeEmail: string;
   synthesizing: string;
+  
+  // Compose
+  composeMessage: string;
+  composeWithAI: string;
+  messageDrafted: string;
+  composingMessage: string;
+  composeInDevelopment: string;
   
   // Common
   loading: string;
@@ -122,6 +130,7 @@ const translations: Record<string, Translations> = {
     // Tabbed Interface
     replyTab: 'Reply',
     synthesizeTab: 'Synthesize',
+    composeTab: 'Compose',
     synthesizeAttachments: 'Synthesize Attachments',
     noAttachments: 'No attachments found in this email',
     processingFile: 'Processing file...',
@@ -130,6 +139,13 @@ const translations: Record<string, Translations> = {
     synthesizeEmail: 'Summarize Email',
     summarizeEmail: 'Summarize Email',
     synthesizing: 'Summarizing...',
+    
+    // Compose
+    composeMessage: 'Compose New Message',
+    composeWithAI: 'Compose with AI',
+    messageDrafted: 'Message drafted successfully!',
+    composingMessage: 'Composing message...',
+    composeInDevelopment: 'This feature is currently in development',
     
     loading: 'Loading...',
     error: 'Error',
@@ -191,6 +207,7 @@ const translations: Record<string, Translations> = {
     // Tabbed Interface
     replyTab: 'Responder',
     synthesizeTab: 'Sintetizar',
+    composeTab: 'Componer',
     synthesizeAttachments: 'Sintetizar Adjuntos',
     noAttachments: 'No se encontraron adjuntos en este correo',
     processingFile: 'Procesando archivo...',
@@ -199,6 +216,13 @@ const translations: Record<string, Translations> = {
     synthesizeEmail: 'Resumir Correo',
     summarizeEmail: 'Resumir Correo',
     synthesizing: 'Resumiendo...',
+    
+    // Compose
+    composeMessage: 'Componer Nuevo Mensaje',
+    composeWithAI: 'Componer con IA',
+    messageDrafted: 'Mensaje redactado con éxito!',
+    composingMessage: 'Componiendo mensaje...',
+    composeInDevelopment: 'Esta función está en desarrollo',
     
     loading: 'Cargando...',
     error: 'Error',
@@ -261,14 +285,22 @@ const translations: Record<string, Translations> = {
     // Tabbed Interface
     replyTab: 'Répondre',
     synthesizeTab: 'Synthétiser',
+    composeTab: 'Composer',
     synthesizeAttachments: 'Synthétiser les Pièces Jointes',
-    noAttachments: 'Aucune pièce jointe trouvée dans cet email',
+    noAttachments: 'Aucune pièce jointe trouvée dans cet e-mail',
     processingFile: 'Traitement du fichier...',
     synthesizeFile: 'Synthétiser le Fichier',
     synthesisComplete: 'Synthèse terminée',
-    synthesizeEmail: 'Résumer l\'E-mail',
-    summarizeEmail: 'Résumer l\'E-mail',
+    synthesizeEmail: 'Résumer l\'Email',
+    summarizeEmail: 'Résumer l\'Email',
     synthesizing: 'Résumé en cours...',
+    
+    // Compose
+    composeMessage: 'Composer un Nouveau Message',
+    composeWithAI: 'Composer avec IA',
+    messageDrafted: 'Message rédigé avec succès!',
+    composingMessage: 'Rédaction du message...',
+    composeInDevelopment: 'Cette fonctionnalité est en cours de développement',
     
     loading: 'Chargement...',
     error: 'Erreur',
