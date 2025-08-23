@@ -1,25 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Stack,
-  TextField,
-  PrimaryButton,
+import { 
+  Stack, 
+  Text, 
+  TextField, 
+  PrimaryButton, 
   DefaultButton,
-  Text,
-  Dropdown,
-  IDropdownOption,
   MessageBar,
   MessageBarType,
   Spinner,
   SpinnerSize,
-  Toggle
+  Dropdown,
+  IDropdownOption
 } from '@fluentui/react';
+import { Sparkle20Regular } from '@fluentui/react-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useOffice } from '../contexts/OfficeContext';
 import { useTranslations, getOutlookLanguage } from '../utils/i18n';
 import { authFetch } from '../utils/authFetch';
 
 // Use HTTPS for backend API
-const API_BASE_URL = "https://localhost:8001/api";
+const API_BASE_URL = "https://localhost:8000/api";
 const API_PROMPT_ENDPOINT = `${API_BASE_URL}/outlook/prompt`;
 
 const TemplateGenerator: React.FC = () => {
@@ -44,18 +44,6 @@ const TemplateGenerator: React.FC = () => {
     { key: 'apologetic', text: t.toneApologetic }
   ];
 
-  const languageOptions: IDropdownOption[] = [
-    { key: 'en', text: 'English' },
-    { key: 'fr', text: 'French' },
-    { key: 'es', text: 'Spanish' },
-    { key: 'de', text: 'German' },
-    { key: 'it', text: 'Italian' },
-    { key: 'pt', text: 'Portuguese' },
-    { key: 'zh', text: 'Chinese' },
-    { key: 'ja', text: 'Japanese' },
-    { key: 'ko', text: 'Korean' },
-  ];
-
   // Auto-detect language and set initial values on component mount
   useEffect(() => {
     // Set language based on Outlook settings
@@ -66,7 +54,7 @@ const TemplateGenerator: React.FC = () => {
     setUseRag(false);
   }, []);
 
-  const generateTemplate = async () => {
+  const handleGenerateTemplate = async () => {
     setIsGenerating(true);
     setError('');
     setSuccess('');
@@ -169,102 +157,88 @@ const TemplateGenerator: React.FC = () => {
   }
 
   return (
-    <Stack tokens={{ childrenGap: 16, padding: '16px 0' }}>
-      <Stack horizontal horizontalAlign="space-between" verticalAlign="center">
-        <Text variant="large" style={{ fontWeight: 600 }}>AI Email Reply Generator</Text>
+    <Stack tokens={{ childrenGap: 16 }} styles={{ root: { padding: '20px' } }}>
+      <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 8 }}>
+        <Sparkle20Regular style={{ fontSize: '18px', color: '#0078d4' }} />
+        <Text variant="mediumPlus" styles={{ root: { fontWeight: 600 } }}>
+          {t.generateTemplate}
+        </Text>
       </Stack>
-
-      <TextField
-        label={t.additionalInfo || "Additional Information (Optional)"}
-        multiline
-        rows={3}
-        value={additionalInfo}
-        onChange={(_, newValue) => setAdditionalInfo(newValue || '')}
-        placeholder={t.additionalInfoPlaceholder || "Add any specific requirements, context, or details for your reply..."}
-      />
-
-      <Stack horizontal tokens={{ childrenGap: 8 }} style={{ width: '100%' }}>
-        <Dropdown
-          label={t.tone || "Tone"}
-          selectedKey={tone}
-          onChange={(_, option) => option && setTone(option.key as string)}
-          options={toneOptions}
-          styles={{ dropdown: { width: 150 } }}
-        />
-        
-        <Dropdown
-          label="Language"
-          selectedKey={language}
-          onChange={(_, option) => option && setLanguage(option.key as string)}
-          options={languageOptions}
-          styles={{ dropdown: { width: 150 } }}
-        />
-      </Stack>
-      
-      <Stack horizontal tokens={{ childrenGap: 8 }} verticalAlign="center">
-        <Toggle 
-          label="Use Knowledge Base" 
-          checked={useRag} 
-          onChange={(_, checked) => setUseRag(!!checked)}
-          styles={{ root: { marginBottom: 0 } }}
-        />
-        <Text variant="small" style={{ color: '#666' }}>(May be slower)</Text>
-      </Stack>
-
-      <PrimaryButton
-        text={isGenerating ? t.generatingTemplate || "Generating..." : "Generate Reply"}
-        onClick={generateTemplate}
-        disabled={isGenerating || !currentEmail}
-      />
 
       {error && (
-        <MessageBar
-          messageBarType={MessageBarType.error}
-          isMultiline={false}
-          dismissButtonAriaLabel="Close"
-        >
+        <MessageBar messageBarType={MessageBarType.error} onDismiss={() => setError('')}>
           {error}
         </MessageBar>
       )}
 
       {success && (
-        <MessageBar
-          messageBarType={MessageBarType.success}
-          isMultiline={false}
-          dismissButtonAriaLabel="Close"
-        >
+        <MessageBar messageBarType={MessageBarType.success} onDismiss={() => setSuccess('')}>
           {success}
         </MessageBar>
       )}
 
+      <TextField
+        label={t.additionalInfo}
+        multiline
+        rows={2}
+        value={additionalInfo}
+        onChange={(_, newValue) => setAdditionalInfo(newValue || '')}
+        placeholder={t.additionalInfoPlaceholder}
+        disabled={isGenerating}
+      />
+
+      <Dropdown
+        label={t.tone}
+        selectedKey={tone}
+        onChange={(_, option) => setTone(option?.key as string)}
+        options={toneOptions}
+        disabled={isGenerating}
+      />
+
+      <PrimaryButton
+        text={isGenerating ? t.generatingTemplate : t.generateTemplate}
+        onClick={handleGenerateTemplate}
+        disabled={isGenerating}
+        iconProps={{ iconName: 'Sparkle' }}
+      />
+
       {isGenerating && (
         <Stack horizontal horizontalAlign="center" tokens={{ childrenGap: 8 }}>
           <Spinner size={SpinnerSize.small} />
-          <Text>{t.loading || "Loading..."}</Text>
+          <Text variant="medium">{t.generatingTemplate}</Text>
         </Stack>
       )}
 
-      {generatedTemplate && !isGenerating && (
-        <Stack tokens={{ childrenGap: 8 }}>
-          <Text variant="mediumPlus" style={{ fontWeight: 500 }}>Reply Generated</Text>
-          <div style={{ 
-            padding: '12px', 
-            backgroundColor: '#f8f8f8', 
-            border: '1px solid #edebe9',
-            borderRadius: '2px',
-            maxHeight: '200px',
-            overflowY: 'auto'
-          }}>
-            <Text>{generatedTemplate}</Text>
+      {generatedTemplate && (
+        <Stack tokens={{ childrenGap: 12 }}>
+          <Text variant="medium" styles={{ root: { fontWeight: 600 } }}>
+            {t.templateGenerated}:
+          </Text>
+          <div
+            style={{
+              border: '1px solid #e1e1e1',
+              borderRadius: '4px',
+              padding: '12px',
+              backgroundColor: '#f8f8f8',
+              minHeight: '100px',
+              whiteSpace: 'pre-wrap',
+              fontSize: '14px',
+              lineHeight: '1.4'
+            }}
+          >
+            {generatedTemplate}
           </div>
+          
           <Stack horizontal tokens={{ childrenGap: 8 }}>
-            <PrimaryButton 
-              text="Insert as Reply" 
-              onClick={handleInsertTemplate} 
+            <PrimaryButton
+              text={t.insertTemplate}
+              onClick={handleInsertTemplate}
+              iconProps={{ iconName: 'Mail' }}
             />
-            <DefaultButton 
-              text="Copy" 
-              onClick={handleCopyTemplate} 
+            <DefaultButton
+              text="Copy to Clipboard"
+              onClick={handleCopyTemplate}
+              iconProps={{ iconName: 'Copy' }}
             />
           </Stack>
         </Stack>

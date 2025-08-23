@@ -1,13 +1,13 @@
-import React from 'react';
-import { Stack } from '@fluentui/react';
-import { initializeIcons } from '@fluentui/font-icons-mdl2';
+import React, { useState } from 'react';
+import { initializeIcons } from '@fluentui/react/lib/Icons';
+import { IconButton, Stack } from '@fluentui/react';
 import { AuthProvider } from './contexts/AuthContext';
 import { OfficeProvider } from './contexts/OfficeContext';
-import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import ReadMode from './components/ReadMode';
-import ComposeMode from './components/ComposeMode';
-import AuthSection from './components/AuthSection';
 import { useAuth } from './contexts/AuthContext';
+import { useTranslations } from './utils/i18n';
+import EmailContext from './components/EmailContext';
+import TabbedInterface from './components/TabbedInterface';
+import Sidebar from './components/Sidebar';
 import './App.css';
 
 // Initialize Fluent UI icons
@@ -15,19 +15,30 @@ initializeIcons();
 
 function AppContent() {
   const { user } = useAuth();
+  const t = useTranslations();
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   return (
-    <Router>
-      <Stack className="App" tokens={{ childrenGap: 15 }} styles={{ root: { padding: 15 } }}>
-        <AuthSection />
-        <Routes>
-          <Route path="/" element={<Navigate to="/read" replace />} />
-          <Route path="/read" element={<ReadMode />} />
-          <Route path="/compose" element={<ComposeMode />} />
-          <Route path="*" element={<Navigate to="/read" replace />} />
-        </Routes>
-      </Stack>
-    </Router>
+    <div className="App">
+      <header className="app-header">
+        <Stack horizontal horizontalAlign="end" verticalAlign="center" style={{ padding: '8px 16px' }}>
+          <IconButton 
+            iconProps={{ iconName: 'Settings' }} 
+            title={t.settings || "Settings"}
+            ariaLabel={t.settings || "Settings"}
+            onClick={() => setIsSidebarOpen(true)}
+          />
+        </Stack>
+      </header>
+      <div className="container">
+        <EmailContext />
+        <TabbedInterface />
+      </div>
+      <Sidebar 
+        isOpen={isSidebarOpen} 
+        onDismiss={() => setIsSidebarOpen(false)} 
+      />
+    </div>
   );
 }
 

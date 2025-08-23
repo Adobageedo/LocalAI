@@ -12,10 +12,8 @@ interface EmailData {
 interface OfficeContextType {
   isOfficeReady: boolean;
   currentEmail: EmailData | null;
-  mailboxMode: 'read' | 'compose' | null;
   loadEmailContext: () => void;
   insertTemplate: (template: string) => Promise<void>;
-  improveText: (text: string) => Promise<void>;
   error: string | null;
 }
 
@@ -36,7 +34,6 @@ interface OfficeProviderProps {
 export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
   const [isOfficeReady, setIsOfficeReady] = useState(false);
   const [currentEmail, setCurrentEmail] = useState<EmailData | null>(null);
-  const [mailboxMode, setMailboxMode] = useState<'read' | 'compose' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -45,16 +42,6 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
         if (info.host === Office.HostType.Outlook) {
           console.log('Office.js initialized successfully');
           setIsOfficeReady(true);
-          
-          // Detect mailbox mode
-          const mailboxItem = Office.context.mailbox.item;
-          if (mailboxItem) {
-            // Check if we're in compose mode or read mode
-            const currentMode = mailboxItem.itemType === Office.MailboxEnums.ItemType.Message ? 'read' : 'compose';
-            console.log('Detected mailbox mode:', currentMode);
-            setMailboxMode(currentMode);
-          }
-          
           loadEmailContext();
         }
       });
@@ -62,7 +49,6 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
       // Development mode without Office.js
       console.log('Office.js not available - running in development mode');
       setIsOfficeReady(true);
-      setMailboxMode('read'); // Default to read mode for development
       // Mock email data for development
       setCurrentEmail({
         subject: 'Sample Email Subject',
@@ -224,14 +210,26 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
     try {
       const item = Office.context.mailbox.item;
       if (item) {
-        // Try to create a reply draft
-        if (typeof item.displayReplyForm === 'function') {
-          // Use displayReplyForm for creating a reply draft
-          item.displayReplyForm({
-            htmlBody: `<p>${template.replace(/\n/g, '</p><p>')}</p>`
+        // Format the template with proper HTML
+        const formattedTemplate = `<p>${template.replace(/\n/g, '</p><p>')}</p>`;
+        
+        // Try to create a reply-all draft (preferred method)
+        if (typeof item.displayReplyAllForm === 'function') {
+          console.log('Using displayReplyAllForm to reply to all recipients');
+          item.displayReplyAllForm({
+            htmlBody: formattedTemplate
           });
-        } else {
-          // Fallback: create new message with reply context
+        } 
+        // Fallback to regular reply if reply-all is not available
+        else if (typeof item.displayReplyForm === 'function') {
+          console.log('Falling back to displayReplyForm (reply to sender only)');
+          item.displayReplyForm({
+            htmlBody: formattedTemplate
+          });
+        } 
+        // Last resort fallback: create new message with reply context
+        else {
+          console.log('Falling back to displayNewMessageForm');
           const replySubject = currentEmail?.subject?.startsWith('Re:') 
             ? currentEmail.subject 
             : `Re: ${currentEmail?.subject || 'AI Generated Reply'}`;
@@ -239,7 +237,7 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
           Office.context.mailbox.displayNewMessageForm({
             toRecipients: currentEmail?.from ? [{ displayName: currentEmail.from, emailAddress: currentEmail.from }] : [],
             subject: replySubject,
-            htmlBody: `<p>${template.replace(/\n/g, '</p><p>')}</p>`
+            htmlBody: formattedTemplate
           });
         }
       } else {
@@ -252,43 +250,15 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
     }
   };
 
-  const improveText = async (text: string) => {
-    if (typeof Office === 'undefined') {
-      console.log('Would improve text:', text);
-      return;
-    }
-
-    try {
-      const item = Office.context.mailbox.item;
-      if (item && mailboxMode === 'compose') {
-        // Get the current body
-        item.body.getAsync('text', (result) => {
-          if (result.status === Office.AsyncResultStatus.Succeeded) {
-            // For now, just replace the body with the improved text
-            // In a real implementation, this would call the AI API to improve the text
-            item.body.setAsync(text, { coercionType: 'text' });
-          }
-        });
-      } else {
-        console.error('Not in compose mode or no email item available');
-      }
-    } catch (error) {
-      console.error('Error improving text:', error);
-      throw error;
-    }
-  };
-
   const value = {
     isOfficeReady,
     currentEmail,
-    mailboxMode,
     loadEmailContext,
     insertTemplate,
-    improveText,
     error
   };
 
-  // Show loading state while Office is initializing
+  // // Show loading state while Office is initializing
   // if (!isOfficeReady) {
   //   return (
   //     <div style={{ 

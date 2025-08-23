@@ -5,17 +5,14 @@ import {
   Stack,
   Text
 } from '@fluentui/react';
+import { Mail24Regular, DocumentText24Regular } from '@fluentui/react-icons';
 import TemplateGenerator from './TemplateGenerator';
 import FileSynthesizer from './FileSynthesizer';
-import FileSummarizer from './FileSummarizer';
-import ComposeAssistant from './ComposeAssistant';
 import { useTranslations } from '../utils/i18n';
-import { useOffice } from '../contexts/OfficeContext';
 
 const TabbedInterface: React.FC = () => {
   const [selectedTab, setSelectedTab] = useState<string>('reply');
   const t = useTranslations();
-  const { mailboxMode } = useOffice();
 
   const handleTabChange = (item?: PivotItem) => {
     if (item) {
@@ -23,12 +20,6 @@ const TabbedInterface: React.FC = () => {
     }
   };
 
-  // If in compose mode, show the compose assistant
-  if (mailboxMode === 'compose') {
-    return <ComposeAssistant />;
-  }
-
-  // In read mode, show the tabbed interface with reply, summarize, and synthesize options
   return (
     <Stack>
       <Pivot 
@@ -46,13 +37,6 @@ const TabbedInterface: React.FC = () => {
           itemIcon="Mail"
         >
           <TemplateGenerator />
-        </PivotItem>
-        <PivotItem 
-          headerText={t.summarizeTab || "Summarize"} 
-          itemKey="summarize"
-          itemIcon="SummaryChart"
-        >
-          <FileSummarizer />
         </PivotItem>
         <PivotItem 
           headerText={t.synthesizeTab || "Synthesize"} 

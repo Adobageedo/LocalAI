@@ -12,16 +12,24 @@ import {
   DocumentCardTitle,
   DocumentCardDetails,
   DocumentCardActions,
-  IButtonProps
+  IButtonProps,
+  Separator,
+  ChoiceGroup,
+  IChoiceGroupOption,
+  TooltipHost,
+  Icon
 } from '@fluentui/react';
-import { DocumentText24Regular } from '@fluentui/react-icons';
+import { DocumentText24Regular, Mail24Regular } from '@fluentui/react-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useOffice } from '../contexts/OfficeContext';
 import { authFetch } from '../utils/authFetch';
+import { useTranslations, getOutlookLanguage } from '../utils/i18n';
+import { canParseClientSide, parseFileContent } from '../utils/fileParser';
 
 // Use HTTPS for backend API
-const API_BASE_URL = "https://localhost:8001/api";
+const API_BASE_URL = "https://localhost:8000/api";
 const API_SYNTHESIZE_ENDPOINT = `${API_BASE_URL}/outlook/synthesize`;
+const API_SUMMARIZE_ENDPOINT = `${API_BASE_URL}/outlook/summarize`;
 
 interface Attachment {
   id: string;
@@ -30,9 +38,21 @@ interface Attachment {
   size: number;
   isInline: boolean;
   content?: string;
+  extractedText?: string;
   summary?: string;
   isProcessing?: boolean;
+  processingMode?: 'client' | 'server';
+  errorMessage?: string;
 }
+
+// Frontend summary type - matches keys used in UI components
+type FrontendSummaryType = 'concise' | 'detailed' | 'bullet' | 'action';
+
+// Backend API summary type - matches API parameter values
+type ApiSummaryType = 'concise' | 'detailed' | 'bullet_points' | 'action_items';
+
+// File processing mode
+type ProcessingMode = 'client' | 'server';
 
 const FileSynthesizer: React.FC = () => {
   const { user } = useAuth();
@@ -41,6 +61,10 @@ const FileSynthesizer: React.FC = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [emailSummary, setEmailSummary] = useState('');
+  const [isSummarizing, setIsSummarizing] = useState(false);
+  const [summaryType, setSummaryType] = useState<FrontendSummaryType>('concise');
+  const t = useTranslations();
 
   // Load attachments when component mounts
   useEffect(() => {
@@ -114,7 +138,7 @@ const FileSynthesizer: React.FC = () => {
     setAttachments(prev => 
       prev.map(att => 
         att.id === attachment.id 
-          ? { ...att, isProcessing: true } 
+          ? { ...att, isProcessing: true, errorMessage: undefined } 
           : att
       )
     );
@@ -123,84 +147,257 @@ const FileSynthesizer: React.FC = () => {
     setSuccess('');
 
     try {
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      const authToken = user.getIdToken ? await user.getIdToken() : null;
+
       if (typeof Office === 'undefined') {
         // Mock response in development mode
         await new Promise(resolve => setTimeout(resolve, 2000));
         
-        const mockSummary = `This is a synthesized summary of "${attachment.name}".\n\n` +
-          `The document contains important information about the project timeline, ` +
-          `budget considerations, and next steps. Key points include:\n\n` +
-          `1. Project deadline extended to Q3 2025\n` +
-          `2. Budget increased by 15% to accommodate new requirements\n` +
-          `3. Three new team members will join next month\n` +
-          `4. Client feedback was generally positive with minor concerns about the UI`;
+        const mockSummary = `This is a synthesized summary of "${attachment.name}".
+
+` +
+          `The document appears to contain quarterly financial results, showing a 15% increase in revenue and plans for expansion in Q3. Key points include marketing strategy shifts and potential new product launches.`;
         
         setAttachments(prev => 
           prev.map(att => 
             att.id === attachment.id 
-              ? { ...att, summary: mockSummary, isProcessing: false } 
+              ? { 
+                  ...att, 
+                  summary: mockSummary, 
+                  isProcessing: false, 
+                  processingMode: Math.random() > 0.5 ? 'client' : 'server' 
+                } 
               : att
           )
         );
         
-        setSuccess(`Successfully synthesized "${attachment.name}"`);
+        setSuccess(`${attachment.name} summarized successfully (mock)`);
         return;
       }
-
-      // Get the attachment content
+      
+      // Get attachment content
       Office.context.mailbox.item?.getAttachmentContentAsync(
         attachment.id,
         async (result) => {
-          if (result.status === Office.AsyncResultStatus.Succeeded) {
-            const content = result.value.content;
-            
-            // Call the API to synthesize the file
-            const requestData = {
-              userId: user?.uid,
-              fileName: attachment.name,
-              fileType: attachment.contentType,
-              content: content,
-              base64Encoded: true
-            };
+          if (result.status !== Office.AsyncResultStatus.Succeeded) {
+            throw new Error(`Failed to get attachment content: ${result.error?.message}`);
+          }
+          
+          const content = result.value.content;
+          if (!content) {
+            throw new Error('Empty attachment content');
+          }
 
-            const response = await authFetch(API_SYNTHESIZE_ENDPOINT, {
-              method: 'POST',
-              body: JSON.stringify(requestData)
-            });
-
-            if (!response.ok) {
-              throw new Error(`API request failed: ${response.status} ${response.statusText}`);
-            }
-
-            const data = await response.json();
-
-            if (data && data.summary) {
+          // Map frontend summary types to backend summary types
+          let apiSummaryType: ApiSummaryType;
+          if (summaryType === 'bullet') {
+            apiSummaryType = 'bullet_points';
+          } else if (summaryType === 'action') {
+            apiSummaryType = 'action_items';
+          } else {
+            apiSummaryType = summaryType;
+          }
+          
+          // Determine if we can parse this file client-side
+          const canHandleClientSide = canParseClientSide(attachment.contentType);
+          let fileText = '';
+          let processingMode: ProcessingMode = 'server';
+          
+          try {
+            if (canHandleClientSide) {
+              console.log(`Processing ${attachment.name} client-side`);
+              processingMode = 'client';
+              
+              // Extract text from file client-side
+              fileText = await parseFileContent(content, attachment.contentType, attachment.name);
+              
+              // Update the attachment with the extracted text (for debug purposes)
               setAttachments(prev => 
                 prev.map(att => 
                   att.id === attachment.id 
-                    ? { ...att, summary: data.summary, isProcessing: false } 
+                    ? { ...att, extractedText: fileText, processingMode } 
                     : att
                 )
               );
-              setSuccess(`Successfully synthesized "${attachment.name}"`);
+
+              // Call the backend API with just the extracted text
+              const response = await authFetch(API_SUMMARIZE_ENDPOINT, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${authToken}`
+                },
+                body: JSON.stringify({
+                  authToken: authToken,
+                  userId: user.uid,
+                  file_name: attachment.name,
+                  file_type: 'text/plain', // We're sending pre-processed text
+                  body: fileText, // Using 'body' instead of 'file_content'
+                  language: getOutlookLanguage(),
+                  summary_type: apiSummaryType,
+                  use_rag: false
+                })
+              });
+              
+              if (!response.ok) {
+                throw new Error(`API error: ${response.status}`);
+              }
+              
+              const data = await response.json();
+              
+              if (data && data.summary) {
+                // Update the attachment with the summary
+                setAttachments(prev => 
+                  prev.map(att => 
+                    att.id === attachment.id 
+                      ? { ...att, summary: data.summary, isProcessing: false, processingMode } 
+                      : att
+                  )
+                );
+                
+                setSuccess(`${attachment.name} summarized successfully (client-processed)`);
+              } else {
+                throw new Error('Invalid response from API');
+              }
             } else {
-              throw new Error('Invalid response from API');
+              // Fall back to server-side processing for complex formats
+              console.log(`Processing ${attachment.name} server-side`);
+              processingMode = 'server';
+              
+              // Update processing mode
+              setAttachments(prev => 
+                prev.map(att => 
+                  att.id === attachment.id 
+                    ? { ...att, processingMode } 
+                    : att
+                )
+              );
+              
+              // Send raw file content to server
+              const response = await authFetch(API_SUMMARIZE_ENDPOINT, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${authToken}`
+                },
+                body: JSON.stringify({
+                  authToken: authToken,
+                  userId: user.uid,
+                  file_name: attachment.name,
+                  file_type: attachment.contentType,
+                  file_content: content, // Send base64 content directly
+                  language: getOutlookLanguage(),
+                  summary_type: apiSummaryType,
+                  use_rag: false
+                })
+              });
+              
+              if (!response.ok) {
+                throw new Error(`API error: ${response.status}`);
+              }
+              
+              const data = await response.json();
+              
+              if (data && data.summary) {
+                // Update the attachment with the summary
+                setAttachments(prev => 
+                  prev.map(att => 
+                    att.id === attachment.id 
+                      ? { ...att, summary: data.summary, isProcessing: false, processingMode } 
+                      : att
+                  )
+                );
+                
+                setSuccess(`${attachment.name} summarized successfully (server-processed)`);
+              } else {
+                throw new Error('Invalid response from API');
+              }
             }
-          } else {
-            throw new Error(`Failed to get attachment content: ${result.error.message}`);
+          } catch (parseError: any) {
+            console.error('Error during file processing:', parseError);
+            
+            // If client-side parsing fails, try server-side as fallback
+            if (processingMode === 'client') {
+              console.log('Falling back to server-side processing');
+              
+              try {
+                processingMode = 'server';
+                
+                // Update processing mode
+                setAttachments(prev => 
+                  prev.map(att => 
+                    att.id === attachment.id 
+                      ? { ...att, processingMode, errorMessage: 'Client-side processing failed, trying server...' } 
+                      : att
+                  )
+                );
+                
+                // Send raw file content to server
+                const response = await authFetch(API_SUMMARIZE_ENDPOINT, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${authToken}`
+                  },
+                  body: JSON.stringify({
+                    authToken: authToken,
+                    userId: user.uid,
+                    file_name: attachment.name,
+                    file_type: attachment.contentType,
+                    file_content: content,
+                    language: getOutlookLanguage(),
+                    summary_type: apiSummaryType,
+                    use_rag: false
+                  })
+                });
+                
+                if (!response.ok) {
+                  throw new Error(`API error: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data && data.summary) {
+                  // Update the attachment with the summary
+                  setAttachments(prev => 
+                    prev.map(att => 
+                      att.id === attachment.id 
+                        ? { ...att, summary: data.summary, isProcessing: false, processingMode, errorMessage: undefined } 
+                        : att
+                    )
+                  );
+                  
+                  setSuccess(`${attachment.name} summarized successfully (server fallback)`);
+                } else {
+                  throw new Error('Invalid response from API');
+                }
+              } catch (serverError: any) {
+                throw new Error(`Server fallback failed: ${serverError.message}`);
+              }
+            } else {
+              // If server processing was the original strategy and it failed
+              throw parseError;
+            }
           }
         }
       );
     } catch (error: any) {
-      console.error('File synthesis error:', error);
+      console.error('File summarization error:', error);
+      
+      // Update the attachment to show it's no longer processing
       setAttachments(prev => 
         prev.map(att => 
           att.id === attachment.id 
-            ? { ...att, isProcessing: false } 
+            ? { ...att, isProcessing: false, errorMessage: error.message } 
             : att
         )
       );
-      setError(`Failed to synthesize "${attachment.name}": ${error.message}`);
+      
+      setError(`Failed to summarize ${attachment.name}: ${error.message}`);
     }
   };
 
@@ -217,15 +414,37 @@ const FileSynthesizer: React.FC = () => {
     return (
       <DocumentCard styles={{ root: { margin: '8px 0' } }}>
         <DocumentCardDetails>
-          <DocumentCardTitle title={attachment.name} />
+          <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 8 }}>
+            <DocumentCardTitle title={attachment.name} />
+            {attachment.processingMode && !attachment.isProcessing && (
+              <TooltipHost content={attachment.processingMode === 'client' ? 
+                'This file was processed in the browser for faster results' : 
+                'This file was processed by the server for better handling of complex formats'}>
+                <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 4 }} 
+                  styles={{ root: { cursor: 'pointer', padding: '0 8px' } }}>
+                  <Icon iconName={attachment.processingMode === 'client' ? 'DesktopFlow' : 'CloudUpload'} 
+                    styles={{ root: { color: attachment.processingMode === 'client' ? '#107C10' : '#0078D4', fontSize: '12px' } }} />
+                  <Text variant="small" styles={{ root: { color: attachment.processingMode === 'client' ? '#107C10' : '#0078D4' } }}>
+                    {attachment.processingMode === 'client' ? 'Client' : 'Server'}
+                  </Text>
+                </Stack>
+              </TooltipHost>
+            )}
+          </Stack>
+          
           <Text variant="small" styles={{ root: { color: '#666', marginLeft: '8px' } }}>
-            {(attachment.size / 1024).toFixed(1)} KB
+            {(attachment.size / 1024).toFixed(1)} KB • {attachment.contentType.split('/')[1]}
           </Text>
           
           {attachment.isProcessing && (
             <Stack horizontal tokens={{ childrenGap: 8 }} styles={{ root: { margin: '8px' } }}>
               <Spinner size={SpinnerSize.small} />
-              <Text>Processing...</Text>
+              <Stack>
+                <Text>Processing{attachment.processingMode ? ` (${attachment.processingMode})` : ''}...</Text>
+                {attachment.errorMessage && (
+                  <Text variant="small" styles={{ root: { color: '#a80000' } }}>{attachment.errorMessage}</Text>
+                )}
+              </Stack>
             </Stack>
           )}
           
@@ -242,16 +461,160 @@ const FileSynthesizer: React.FC = () => {
     );
   };
 
+  // Handle email summarization
+  const handleSummarizeEmail = async () => {
+    if (!currentEmail || !user) return;
+    
+    setIsSummarizing(true);
+    setEmailSummary('');
+    setError('');
+    setSuccess('');
+
+    try {
+      // Get authentication token
+      const authToken = user.getIdToken ? await user.getIdToken() : null;
+      
+      if (typeof Office === 'undefined') {
+        // Development mode - mock response
+        await new Promise(resolve => setTimeout(resolve, 1500));
+        
+        const mockSummary = `This is a mock email summary of type "${summaryType}".
+
+` +
+          `The email would be summarized according to your preferences.`;
+          
+        setEmailSummary(mockSummary);
+        setSuccess('Email summarized successfully (mock)');
+      } else {
+        if (!currentEmail.body) {
+          throw new Error('Email body is empty');
+        }
+        
+        // Map frontend summary types to backend summary types
+        let apiSummaryType: ApiSummaryType;
+        if (summaryType === 'bullet') {
+          apiSummaryType = 'bullet_points';
+        } else if (summaryType === 'action') {
+          apiSummaryType = 'action_items';
+        } else {
+          apiSummaryType = summaryType; // 'concise' and 'detailed' are the same in both
+        }
+        
+        // Prepare request data
+        const requestData = {
+          authToken,
+          userId: user.uid,
+          subject: currentEmail.subject,
+          from: currentEmail.from,
+          body: currentEmail.body,
+          language: getOutlookLanguage(),
+          summary_type: apiSummaryType,
+          use_rag: false
+        };
+        
+        // Make API request
+        const response = await authFetch(API_SUMMARIZE_ENDPOINT, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`
+          },
+          body: JSON.stringify(requestData)
+        });
+
+        if (!response.ok) {
+          throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        
+        if (data && data.summary) {
+          setEmailSummary(data.summary);
+          setSuccess('Email summarized successfully');
+        } else {
+          throw new Error('Invalid response from API');
+        }
+      }
+    } catch (error: any) {
+      console.error('Email summarization error:', error);
+      setError(`Failed to summarize email: ${error.message}`);
+    } finally {
+      setIsSummarizing(false);
+    }
+  };
+
+  // Summary type options
+  const summaryTypeOptions: IChoiceGroupOption[] = [
+    { key: 'concise', text: t.concise || 'Concise' },
+    { key: 'detailed', text: t.detailed || 'Detailed' },
+    { key: 'bullet', text: t.bulletPoints || 'Bullet Points' },
+    { key: 'action', text: t.actionItems || 'Action Items' }
+  ];
+
   if (!user) {
     return null;
   }
 
   return (
     <Stack tokens={{ childrenGap: 16 }} styles={{ root: { padding: '20px' } }}>
+      {/* Email Summary Section */}
+      <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 8 }}>
+        <Mail24Regular style={{ fontSize: '18px', color: '#0078d4' }} />
+        <Text variant="mediumPlus" styles={{ root: { fontWeight: 600 } }}>
+          {t.synthesizeEmail || 'Summarize Email'}
+        </Text>
+      </Stack>
+
+      <Stack tokens={{ childrenGap: 10 }} styles={{ root: { marginBottom: '16px' } }}>
+        <Stack horizontal tokens={{ childrenGap: 8 }}>
+          <ChoiceGroup 
+            selectedKey={summaryType}
+            options={summaryTypeOptions}
+            onChange={(_, option) => option && setSummaryType(option.key as FrontendSummaryType)}
+            styles={{ root: { marginBottom: '8px' } }}
+          />
+        </Stack>
+
+        <PrimaryButton 
+          onClick={handleSummarizeEmail} 
+          disabled={isSummarizing || !currentEmail}
+          styles={{ root: { width: 'auto', alignSelf: 'flex-start' } }}
+        >
+          {isSummarizing ? (
+            <>
+              <Spinner size={SpinnerSize.xSmall} styles={{ root: { marginRight: '8px' } }} />
+              {t.synthesizing || 'Summarizing...'}
+            </>
+          ) : (
+            t.summarizeEmail || 'Summarize Email'
+          )}
+        </PrimaryButton>
+
+        {emailSummary && (
+          <Stack 
+            styles={{ 
+              root: { 
+                backgroundColor: '#f8f8f8', 
+                padding: '12px', 
+                borderRadius: '4px',
+                marginTop: '12px'
+              } 
+            }}
+          >
+            <Text variant="medium" styles={{ root: { whiteSpace: 'pre-wrap' } }}>
+              {emailSummary}
+            </Text>
+          </Stack>
+        )}
+      </Stack>
+
+      <Separator />
+
+      {/* Attachments Section */}
       <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 8 }}>
         <DocumentText24Regular style={{ fontSize: '18px', color: '#0078d4' }} />
         <Text variant="mediumPlus" styles={{ root: { fontWeight: 600 } }}>
-          Synthesize Attachments
+          {t.synthesizeAttachments || 'Synthesize Attachments'}
         </Text>
       </Stack>
 
@@ -270,7 +633,7 @@ const FileSynthesizer: React.FC = () => {
       {isLoading ? (
         <Stack horizontal horizontalAlign="center" tokens={{ childrenGap: 8 }} styles={{ root: { padding: '20px' } }}>
           <Spinner size={SpinnerSize.small} />
-          <Text>Loading attachments...</Text>
+          <Text>{t.loading || 'Loading attachments...'}</Text>
         </Stack>
       ) : attachments.length > 0 ? (
         <List
@@ -281,7 +644,7 @@ const FileSynthesizer: React.FC = () => {
         />
       ) : (
         <Stack horizontalAlign="center" styles={{ root: { padding: '20px', color: '#666' } }}>
-          <Text>No attachments found in this email</Text>
+          <Text>{t.noAttachments || 'No attachments found in this email'}</Text>
         </Stack>
       )}
     </Stack>

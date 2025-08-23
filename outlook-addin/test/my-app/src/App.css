@@ -6,6 +6,13 @@
   background-color: #faf9f8;
 }
 
+.app-header {
+  background-color: #f0f0f0;
+  border-bottom: 1px solid #e0e0e0;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  z-index: 10;
+}
+
 .container {
   flex: 1;
   overflow-y: auto;
