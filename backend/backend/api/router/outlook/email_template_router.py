@@ -100,7 +100,14 @@ async def generate_email_template(data: EmailTemplateRequest, user = Depends(get
             )
         
         logger.info(f"Successfully generated email template for user {user_id}")
-        
+        logger.debug(EmailTemplateResponse(
+            generated_text=generated_text,
+            sources=sources,
+            temperature=0.7,
+            use_retrieval=data.use_rag,
+            include_profile_context=False,
+            conversation_history=None
+        ))
         # Return the response in the expected format
         return EmailTemplateResponse(
             generated_text=generated_text,

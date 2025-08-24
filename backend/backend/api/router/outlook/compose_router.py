@@ -81,13 +81,7 @@ async def generate_email(
     - Selected tone and language
     - Optional subject and recipient context
     """
-    try:
-        logger.info("Starting email generation", 
-        user_id=request.userId or (current_user.get("uid") if current_user else None),
-        tone=request.tone,
-        language=request.language,
-        use_rag=request.use_rag)
-        
+    try:        
         # Validate required fields for generation
         if not request.additionalInfo or not request.additionalInfo.strip():
             raise HTTPException(
@@ -135,11 +129,7 @@ async def generate_email(
             use_retrieval=request.use_rag or False,
             temperature=0.7
         )
-        
-        logger.info("Email generation completed successfully",
-                   user_id=request.userId,
-                   response_length=len(rag_response.get("answer", "")))
-        logger.info(ComposeResponse(
+        logger.debug(ComposeResponse(
             generated_text=rag_response.get("answer", ""),
             success=True,
             message="Email généré avec succès",
