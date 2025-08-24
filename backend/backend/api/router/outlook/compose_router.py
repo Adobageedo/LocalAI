@@ -118,7 +118,7 @@ async def generate_email(
         )
         
         # Create user prompt for generation
-        user_prompt = f"Please generate an email based on this description: {request.additionalInfo}"
+        user_prompt = f"Please generate an email based on this description: {request.additionalInfo}. Return only the text of the email generated."
         
         # Get AI response
         rag_response = get_rag_response_modular(
@@ -217,11 +217,11 @@ async def correct_email(
             tone=request.tone,
             language=request.language,
             email_context=email_context,
-            additional_info="Please correct grammar, spelling, punctuation, and syntax errors while preserving the original meaning and tone.",
+            additional_info="Please correct grammar, spelling, punctuation, and syntax errors while preserving the original meaning and tone. Return only the text of the email corrected.",
             use_rag=False  # Correction doesn't need RAG
         )
         
-        user_prompt = f"Please correct this email text: {request.body}"
+        user_prompt = f"Please correct this email text: {request.body}. Return only the text of the email corrected."
         
         # Get AI response
         rag_response = get_rag_response_modular(
@@ -310,7 +310,7 @@ async def reformulate_email(
         )
         
         # Build system prompt for reformulation
-        additional_instructions = f"Please reformulate this email to improve clarity, style, and impact while preserving the original meaning. {request.additionalInfo if request.additionalInfo else ''}"
+        additional_instructions = f"Please reformulate this email to improve clarity, style, and impact while preserving the original meaning. {request.additionalInfo if request.additionalInfo else ''}. Return only the text of the email reformulated."
         
         system_prompt = prompt_builder.build_system_prompt(
             tone=request.tone,
@@ -320,7 +320,7 @@ async def reformulate_email(
             use_rag=request.use_rag or False
         )
         
-        user_prompt = f"Please reformulate this email text to improve clarity and style: {request.body}"
+        user_prompt = f"Please reformulate this email text to improve clarity and style: {request.body}. Return only the text of the email reformulated."
         
         # Get AI response
         rag_response = get_rag_response_modular(
