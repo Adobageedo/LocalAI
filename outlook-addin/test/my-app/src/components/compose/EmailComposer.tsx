@@ -25,8 +25,9 @@ import {
   getCurrentEmailContent,
   insertContentIntoOutlook,
   getUserEmailFromOutlook,
-  getOutlookLanguage as getOutlookLang
+  processEscapeSequences
 } from '../../services/composeService';
+import { getOutlookLanguage } from '../../utils/i18n';
 
 const EmailComposer: React.FC = () => {
   const { user } = useAuth();
@@ -39,19 +40,28 @@ const EmailComposer: React.FC = () => {
   // Generate email states
   const [description, setDescription] = useState('');
   const [selectedTone, setSelectedTone] = useState('professional');
-  const [selectedLanguage, setSelectedLanguage] = useState<string>('fr');
+  
+  // Auto-detected language (no user selection needed)
+  const detectedLanguage = getOutlookLanguage();
   
   // Correct/Reformulate states
   const [currentEmailBody, setCurrentEmailBody] = useState('');
   const [reformulateInstructions, setReformulateInstructions] = useState('');
+  
+  // Preview states for formatted text
+  const [showFormattedPreview, setShowFormattedPreview] = useState(false);
+  const [lastGeneratedText, setLastGeneratedText] = useState('');
+  
+  // Utility function to format text for display
+  const formatTextForDisplay = (text: string): string => {
+    if (showFormattedPreview) {
+      return processEscapeSequences(text);
+    }
+    return text;
+  };
 
-  // Auto-detect language on mount and load email content
+  // Load email content for correct/reformulate tabs
   useEffect(() => {
-    // Detect language
-    const detectedLang = getOutlookLang();
-    setSelectedLanguage(detectedLang);
-    
-    // Load current email content for correct/reformulate tabs
     if (activeTab === 'correct' || activeTab === 'reformulate') {
       getCurrentEmailContent()
         .then(content => {
@@ -66,12 +76,6 @@ const EmailComposer: React.FC = () => {
         });
     }
   }, [activeTab]);
-  
-  // Detect language only once on mount
-  useEffect(() => {
-    const detectedLang = getOutlookLang();
-    setSelectedLanguage(detectedLang);
-  }, []);
 
   const toneOptions: IDropdownOption[] = [
     { key: 'professional', text: 'Professionnel' },
@@ -138,12 +142,15 @@ const EmailComposer: React.FC = () => {
       const response = await generateEmail({
         additionalInfo: description,
         tone: selectedTone,
-        language: selectedLanguage,
+        language: detectedLanguage,
         userId: user?.uid || 'compose-user',
         from: getUserEmailFromOutlook() || user?.email || ''
       });
 
       const generatedText = response.generated_text;
+      
+      // Save for preview
+      setLastGeneratedText(generatedText);
       
       // Insert directly into Outlook
       await insertIntoOutlookWithStatus(generatedText);
@@ -174,7 +181,7 @@ const EmailComposer: React.FC = () => {
     try {
       const response = await correctEmail({
         body: currentEmailBody,
-        language: selectedLanguage,
+        language: detectedLanguage,
         userId: user?.uid || 'compose-user'
       });
 
@@ -211,7 +218,7 @@ const EmailComposer: React.FC = () => {
         body: currentEmailBody,
         additionalInfo: reformulateInstructions || 'Améliorer la clarté, le style et la fluidité tout en conservant le sens original.',
         tone: selectedTone,
-        language: selectedLanguage,
+        language: detectedLanguage,
         userId: user?.uid || 'compose-user'
       });
 
@@ -255,19 +262,56 @@ const EmailComposer: React.FC = () => {
           options={toneOptions}
         />
         
-        <Dropdown
-          label="Langue"
-          selectedKey={selectedLanguage}
-          onChange={(_, option) => option && setSelectedLanguage(option.key as string)}
-          options={languageOptions}
-        />
-
         <PrimaryButton
           text="✨ Générer et Insérer dans Outlook"
           onClick={handleGenerateEmail}
           disabled={isLoading || !description.trim()}
         />
       </Stack>
+      
+      {/* Preview Section */}
+      {lastGeneratedText && (
+        <Stack tokens={{ childrenGap: 12 }} styles={cardStyles}>
+          <Stack horizontal horizontalAlign="space-between" verticalAlign="center">
+            <Text variant="mediumPlus" styles={{ root: { fontWeight: 600 } }}>
+              📄 Aperçu du Dernier Email Généré
+            </Text>
+            <IconButton
+              iconProps={{ iconName: showFormattedPreview ? 'Code' : 'Preview' }}
+              title={showFormattedPreview ? 'Voir le texte brut' : 'Voir le texte formaté'}
+              onClick={() => setShowFormattedPreview(!showFormattedPreview)}
+            />
+          </Stack>
+          
+          <Text variant="small" styles={{ root: { color: '#605e5c' } }}>
+            {showFormattedPreview ? 
+              'Aperçu formaté (séquences d\'échappement converties) :' : 
+              'Texte brut (avec séquences d\'échappement) :'
+            }
+          </Text>
+          
+          <TextField
+            value={formatTextForDisplay(lastGeneratedText)}
+            multiline
+            rows={8}
+            readOnly
+            styles={{
+              field: {
+                backgroundColor: '#f8f9fa',
+                border: '1px solid #e1e5e9',
+                fontFamily: showFormattedPreview ? 'inherit' : 'monospace',
+                whiteSpace: showFormattedPreview ? 'pre-wrap' : 'pre'
+              }
+            }}
+          />
+          
+          <PrimaryButton
+            text="🔄 Réinsérer dans Outlook"
+            onClick={() => insertIntoOutlookWithStatus(lastGeneratedText)}
+            disabled={isLoading}
+          />
+        </Stack>
+      )}
     </Stack>
   );
 

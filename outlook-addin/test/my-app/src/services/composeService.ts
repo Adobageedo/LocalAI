@@ -212,6 +212,36 @@ export function getCurrentEmailContent(): Promise<string> {
 }
 
 /**
+ * Utility function to process escape sequences in text
+ * Converts literal \n, \t, etc. to actual newlines, tabs, etc.
+ */
+export function processEscapeSequences(text: string): string {
+  return text
+    .replace(/\\n/g, '\n')        // Convert \n to actual newlines
+    .replace(/\\t/g, '\t')        // Convert \t to actual tabs
+    .replace(/\\r/g, '\r')        // Convert \r to carriage returns
+    .replace(/\\\\/g, '\\')       // Convert \\ to single backslash
+    .replace(/\\"/g, '"')        // Convert \" to double quotes
+    .replace(/\\'/g, "'")        // Convert \' to single quotes
+    .replace(/\\b/g, '\b')        // Convert \b to backspace
+    .replace(/\\f/g, '\f')        // Convert \f to form feed
+    .replace(/\\v/g, '\v');       // Convert \v to vertical tab
+}
+
+/**
+ * Utility function to convert plain text to HTML with proper formatting
+ */
+function convertTextToHtml(text: string): string {
+  // Process escape sequences first
+  const processedText = processEscapeSequences(text);
+  
+  // Convert to HTML with proper line breaks
+  return processedText
+    .replace(/\n/g, '<br>')       // Convert newlines to HTML breaks
+    .replace(/\t/g, '&nbsp;&nbsp;&nbsp;&nbsp;'); // Convert tabs to spaces
+}
+
+/**
  * Utility function to insert content into Outlook email
  */
 export function insertContentIntoOutlook(content: string): Promise<void> {
@@ -221,8 +251,11 @@ export function insertContentIntoOutlook(content: string): Promise<void> {
       return;
     }
 
+    // Convert the content to properly formatted HTML
+    const htmlContent = convertTextToHtml(content);
+
     (window as any).Office.context.mailbox.item.body.setAsync(
-      content,
+      htmlContent,
       { coercionType: (window as any).Office.CoercionType.Html },
       (result: any) => {
         if (result.status === (window as any).Office.AsyncResultStatus.Succeeded) {
