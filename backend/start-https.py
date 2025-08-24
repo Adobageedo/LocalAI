@@ -19,7 +19,7 @@ if __name__ == "__main__":
     ssl_context.load_cert_chain(certfile=cert_path, keyfile=key_path)
     
     uvicorn.run(
-        "backend.main:app",
+        "backend.api.main:app",
         host="0.0.0.0",
         port=8000,
         reload=True,
