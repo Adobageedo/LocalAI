@@ -81,6 +81,8 @@ def get_rag_response_modular(question: str, metadata_filter=None, top_k=None, us
             filename = metadata.get("doc_id", "Unknown")
             return f"[{filename}]\n{doc.page_content}"
         context = "\n\n".join([get_chunk_source(d) for d in docs])
+        if system_prompt and question:
+            system_prompt += question
         # Use system prompt from config if available
         prompt_template = (
             system_prompt or
