@@ -6,6 +6,7 @@ from datetime import datetime
 import os
 import sys
 import json
+import traceback
 from .email_config import (
     SupportedLanguage, 
     EmailTone, 
@@ -82,10 +83,10 @@ async def generate_email(
     """
     try:
         logger.info("Starting email generation", 
-                   user_id=request.userId or (current_user.get("uid") if current_user else None),
-                   tone=request.tone.value,
-                   language=request.language.value,
-                   use_rag=request.use_rag)
+        user_id=request.userId or (current_user.get("uid") if current_user else None),
+        tone=request.tone,
+        language=request.language,
+        use_rag=request.use_rag)
         
         # Validate required fields for generation
         if not request.additionalInfo or not request.additionalInfo.strip():
@@ -106,67 +107,81 @@ async def generate_email(
             "sender": request.from_email or (current_user.get("email") if current_user else None)
         }
         
-        # Build the prompt based on operation type and RAG usage
-        if request.use_rag:
-            system_prompt = prompt_builder.build_rag_prompt(
-                tone=request.tone,
-                language=request.language,
-                operation="generate"
-            )
-        else:
-            system_prompt = prompt_builder.build_generation_prompt(
-                tone=request.tone,
-                language=request.language
-            )
+        # Build email context
+        email_context = prompt_builder.build_email_context(
+            subject=request.subject,
+            from_email=request.from_email,
+            body=None  # No original body for generation
+        )
+        
+        # Build the system prompt
+        system_prompt = prompt_builder.build_system_prompt(
+            tone=request.tone,
+            language=request.language,
+            email_context=email_context,
+            additional_info=request.additionalInfo,
+            use_rag=request.use_rag or False
+        )
         
         # Create user prompt for generation
-        user_prompt = f"""
-Génère un email professionnel basé sur les informations suivantes :
-
-Description : {request.additionalInfo}
-{f"Sujet souhaité : {request.subject}" if request.subject else ""}
-{f"Destinataire : {request.to}" if request.to else ""}
-{f"Expéditeur : {request.from_email}" if request.from_email else ""}
-
-Ton : {request.tone.value}
-Langue : {request.language.value}
-
-Crée un email complet et professionnel qui répond à cette demande.
-"""
+        user_prompt = f"Please generate an email based on this description: {request.additionalInfo}"
         
         # Get AI response
-        rag_response = await get_rag_response_modular(
-            query=user_prompt,
+        rag_response = get_rag_response_modular(
+            question=user_prompt,
             system_prompt=system_prompt,
             user_id=request.userId or (current_user.get("uid") if current_user else "anonymous"),
-            conversation_id=request.conversationId,
+            conversation_history=request.conversationId,
             use_retrieval=request.use_rag or False,
-            include_profile_context=False,
             temperature=0.7
         )
         
         logger.info("Email generation completed successfully",
                    user_id=request.userId,
-                   response_length=len(rag_response.get("response", "")))
-        
-        return ComposeResponse(
-            generated_text=rag_response.get("response", ""),
+                   response_length=len(rag_response.get("answer", "")))
+        logger.info(ComposeResponse(
+            generated_text=rag_response.get("answer", ""),
             success=True,
             message="Email généré avec succès",
             sources=rag_response.get("sources", []),
             metadata={
-                "tone": request.tone.value,
-                "language": request.language.value,
+                "tone": request.tone,
+                "language": request.language,
+                "use_rag": request.use_rag,
+                "model": rag_response.get("model"),
+                "temperature": rag_response.get("temperature", 0.7)
+            }
+        ))
+        return ComposeResponse(
+            generated_text=rag_response.get("answer", ""),
+            success=True,
+            message="Email généré avec succès",
+            sources=rag_response.get("sources", []),
+            metadata={
+                "tone": request.tone,
+                "language": request.language,
                 "use_rag": request.use_rag,
                 "model": rag_response.get("model"),
                 "temperature": rag_response.get("temperature", 0.7)
             }
         )
         
-    except HTTPException:
-        raise
     except Exception as e:
-        logger.error("Email generation failed", error=str(e), user_id=request.userId)
+        error_traceback = traceback.format_exc()
+        logger.error(
+            "Email generation failed", 
+            error=str(e), 
+            user_id=request.userId,
+            traceback=error_traceback,
+            request_data={
+                "tone": request.tone,
+                "language": request.language,
+                "use_rag": request.use_rag,
+                "has_additional_info": bool(request.additionalInfo),
+                "has_subject": bool(request.subject),
+                "has_to": bool(request.to)
+            }
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erreur lors de la génération de l'email: {str(e)}"
@@ -188,7 +203,7 @@ async def correct_email(
     try:
         logger.info("Starting email correction", 
                    user_id=request.userId or (current_user.get("uid") if current_user else None),
-                   language=request.language.value)
+                   language=request.language)
         
         # Validate required fields for correction
         if not request.body or not request.body.strip():
@@ -197,56 +212,51 @@ async def correct_email(
                 detail="body (email text) is required for correction"
             )
         
-        # Build correction prompt
+        # Build correction prompt using EmailPromptBuilder
         prompt_builder = EmailPromptBuilder()
         
-        # Get language-specific correction instructions
-        lang_config = LanguageConfig.get_config(request.language)
+        # Build email context with the original body
+        email_context = prompt_builder.build_email_context(
+            subject=request.subject,
+            from_email=request.from_email,
+            body=request.body
+        )
         
-        system_prompt = f"""Tu es un expert en correction de texte en {lang_config['name']}. 
-Ta tâche est de corriger les erreurs de grammaire, d'orthographe, de ponctuation et de syntaxe 
-tout en préservant le sens original et le style du texte.
-
-Instructions :
-- Corrige toutes les erreurs grammaticales et d'orthographe
-- Améliore la ponctuation si nécessaire
-- Maintiens le ton et le style original
-- Préserve le sens et l'intention du message
-- {lang_config['instruction']}
-
-Réponds uniquement avec le texte corrigé, sans commentaires additionnels."""
+        # Build system prompt for correction
+        system_prompt = prompt_builder.build_system_prompt(
+            tone=request.tone,
+            language=request.language,
+            email_context=email_context,
+            additional_info="Please correct grammar, spelling, punctuation, and syntax errors while preserving the original meaning and tone.",
+            use_rag=False  # Correction doesn't need RAG
+        )
         
-        user_prompt = f"""Corrige ce texte d'email :
-
-{request.body}
-
-Retourne uniquement le texte corrigé."""
+        user_prompt = f"Please correct this email text: {request.body}"
         
         # Get AI response
-        rag_response = await get_rag_response_modular(
-            query=user_prompt,
+        rag_response = get_rag_response_modular(
+            question=user_prompt,
             system_prompt=system_prompt,
             user_id=request.userId or (current_user.get("uid") if current_user else "anonymous"),
-            conversation_id=request.conversationId,
+            conversation_history=request.conversationId,
             use_retrieval=False,  # Correction doesn't need RAG
-            include_profile_context=False,
             temperature=0.3  # Lower temperature for more consistent corrections
         )
         
         logger.info("Email correction completed successfully",
                    user_id=request.userId,
                    original_length=len(request.body),
-                   corrected_length=len(rag_response.get("response", "")))
+                   corrected_length=len(rag_response.get("answer", "")))
         
         return ComposeResponse(
-            generated_text=rag_response.get("response", ""),
+            generated_text=rag_response.get("answer", ""),
             success=True,
             message="Email corrigé avec succès",
             metadata={
                 "operation": "correction",
-                "language": request.language.value,
+                "language": request.language,
                 "original_length": len(request.body),
-                "corrected_length": len(rag_response.get("response", "")),
+                "corrected_length": len(rag_response.get("answer", "")),
                 "model": rag_response.get("model"),
                 "temperature": 0.3
             }
@@ -255,7 +265,18 @@ Retourne uniquement le texte corrigé."""
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Email correction failed", error=str(e), user_id=request.userId)
+        error_traceback = traceback.format_exc()
+        logger.error(
+            "Email correction failed", 
+            error=str(e), 
+            user_id=request.userId,
+            traceback=error_traceback,
+            request_data={
+                "language": request.language,
+                "has_body": bool(request.body),
+                "body_length": len(request.body) if request.body else 0
+            }
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erreur lors de la correction de l'email: {str(e)}"
@@ -278,8 +299,8 @@ async def reformulate_email(
     try:
         logger.info("Starting email reformulation", 
                    user_id=request.userId or (current_user.get("uid") if current_user else None),
-                   tone=request.tone.value,
-                   language=request.language.value)
+                   tone=request.tone,
+                   language=request.language)
         
         # Validate required fields for reformulation
         if not request.body or not request.body.strip():
@@ -288,66 +309,56 @@ async def reformulate_email(
                 detail="body (email text) is required for reformulation"
             )
         
-        # Build reformulation prompt
+        # Build reformulation prompt using EmailPromptBuilder
         prompt_builder = EmailPromptBuilder()
         
-        # Get language and tone configurations
-        lang_config = LanguageConfig.get_config(request.language)
-        tone_instruction = prompt_builder.get_tone_instruction(request.tone)
+        # Build email context with the original body
+        email_context = prompt_builder.build_email_context(
+            subject=request.subject,
+            from_email=request.from_email,
+            body=request.body
+        )
         
-        system_prompt = f"""Tu es un expert en rédaction et reformulation de texte en {lang_config['name']}. 
-Ta tâche est de reformuler le texte pour améliorer sa clarté, son style et son impact 
-tout en préservant le sens original.
-
-Instructions :
-- {tone_instruction}
-- Améliore la clarté et la fluidité du texte
-- Maintiens le sens et l'intention originale
-- Adapte le style au ton demandé : {request.tone.value}
-- {lang_config['instruction']}
-{f"- Instructions spécifiques : {request.additionalInfo}" if request.additionalInfo else ""}
-
-Réponds uniquement avec le texte reformulé, sans commentaires additionnels."""
+        # Build system prompt for reformulation
+        additional_instructions = f"Please reformulate this email to improve clarity, style, and impact while preserving the original meaning. {request.additionalInfo if request.additionalInfo else ''}"
         
-        user_prompt = f"""Reformule ce texte d'email selon les instructions :
-
-Texte original :
-{request.body}
-
-{f"Instructions de reformulation : {request.additionalInfo}" if request.additionalInfo else "Améliore la clarté, le style et la fluidité du texte."}
-
-Ton souhaité : {request.tone.value}
-
-Retourne uniquement le texte reformulé."""
+        system_prompt = prompt_builder.build_system_prompt(
+            tone=request.tone,
+            language=request.language,
+            email_context=email_context,
+            additional_info=additional_instructions,
+            use_rag=request.use_rag or False
+        )
+        
+        user_prompt = f"Please reformulate this email text to improve clarity and style: {request.body}"
         
         # Get AI response
-        rag_response = await get_rag_response_modular(
-            query=user_prompt,
+        rag_response = get_rag_response_modular(
+            question=user_prompt,
             system_prompt=system_prompt,
             user_id=request.userId or (current_user.get("uid") if current_user else "anonymous"),
-            conversation_id=request.conversationId,
+            conversation_history=request.conversationId,
             use_retrieval=request.use_rag or False,
-            include_profile_context=False,
             temperature=0.5  # Moderate temperature for creative reformulation
         )
         
         logger.info("Email reformulation completed successfully",
                    user_id=request.userId,
                    original_length=len(request.body),
-                   reformulated_length=len(rag_response.get("response", "")))
+                   reformulated_length=len(rag_response.get("answer", "")))
         
         return ComposeResponse(
-            generated_text=rag_response.get("response", ""),
+            generated_text=rag_response.get("answer", ""),
             success=True,
             message="Email reformulé avec succès",
             sources=rag_response.get("sources", []) if request.use_rag else [],
             metadata={
                 "operation": "reformulation",
-                "tone": request.tone.value,
-                "language": request.language.value,
+                "tone": request.tone,
+                "language": request.language,
                 "use_rag": request.use_rag,
                 "original_length": len(request.body),
-                "reformulated_length": len(rag_response.get("response", "")),
+                "reformulated_length": len(rag_response.get("answer", "")),
                 "model": rag_response.get("model"),
                 "temperature": 0.5,
                 "instructions": request.additionalInfo
@@ -357,7 +368,20 @@ Retourne uniquement le texte reformulé."""
     except HTTPException:
         raise
     except Exception as e:
-        logger.error("Email reformulation failed", error=str(e), user_id=request.userId)
+        error_traceback = traceback.format_exc()
+        logger.error(
+            "Email reformulation failed", 
+            error=str(e), 
+            user_id=request.userId,
+            traceback=error_traceback,
+            request_data={
+                "tone": request.tone,
+                "language": request.language,
+                "has_body": bool(request.body),
+                "body_length": len(request.body) if request.body else 0,
+                "has_additional_info": bool(request.additionalInfo)
+            }
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Erreur lors de la reformulation de l'email: {str(e)}"
