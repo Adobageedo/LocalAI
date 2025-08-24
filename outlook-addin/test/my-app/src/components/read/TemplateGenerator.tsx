@@ -17,10 +17,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useOffice } from '../../contexts/OfficeContext';
 import { useTranslations, getOutlookLanguage } from '../../utils/i18n';
 import { authFetch } from '../../utils/authFetch';
-
-// Use HTTPS for backend API
-const API_BASE_URL = "https://localhost:8000/api";
-const API_PROMPT_ENDPOINT = `${API_BASE_URL}/outlook/prompt`;
+import { API_ENDPOINTS } from '../../config/api';
 
 const TemplateGenerator: React.FC = () => {
   const { user } = useAuth();
@@ -89,7 +86,7 @@ const TemplateGenerator: React.FC = () => {
       console.log('Full Request Data:', JSON.stringify(requestData, null, 2));
       console.log('=== END API REQUEST DATA ===');
 
-      const response = await authFetch(API_PROMPT_ENDPOINT, {
+      const response = await authFetch(API_ENDPOINTS.OUTLOOK_PROMPT, {
         method: 'POST',
         body: JSON.stringify(requestData)
       });

@@ -24,10 +24,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useOffice } from '../../contexts/OfficeContext';
 import { authFetch } from '../../utils/authFetch';
 import { useTranslations, getOutlookLanguage } from '../../utils/i18n';
-
-// Use HTTPS for backend API
-const API_BASE_URL = "https://localhost:8000/api";
-const API_SUMMARIZE_ENDPOINT = `${API_BASE_URL}/outlook/summarize`;
+import { API_ENDPOINTS } from '../../config/api';
 
 interface Attachment {
   id: string;
@@ -191,7 +188,7 @@ const FileSynthesizer: React.FC = () => {
             const fileSize = attachment.size;
             
             // Send raw file content to server
-            const response = await authFetch(API_SUMMARIZE_ENDPOINT, {
+            const response = await authFetch(API_ENDPOINTS.OUTLOOK_SUMMARIZE, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
@@ -373,7 +370,7 @@ const FileSynthesizer: React.FC = () => {
       };
       
       // Make API request
-      const response = await authFetch(API_SUMMARIZE_ENDPOINT, {
+      const response = await authFetch(API_ENDPOINTS.OUTLOOK_SUMMARIZE, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
