@@ -4,7 +4,8 @@
  */
 
 // Base API URL - can be overridden by environment variable
-export const API_BASE_URL = 'https://chardouin.fr/api';
+// HTTPS required for Outlook add-ins
+export const API_BASE_URL = 'https://localhost:8000/api';
 
 // API Endpoints
 export const API_ENDPOINTS = {
