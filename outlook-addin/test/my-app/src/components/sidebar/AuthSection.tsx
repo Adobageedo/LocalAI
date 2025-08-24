@@ -185,10 +185,10 @@ const AuthSection: React.FC = () => {
   return (
     <Stack tokens={{ childrenGap: 16 }} styles={{ root: { padding: '20px' } }}>
       <Text variant="large" styles={{ root: { fontWeight: 600 } }}>
-        {isRegistering ? 'Create Account' : 'Sign in to your account'}
+        {isRegistering ? t.createAccount : t.signInToAccount}
       </Text>
       <Text variant="medium" styles={{ root: { color: '#605e5c' } }}>
-        Use your credentials to access email templates
+        {t.useCredentials}
       </Text>
 
       {error && (
@@ -329,7 +329,7 @@ const AuthSection: React.FC = () => {
 
       <Stack horizontal tokens={{ childrenGap: 8 }}>
         <PrimaryButton
-          text={isRegistering ? 'Create Account' : 'Sign In'}
+          text={isRegistering ? t.createAccount : t.signIn}
           onClick={handleSubmit}
           disabled={
             authLoading || 
@@ -339,7 +339,7 @@ const AuthSection: React.FC = () => {
           }
         />
         <DefaultButton
-          text={isRegistering ? 'Back to Sign In' : 'Create Account'}
+          text={isRegistering ? t.backToSignIn : t.createAccount}
           onClick={() => {
             setIsRegistering(!isRegistering);
             setError('');

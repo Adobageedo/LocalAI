@@ -10,6 +10,10 @@ export interface Translations {
   signedInAs: string;
   email: string;
   password: string;
+  signInToAccount: string;
+  useCredentials: string;
+  createAccount: string;
+  backToSignIn: string;
   
   // Email Sync
   syncEmail: string;
@@ -116,6 +120,10 @@ const translations: Record<string, Translations> = {
     signedInAs: 'Signed in as',
     email: 'Email',
     password: 'Password',
+    signInToAccount: 'Sign in to your account',
+    useCredentials: 'Use your credentials to access email templates',
+    createAccount: 'Create Account',
+    backToSignIn: 'Back to Sign In',
     
     syncEmail: 'Sync Email',
     connectOutlook: 'Connect Outlook',
@@ -213,6 +221,10 @@ const translations: Record<string, Translations> = {
     signedInAs: 'Conectado como',
     email: 'Correo Electrónico',
     password: 'Contraseña',
+    signInToAccount: 'Inicia sesión en tu cuenta',
+    useCredentials: 'Usa tus credenciales para acceder a las plantillas de email',
+    createAccount: 'Crear Cuenta',
+    backToSignIn: 'Volver a Iniciar Sesión',
     
     syncEmail: 'Sincronizar Email',
     connectOutlook: 'Conectar Outlook',
@@ -306,11 +318,15 @@ const translations: Record<string, Translations> = {
   fr: {
     signIn: 'Se Connecter',
     signOut: 'Se Déconnecter',
-    register: 'S’inscrire',
+    register: 'S\'inscrire',
     welcomeBack: 'Bon retour',
     signedInAs: 'Connecté en tant que',
     email: 'E-mail',
     password: 'Mot de passe',
+    signInToAccount: 'Connectez-vous à votre compte',
+    useCredentials: 'Utilisez vos identifiants pour accéder aux modèles d\'email',
+    createAccount: 'Créer un Compte',
+    backToSignIn: 'Retour à la Connexion',
     
     syncEmail: 'Synchroniser Email',
     connectOutlook: 'Connecter Outlook',
@@ -408,6 +424,10 @@ const translations: Record<string, Translations> = {
     signedInAs: 'Angemeldet als',
     email: 'E-Mail',
     password: 'Passwort',
+    signInToAccount: 'Melden Sie sich in Ihrem Konto an',
+    useCredentials: 'Verwenden Sie Ihre Anmeldedaten, um auf E-Mail-Vorlagen zuzugreifen',
+    createAccount: 'Konto Erstellen',
+    backToSignIn: 'Zurück zur Anmeldung',
     
     syncEmail: 'E-Mail Synchronisieren',
     connectOutlook: 'Outlook Verbinden',
@@ -505,6 +525,10 @@ const translations: Record<string, Translations> = {
     signedInAs: 'Conectado como',
     email: 'E-mail',
     password: 'Senha',
+    signInToAccount: 'Entre na sua conta',
+    useCredentials: 'Use suas credenciais para acessar modelos de email',
+    createAccount: 'Criar Conta',
+    backToSignIn: 'Voltar ao Login',
     
     syncEmail: 'Sincronizar Email',
     connectOutlook: 'Conectar Outlook',
@@ -602,6 +626,10 @@ const translations: Record<string, Translations> = {
     signedInAs: 'Connesso come',
     email: 'Email',
     password: 'Password',
+    signInToAccount: 'Accedi al tuo account',
+    useCredentials: 'Usa le tue credenziali per accedere ai modelli email',
+    createAccount: 'Crea Account',
+    backToSignIn: 'Torna al Login',
     
     syncEmail: 'Sincronizza Email',
     connectOutlook: 'Connetti Outlook',
@@ -699,6 +727,10 @@ const translations: Record<string, Translations> = {
     signedInAs: 'Ingelogd als',
     email: 'E-mail',
     password: 'Wachtwoord',
+    signInToAccount: 'Log in op uw account',
+    useCredentials: 'Gebruik uw inloggegevens om toegang te krijgen tot e-mailsjablonen',
+    createAccount: 'Account Aanmaken',
+    backToSignIn: 'Terug naar Inloggen',
     
     syncEmail: 'E-mail Synchroniseren',
     connectOutlook: 'Outlook Verbinden',
@@ -796,6 +828,10 @@ const translations: Record<string, Translations> = {
     signedInAs: 'Вошли как',
     email: 'Электронная почта',
     password: 'Пароль',
+    signInToAccount: 'Войдите в свою учетную запись',
+    useCredentials: 'Используйте свои учетные данные для доступа к шаблонам электронной почты',
+    createAccount: 'Создать Аккаунт',
+    backToSignIn: 'Вернуться к Входу',
     
     syncEmail: 'Синхронизировать Email',
     connectOutlook: 'Подключить Outlook',
@@ -894,6 +930,10 @@ const translations: Record<string, Translations> = {
     signedInAs: 'ログイン中',
     email: 'メールアドレス',
     password: 'パスワード',
+    signInToAccount: 'アカウントにサインイン',
+    useCredentials: '認証情報を使用してメールテンプレートにアクセス',
+    createAccount: 'アカウント作成',
+    backToSignIn: 'サインインに戻る',
     
     syncEmail: 'メール同期',
     connectOutlook: 'Outlook接続',
@@ -991,6 +1031,10 @@ const translations: Record<string, Translations> = {
     signedInAs: '登录为',
     email: '电子邮箱',
     password: '密码',
+    signInToAccount: '登录您的账户',
+    useCredentials: '使用您的凭据访问邮件模板',
+    createAccount: '创建账户',
+    backToSignIn: '返回登录',
     
     syncEmail: '同步邮件',
     connectOutlook: '连接Outlook',
