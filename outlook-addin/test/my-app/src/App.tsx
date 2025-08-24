@@ -1,10 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { initializeIcons } from '@fluentui/react/lib/Icons';
-import { Stack, PrimaryButton } from '@fluentui/react';
 import { AuthProvider } from './contexts/AuthContext';
 import { OfficeProvider } from './contexts/OfficeContext';
 import { useAuth } from './contexts/AuthContext';
-import { useTranslations } from './utils/i18n';
 import EmailContext from './components/EmailContext';
 import TabbedInterface from './components/read/TabbedInterface';
 import MessageComposer from './components/compose/MessageComposer';
@@ -32,34 +30,22 @@ function ComposerApp() {
   );
 }
 
-// Navigation component to switch between main app and composer
-type NavigationProps = {
-  currentView: string;
-  setCurrentView: (view: string) => void;
-};
-
-function Navigation({ currentView, setCurrentView }: NavigationProps) {
-  const t = useTranslations();
-  return (
-    <Stack horizontal horizontalAlign="end" tokens={{ childrenGap: 10 }} styles={{ root: { padding: '10px' } }}>
-      <PrimaryButton 
-        text={t.replyTab} 
-        onClick={() => setCurrentView('main')} 
-        primary={currentView === 'main'} 
-      />
-      <PrimaryButton 
-        text={t.composeTab} 
-        onClick={() => setCurrentView('composer')} 
-        primary={currentView === 'composer'} 
-      />
-    </Stack>
-  );
-}
-
 function AppContent() {
   const { user } = useAuth();
-  const t = useTranslations();
-  const [currentView, setCurrentView] = useState('main');
+  const [mode, setMode] = useState<string>('read');
+
+  // Get mode from URL parameters
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const modeParam = urlParams.get('mode');
+    
+    if (modeParam === 'compose' || modeParam === 'read') {
+      setMode(modeParam);
+    } else {
+      // Default to 'read' if no valid mode parameter
+      setMode('read');
+    }
+  }, []);
 
   // If user is not authenticated, only show the auth section
   if (!user) {
@@ -72,11 +58,10 @@ function AppContent() {
     );
   }
 
-  // When authenticated, show the full application with state-based navigation
+  // When authenticated, show the appropriate app based on URL mode parameter
   return (
     <div className="App">
-      <Navigation currentView={currentView} setCurrentView={setCurrentView} />
-      {currentView === 'main' ? <MainApp /> : <ComposerApp />}
+      {mode === 'compose' ? <ComposerApp /> : <MainApp />}
     </div>
   );
 }
