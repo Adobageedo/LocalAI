@@ -5,7 +5,7 @@ import { OfficeProvider } from './contexts/OfficeContext';
 import { useAuth } from './contexts/AuthContext';
 import EmailContext from './components/EmailContext';
 import TabbedInterface from './components/read/TabbedInterface';
-import MessageComposer from './components/compose/MessageComposer';
+import { EmailComposer } from './components/compose';
 import AuthSection from './components/sidebar/AuthSection';
 import './App.css';
 
@@ -25,7 +25,7 @@ function ComposerApp() {
   return (
     <div className="container">
       <EmailContext />
-      <MessageComposer />
+      <EmailComposer />
     </div>
   );
 }

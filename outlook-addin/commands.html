@@ -13,12 +13,197 @@
             // Office is ready
         });
 
-        // Function used by the UI-less button
+        // API Configuration
+        const API_BASE_URL = 'https://chardouin.fr/api';
+
+        // Helper function to get email content
+        function getEmailContent(callback) {
+            Office.context.mailbox.item.body.getAsync(
+                Office.CoercionType.Text,
+                function(result) {
+                    if (result.status === Office.AsyncResultStatus.Succeeded) {
+                        callback({
+                            subject: Office.context.mailbox.item.subject,
+                            body: result.value,
+                            from: Office.context.mailbox.item.sender ? Office.context.mailbox.item.sender.emailAddress : '',
+                            to: Office.context.mailbox.item.to ? Office.context.mailbox.item.to.map(t => t.emailAddress).join(', ') : ''
+                        });
+                    } else {
+                        console.error('Failed to get email content:', result.error);
+                        callback(null);
+                    }
+                }
+            );
+        }
+
+        // Helper function to call API
+        async function callAPI(endpoint, data) {
+            try {
+                const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                return await response.json();
+            } catch (error) {
+                console.error('API call failed:', error);
+                throw error;
+            }
+        }
+
+        // Summarize Email Function
+        function summarizeEmail(event) {
+            getEmailContent(async function(emailData) {
+                if (!emailData) {
+                    event.completed();
+                    return;
+                }
+
+                try {
+                    const response = await callAPI('/outlook/prompt', {
+                        userId: 'outlook-user',
+                        subject: emailData.subject,
+                        body: emailData.body,
+                        from: emailData.from,
+                        tone: 'professional',
+                        language: 'french',
+                        additionalInfo: 'Veuillez fournir un résumé concis de cet email en français.'
+                    });
+
+                    // Show summary in a dialog
+                    Office.context.ui.displayDialogAsync(
+                        `data:text/html,<html><head><title>Résumé</title><style>body{font-family:Segoe UI,Arial,sans-serif;padding:20px;line-height:1.6;}</style></head><body><h2>📝 Résumé de l'email</h2><div style="background:#f5f5f5;padding:15px;border-radius:5px;margin:10px 0;"><strong>Sujet:</strong> ${emailData.subject}</div><div style="background:#e8f4fd;padding:15px;border-radius:5px;">${response.generated_text}</div></body></html>`,
+                        {height: 60, width: 50},
+                        function(result) {
+                            if (result.status === Office.AsyncResultStatus.Failed) {
+                                console.error('Dialog failed to open:', result.error.message);
+                            }
+                        }
+                    );
+                } catch (error) {
+                    console.error('Summarize failed:', error);
+                }
+                
+                event.completed();
+            });
+        }
+
+        // Suggest Reply Function
+        function suggestReply(event) {
+            getEmailContent(async function(emailData) {
+                if (!emailData) {
+                    event.completed();
+                    return;
+                }
+
+                try {
+                    const response = await callAPI('/outlook/prompt', {
+                        userId: 'outlook-user',
+                        subject: emailData.subject,
+                        body: emailData.body,
+                        from: emailData.from,
+                        tone: 'professional',
+                        language: 'french',
+                        additionalInfo: 'Veuillez suggérer une réponse appropriée à cet email en français.'
+                    });
+
+                    // Create a new compose item with the suggested reply
+                    Office.context.mailbox.displayNewMessageForm({
+                        toRecipients: [emailData.from],
+                        subject: emailData.subject.startsWith('Re:') ? emailData.subject : 'Re: ' + emailData.subject,
+                        htmlBody: `<div style="font-family: Segoe UI, Arial, sans-serif;">${response.generated_text}</div>`
+                    });
+                } catch (error) {
+                    console.error('Suggest reply failed:', error);
+                }
+                
+                event.completed();
+            });
+        }
+
+        // Reformulate Email Function
+        function reformulateEmail(event) {
+            getEmailContent(async function(emailData) {
+                if (!emailData) {
+                    event.completed();
+                    return;
+                }
+
+                try {
+                    const response = await callAPI('/outlook/prompt', {
+                        userId: 'outlook-user',
+                        subject: emailData.subject,
+                        body: emailData.body,
+                        tone: 'professional',
+                        language: 'french',
+                        additionalInfo: 'Veuillez reformuler ce texte pour améliorer la clarté, le style et la fluidité tout en conservant le sens original.'
+                    });
+
+                    // Replace the current email body with the reformulated version
+                    Office.context.mailbox.item.body.setAsync(
+                        response.generated_text,
+                        {coercionType: Office.CoercionType.Html},
+                        function(result) {
+                            if (result.status === Office.AsyncResultStatus.Failed) {
+                                console.error('Failed to update email body:', result.error);
+                            }
+                        }
+                    );
+                } catch (error) {
+                    console.error('Reformulate failed:', error);
+                }
+                
+                event.completed();
+            });
+        }
+
+        // Correct Email Function
+        function correctEmail(event) {
+            getEmailContent(async function(emailData) {
+                if (!emailData) {
+                    event.completed();
+                    return;
+                }
+
+                try {
+                    const response = await callAPI('/outlook/prompt', {
+                        userId: 'outlook-user',
+                        subject: emailData.subject,
+                        body: emailData.body,
+                        tone: 'professional',
+                        language: 'french',
+                        additionalInfo: 'Veuillez corriger toutes les erreurs de grammaire, d\'orthographe, de ponctuation et de syntaxe dans ce texte tout en préservant le sens et le style original.'
+                    });
+
+                    // Replace the current email body with the corrected version
+                    Office.context.mailbox.item.body.setAsync(
+                        response.generated_text,
+                        {coercionType: Office.CoercionType.Html},
+                        function(result) {
+                            if (result.status === Office.AsyncResultStatus.Failed) {
+                                console.error('Failed to update email body:', result.error);
+                            }
+                        }
+                    );
+                } catch (error) {
+                    console.error('Correct failed:', error);
+                }
+                
+                event.completed();
+            });
+        }
+
+        // Legacy function for backward compatibility
         function action(event) {
-            // You can implement actions for UI-less buttons here
-            // For now, we'll just open the taskpane
             Office.context.ui.displayDialogAsync(
-                'https://localhost:3000/taskpane.html?action=generate',
+                'https://chardouin.fr/taskpane.html?action=generate',
                 {height: 50, width: 30},
                 function (result) {
                     if (result.status === Office.AsyncResultStatus.Failed) {
@@ -27,7 +212,6 @@
                 }
             );
             
-            // Required to signal completion
             event.completed();
         }
     </script>

@@ -15,10 +15,12 @@ DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 # Import des routeurs
 from .router.outlook.email_template_router import router as outlook_router
 from .router.outlook.summarize_router import router as summarize_router
+from .router.outlook.compose_router import router as compose_router
 
 # Configuration des préfixes API centralisée
 app.include_router(outlook_router, prefix="/api")
 app.include_router(summarize_router, prefix="/api")
+app.include_router(compose_router, prefix="/api")
 # Add middleware
 # 1. Compression for better network performance
 app.add_middleware(GZipMiddleware, minimum_size=1000)

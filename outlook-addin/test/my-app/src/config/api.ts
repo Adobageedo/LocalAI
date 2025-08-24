@@ -4,7 +4,7 @@
  */
 
 // Base API URL - can be overridden by environment variable
-export const API_BASE_URL = 'https://chardouin.fr/api';
+export const API_BASE_URL = 'https://localhost:8000/api';
 
 // API Endpoints
 export const API_ENDPOINTS = {
@@ -14,6 +14,12 @@ export const API_ENDPOINTS = {
   // Outlook endpoints
   OUTLOOK_PROMPT: `${API_BASE_URL}/outlook/prompt`,
   OUTLOOK_SUMMARIZE: `${API_BASE_URL}/outlook/summarize`,
+  
+  // Compose endpoints (new dedicated endpoints)
+  COMPOSE_GENERATE: `${API_BASE_URL}/compose/generate`,
+  COMPOSE_CORRECT: `${API_BASE_URL}/compose/correct`,
+  COMPOSE_REFORMULATE: `${API_BASE_URL}/compose/reformulate`,
+  COMPOSE_HEALTH: `${API_BASE_URL}/compose/health`,
   
   // Add more endpoints as needed
 } as const;
