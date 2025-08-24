@@ -39,7 +39,7 @@ const EmailComposer: React.FC = () => {
   // Generate email states
   const [description, setDescription] = useState('');
   const [selectedTone, setSelectedTone] = useState('professional');
-  const [selectedLanguage, setSelectedLanguage] = useState('french');
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('fr');
   
   // Correct/Reformulate states
   const [currentEmailBody, setCurrentEmailBody] = useState('');
@@ -83,16 +83,16 @@ const EmailComposer: React.FC = () => {
   ];
 
   const languageOptions: IDropdownOption[] = [
-    { key: 'french', text: 'Français' },
-    { key: 'english', text: 'English' },
-    { key: 'spanish', text: 'Español' },
-    { key: 'german', text: 'Deutsch' },
-    { key: 'italian', text: 'Italiano' },
-    { key: 'portuguese', text: 'Português' },
-    { key: 'dutch', text: 'Nederlands' },
-    { key: 'russian', text: 'Русский' },
-    { key: 'japanese', text: '日本語' },
-    { key: 'chinese', text: '中文' },
+    { key: 'fr', text: 'Français' },
+    { key: 'en', text: 'English' },
+    { key: 'es', text: 'Español' },
+    { key: 'de', text: 'Deutsch' },
+    { key: 'it', text: 'Italiano' },
+    { key: 'pt', text: 'Português' },
+    { key: 'nl', text: 'Nederlands' },
+    { key: 'ru', text: 'Русский' },
+    { key: 'ja', text: '日本語' },
+    { key: 'zh', text: '中文' },
   ];
 
   const cardStyles: IStackStyles = {
