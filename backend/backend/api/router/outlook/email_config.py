@@ -54,7 +54,7 @@ The response should be:
 - Include relevant information from the knowledge base if applicable
 - Ready to send without further editing
 
-Generate only the email body content, without subject line or signature."""
+Generate only the email body content, without subject line or signature. Format the generated text using escape characters. Use \n for new lines, \t for tabs, \\ for backslashes, \" for double quotes, \' for single quotes, etc..."""
 
     GENERATION_ONLY_TEMPLATE = """You are an AI assistant that helps write professional email responses.
 {tone_instruction}
@@ -73,7 +73,7 @@ The response should be:
 - Professional and well-structured
 - Ready to send without further editing
 
-Generate only the email body content, without subject line or signature."""
+Generate only the email body content, without subject line or signature. Format the generated text using escape characters. Use \n for new lines, \t for tabs, \\ for backslashes, \" for double quotes, \' for single quotes, etc..."""
 
 class LanguageConfig:
     """Production-ready language and tone configuration system"""

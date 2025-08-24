@@ -13,7 +13,7 @@ class LLM:
         self.config = load_config()
         self.llm_cfg = self.config.get("llm", {})
 
-        self.model = model or self.llm_cfg.get("model", "gpt-4.1-mini")
+        self.model = model or self.llm_cfg.get("model", "gpt-5-mini")
         self.temperature = temperature if temperature is not None else self.llm_cfg.get("temperature", 0.2)
         self.max_tokens = max_tokens or self.llm_cfg.get("max_tokens", 1000)
 
