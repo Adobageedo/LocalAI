@@ -47,13 +47,50 @@ export interface ComposeError {
 }
 
 /**
+ * Validate and normalize language code
+ */
+function normalizeLanguageCode(language: string): string {
+  const supportedCodes = ['fr', 'en', 'es', 'de', 'it', 'pt', 'nl', 'ru', 'ja', 'zh'];
+  
+  // If it's already a valid code, return it
+  if (supportedCodes.includes(language)) {
+    return language;
+  }
+  
+  // Legacy mapping for backward compatibility
+  const legacyMap: { [key: string]: string } = {
+    'french': 'fr',
+    'english': 'en',
+    'spanish': 'es',
+    'german': 'de',
+    'italian': 'it',
+    'portuguese': 'pt',
+    'dutch': 'nl',
+    'russian': 'ru',
+    'japanese': 'ja',
+    'chinese': 'zh'
+  };
+  
+  return legacyMap[language] || 'fr'; // Default to French
+}
+
+/**
  * Generate a new email based on description and parameters
  */
 export async function generateEmail(request: ComposeRequest): Promise<ComposeResponse> {
   try {
+    // Normalize language code
+    const mappedRequest = {
+      ...request,
+      language: normalizeLanguageCode(request.language || 'fr')
+    };
+    
     const response = await authFetch(API_ENDPOINTS.COMPOSE_GENERATE, {
       method: 'POST',
-      body: JSON.stringify(request)
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(mappedRequest),
     });
 
     if (!response.ok) {
@@ -74,9 +111,18 @@ export async function generateEmail(request: ComposeRequest): Promise<ComposeRes
  */
 export async function correctEmail(request: ComposeRequest): Promise<ComposeResponse> {
   try {
+    // Normalize language code
+    const mappedRequest = {
+      ...request,
+      language: normalizeLanguageCode(request.language || 'fr')
+    };
+    
     const response = await authFetch(API_ENDPOINTS.COMPOSE_CORRECT, {
       method: 'POST',
-      body: JSON.stringify(request)
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(mappedRequest)
     });
 
     if (!response.ok) {
@@ -97,9 +143,18 @@ export async function correctEmail(request: ComposeRequest): Promise<ComposeResp
  */
 export async function reformulateEmail(request: ComposeRequest): Promise<ComposeResponse> {
   try {
+    // Normalize language code
+    const mappedRequest = {
+      ...request,
+      language: normalizeLanguageCode(request.language || 'fr')
+    };
+    
     const response = await authFetch(API_ENDPOINTS.COMPOSE_REFORMULATE, {
       method: 'POST',
-      body: JSON.stringify(request)
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(mappedRequest)
     });
 
     if (!response.ok) {
