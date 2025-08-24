@@ -4,7 +4,7 @@
  */
 
 // Base API URL - can be overridden by environment variable
-export const API_BASE_URL = process.env.VITE_API_BASE_URL || 'https://localhost:8000/api';
+export const API_BASE_URL = 'https://chardouin.fr/api';
 
 // API Endpoints
 export const API_ENDPOINTS = {
