@@ -1,30 +1,18 @@
-# --- Build stage ---
-FROM node:18-alpine AS build
-
-WORKDIR /app
-
-# Install deps
-COPY package*.json ./
-RUN npm ci
-
-# Copy source
-COPY . .
-
-# Build optimized React app
-RUN npm run build
-
-# --- Runtime stage ---
 FROM node:18-alpine
 
 WORKDIR /app
 
-# Install a lightweight static server
-RUN npm install -g serve
+# Copy package.json and package-lock.json
+COPY package*.json ./
 
-# Copy built app from previous stage
-COPY --from=build /app/build ./build
+# Install dependencies
+RUN npm ci
 
+# Copy the rest of the application code
+COPY . .
+
+# Expose port 3000
 EXPOSE 3000
 
-# Serve the production build
-CMD ["serve", "-s", "build", "-l", "3000"]
+# Start the React application in development mode
+CMD ["npm", "run", "start"]
