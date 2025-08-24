@@ -43,5 +43,5 @@ nohup python -m backend.services.sync_service.scheduled_sync_service > /app/data
 exec gunicorn --bind :${PORT:-8000} -k uvicorn.workers.UvicornWorker backend.api.main:app\n\
 ' > /app/start.sh && chmod +x /app/start.sh
 
-# Start application with sync service
-CMD ["/app/start.sh"]
+# # Start application with sync service
+# CMD ["/app/start.sh"]
