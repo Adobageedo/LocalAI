@@ -47,7 +47,37 @@
           <ExtensionPoint xsi:type="MessageComposeCommandSurface">
             <OfficeTab id="TabDefault">
               <Group id="TemplateGenerator.ComposeGroup">
-                <Label resid="GroupLabel"/>
+                <Label resid="ComposeGroupLabel"/>
+                <Control xsi:type="Button" id="ReformulateButton">
+                  <Label resid="ReformulateButton.Label"/>
+                  <Supertip>
+                    <Title resid="ReformulateButton.Label"/>
+                    <Description resid="ReformulateButton.Tooltip"/>
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="Reformulate.16x16"/>
+                    <bt:Image size="32" resid="Reformulate.32x32"/>
+                    <bt:Image size="80" resid="Reformulate.80x80"/>
+                  </Icon>
+                  <Action xsi:type="ExecuteFunction">
+                    <FunctionName>reformulateEmail</FunctionName>
+                  </Action>
+                </Control>
+                <Control xsi:type="Button" id="CorrectButton">
+                  <Label resid="CorrectButton.Label"/>
+                  <Supertip>
+                    <Title resid="CorrectButton.Label"/>
+                    <Description resid="CorrectButton.Tooltip"/>
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="Correct.16x16"/>
+                    <bt:Image size="32" resid="Correct.32x32"/>
+                    <bt:Image size="80" resid="Correct.80x80"/>
+                  </Icon>
+                  <Action xsi:type="ExecuteFunction">
+                    <FunctionName>correctEmail</FunctionName>
+                  </Action>
+                </Control>
                 <Control xsi:type="Button" id="ComposeOpenPaneButton">
                   <Label resid="TaskpaneButton.Label"/>
                   <Supertip>
@@ -70,7 +100,37 @@
           <ExtensionPoint xsi:type="MessageReadCommandSurface">
             <OfficeTab id="TabDefault">
               <Group id="TemplateGenerator.ReadGroup">
-                <Label resid="GroupLabel"/>
+                <Label resid="ReadGroupLabel"/>
+                <Control xsi:type="Button" id="SummarizeButton">
+                  <Label resid="SummarizeButton.Label"/>
+                  <Supertip>
+                    <Title resid="SummarizeButton.Label"/>
+                    <Description resid="SummarizeButton.Tooltip"/>
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="Summarize.16x16"/>
+                    <bt:Image size="32" resid="Summarize.32x32"/>
+                    <bt:Image size="80" resid="Summarize.80x80"/>
+                  </Icon>
+                  <Action xsi:type="ExecuteFunction">
+                    <FunctionName>summarizeEmail</FunctionName>
+                  </Action>
+                </Control>
+                <Control xsi:type="Button" id="SuggestReplyButton">
+                  <Label resid="SuggestReplyButton.Label"/>
+                  <Supertip>
+                    <Title resid="SuggestReplyButton.Label"/>
+                    <Description resid="SuggestReplyButton.Tooltip"/>
+                  </Supertip>
+                  <Icon>
+                    <bt:Image size="16" resid="SuggestReply.16x16"/>
+                    <bt:Image size="32" resid="SuggestReply.32x32"/>
+                    <bt:Image size="80" resid="SuggestReply.80x80"/>
+                  </Icon>
+                  <Action xsi:type="ExecuteFunction">
+                    <FunctionName>suggestReply</FunctionName>
+                  </Action>
+                </Control>
                 <Control xsi:type="Button" id="ReadOpenPaneButton">
                   <Label resid="TaskpaneButton.Label"/>
                   <Supertip>
@@ -97,6 +157,22 @@
         <bt:Image id="Icon.16x16" DefaultValue="https://chardouin.fr/assets/icon-16.png"/>
         <bt:Image id="Icon.32x32" DefaultValue="https://chardouin.fr/assets/icon-32.png"/>
         <bt:Image id="Icon.80x80" DefaultValue="https://chardouin.fr/assets/icon-80.png"/>
+        <!-- Summarize Icons -->
+        <bt:Image id="Summarize.16x16" DefaultValue="https://chardouin.fr/assets/icon-16.png"/>
+        <bt:Image id="Summarize.32x32" DefaultValue="https://chardouin.fr/assets/icon-32.png"/>
+        <bt:Image id="Summarize.80x80" DefaultValue="https://chardouin.fr/assets/icon-80.png"/>
+        <!-- Suggest Reply Icons -->
+        <bt:Image id="SuggestReply.16x16" DefaultValue="https://chardouin.fr/assets/icon-16.png"/>
+        <bt:Image id="SuggestReply.32x32" DefaultValue="https://chardouin.fr/assets/icon-32.png"/>
+        <bt:Image id="SuggestReply.80x80" DefaultValue="https://chardouin.fr/assets/icon-80.png"/>
+        <!-- Reformulate Icons -->
+        <bt:Image id="Reformulate.16x16" DefaultValue="https://chardouin.fr/assets/icon-16.png"/>
+        <bt:Image id="Reformulate.32x32" DefaultValue="https://chardouin.fr/assets/icon-32.png"/>
+        <bt:Image id="Reformulate.80x80" DefaultValue="https://chardouin.fr/assets/icon-80.png"/>
+        <!-- Correct Icons -->
+        <bt:Image id="Correct.16x16" DefaultValue="https://chardouin.fr/assets/icon-16.png"/>
+        <bt:Image id="Correct.32x32" DefaultValue="https://chardouin.fr/assets/icon-32.png"/>
+        <bt:Image id="Correct.80x80" DefaultValue="https://chardouin.fr/assets/icon-80.png"/>
       </bt:Images>
       <bt:Urls>
         <bt:Url id="Commands.Url" DefaultValue="https://chardouin.fr/commands.html"/>
@@ -104,13 +180,22 @@
         <bt:Url id="Taskpane.ReadUrl" DefaultValue="https://chardouin.fr/taskpane.html?mode=read"/>
       </bt:Urls>
       <bt:ShortStrings>
-        <bt:String id="GroupLabel" DefaultValue="Email Template Generator"/>
+        <bt:String id="ComposeGroupLabel" DefaultValue="✨ AI Assistant"/>
+        <bt:String id="ReadGroupLabel" DefaultValue="📝 AI Reader"/>
         <bt:String id="TaskpaneButton.Label" DefaultValue="Generate Template"/>
         <bt:String id="ActionButton.Label" DefaultValue="Create Template"/>
+        <bt:String id="SummarizeButton.Label" DefaultValue="📝 Résumer"/>
+        <bt:String id="SuggestReplyButton.Label" DefaultValue="💡 Suggérer une réponse"/>
+        <bt:String id="ReformulateButton.Label" DefaultValue="✨ Reformuler"/>
+        <bt:String id="CorrectButton.Label" DefaultValue="✅ Corriger"/>
       </bt:ShortStrings>
       <bt:LongStrings>
         <bt:String id="TaskpaneButton.Tooltip" DefaultValue="Opens a pane to generate AI-powered email templates based on context."/>
         <bt:String id="ActionButton.Tooltip" DefaultValue="Generate an AI-powered email template based on email context."/>
+        <bt:String id="SummarizeButton.Tooltip" DefaultValue="Génère un résumé de l'email sélectionné avec l'IA."/>
+        <bt:String id="SuggestReplyButton.Tooltip" DefaultValue="Suggère une réponse intelligente basée sur le contenu de l'email."/>
+        <bt:String id="ReformulateButton.Tooltip" DefaultValue="Reformule le texte de votre email pour améliorer la clarté et le style."/>
+        <bt:String id="CorrectButton.Tooltip" DefaultValue="Corrige la grammaire, l'orthographe et la syntaxe de votre email."/>
       </bt:LongStrings>
     </Resources>
   </VersionOverrides>

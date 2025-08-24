@@ -4,11 +4,11 @@
   <Version>1.0.0.0</Version>
   <ProviderName>Chardouin</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
-  <DisplayName DefaultValue="Email Template Generator"/>
-  <Description DefaultValue="Generate AI-powered email templates based on context"/>
+  <DisplayName DefaultValue="Local"/>
+  <Description DefaultValue="Local"/>
   <IconUrl DefaultValue="https://localhost:3000/assets/icon-64.png"/>
   <HighResolutionIconUrl DefaultValue="https://localhost:3000/assets/icon-128.png"/>
-  <SupportUrl DefaultValue="https://127.0.0.1:8443/support"/>
+  <SupportUrl DefaultValue="https://localhost:3000/support"/>
   <AppDomains>
     <AppDomain>https://localhost:3000</AppDomain>
   </AppDomains>
@@ -94,17 +94,17 @@
     </Hosts>
     <Resources>
       <bt:Images>
-        <bt:Image id="Icon.16x16" DefaultValue="https://127.0.0.1:8443/assets/icon-16.png"/>
-        <bt:Image id="Icon.32x32" DefaultValue="https://127.0.0.1:8443/assets/icon-32.png"/>
-        <bt:Image id="Icon.80x80" DefaultValue="https://127.0.0.1:8443/assets/icon-80.png"/>
+        <bt:Image id="Icon.16x16" DefaultValue="https://localhost:3000/assets/icon-16.png"/>
+        <bt:Image id="Icon.32x32" DefaultValue="https://localhost:3000/assets/icon-32.png"/>
+        <bt:Image id="Icon.80x80" DefaultValue="https://localhost:3000/assets/icon-80.png"/>
       </bt:Images>
       <bt:Urls>
-        <bt:Url id="Commands.Url" DefaultValue="https://127.0.0.1:8443/commands.html"/>
-        <bt:Url id="Taskpane.ComposeUrl" DefaultValue="https://localhost:3000"/>
-        <bt:Url id="Taskpane.ReadUrl" DefaultValue="https://localhost:3000"/>
+        <bt:Url id="Commands.Url" DefaultValue="https://localhost:3000/commands.html"/>
+        <bt:Url id="Taskpane.ComposeUrl" DefaultValue="https://localhost:3000/?mode=compose"/>
+        <bt:Url id="Taskpane.ReadUrl" DefaultValue="https://localhost:3000/?mode=read"/>
       </bt:Urls>
       <bt:ShortStrings>
-        <bt:String id="GroupLabel" DefaultValue="Email Template Generator"/>
+        <bt:String id="GroupLabel" DefaultValue="Local"/>
         <bt:String id="TaskpaneButton.Label" DefaultValue="Generate Template"/>
         <bt:String id="ActionButton.Label" DefaultValue="Create Template"/>
       </bt:ShortStrings>
