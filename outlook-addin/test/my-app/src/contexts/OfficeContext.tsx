@@ -35,6 +35,7 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
   const [isOfficeReady, setIsOfficeReady] = useState(false);
   const [currentEmail, setCurrentEmail] = useState<EmailData | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [test, setTest] = useState(false);
 
   useEffect(() => {
     if (typeof Office !== 'undefined') {
@@ -63,6 +64,8 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
       return;
     }
 
+    // Clear any previous errors
+    setError(null);
     // Use the same approach as the working taskpane.js
     Office.context.mailbox.getCallbackTokenAsync(function(result) {
       if (result.status === Office.AsyncResultStatus.Succeeded) {
@@ -118,11 +121,82 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
           }
         } else {
           console.log('No email item available');
+          // Even without email item, try to load basic context
+          loadBasicEmailContext();
         }
       } else {
         console.error('Error getting callback token:', result.error);
+        
+        // Handle specific error codes
+        if (result.error && result.error.code === 9018) {
+          console.warn('GenericTokenError detected - likely corporate security policy. Attempting fallback...');
+          setError('Corporate security policy detected. Some features may be limited.');
+          
+          // Try fallback approach without token
+          loadBasicEmailContext();
+        } else {
+          setError(`Authentication error: ${result.error?.message || 'Unknown error'}`);
+        }
       }
     });
+  };
+
+  // Fallback function for corporate environments where getCallbackTokenAsync fails
+  const loadBasicEmailContext = () => {
+    if (typeof Office === 'undefined') {
+      return;
+    }
+
+    try {
+      const mailboxItem = Office.context.mailbox.item;
+      
+      if (mailboxItem) {
+        let emailSubject = '';
+        let emailFrom = '';
+        
+        // Handle both read and compose modes for subject
+        if (typeof mailboxItem.subject === 'string') {
+          // Read mode - subject is directly available as a string property
+          emailSubject = mailboxItem.subject;
+        } else if (mailboxItem.subject && typeof (mailboxItem.subject as any).getAsync === 'function') {
+          // Compose mode - subject is an object with getAsync method
+          (mailboxItem.subject as any).getAsync(function(result: any) {
+            if (result.status === Office.AsyncResultStatus.Succeeded) {
+              emailSubject = result.value || '';
+            }
+          });
+        }
+
+        // Handle sender information
+        if (mailboxItem.from) {
+          emailFrom = mailboxItem.from.displayName || mailboxItem.from.emailAddress || '';
+        } else if (mailboxItem.organizer) {
+          emailFrom = mailboxItem.organizer.displayName || mailboxItem.organizer.emailAddress || '';
+        }
+
+        // Try to get basic body without token (limited functionality)
+        if (mailboxItem.body && typeof (mailboxItem.body as any).getAsync === 'function') {
+          (mailboxItem.body as any).getAsync('text', function(result: any) {
+            if (result.status === Office.AsyncResultStatus.Succeeded) {
+              const emailBody = result.value || '';
+              updateEmailData(emailSubject, emailFrom, emailBody);
+            } else {
+              // If body fails, still update with available data
+              updateEmailData(emailSubject, emailFrom, 'Email body unavailable in corporate environment');
+            }
+          });
+        } else {
+          // Update with available data even without body
+          updateEmailData(emailSubject, emailFrom, 'Email body unavailable in corporate environment');
+        }
+      } else {
+        console.log('No email item available in basic context');
+        setError('No email selected or email context unavailable');
+      }
+    } catch (error) {
+      console.error('Error in loadBasicEmailContext:', error);
+      setError('Unable to load email context in corporate environment');
+    }
   };
 
   const updateEmailData = (subject: string, from: string, body: string, conversationId?: string, fullConversation?: string, internetMessageId?: string) => {
@@ -192,7 +266,14 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
           });
         } else {
           console.error('Error getting REST token:', result.error);
-          callback('');
+          
+          // Handle specific error codes for conversation retrieval
+          if (result.error && result.error.code === 9018) {
+            console.warn('GenericTokenError in conversation retrieval - corporate policy restriction');
+            callback('Full conversation unavailable due to corporate security policy');
+          } else {
+            callback('');
+          }
         }
       });
     } catch (error) {
