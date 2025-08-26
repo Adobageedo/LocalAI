@@ -5,7 +5,7 @@
 
 // Base API URL - can be overridden by environment variable
 // HTTPS required for Outlook add-ins
-export const API_BASE_URL = 'https://chardouin.fr/api';
+export const API_BASE_URL = 'http://localhost:8000/api';
 
 // API Endpoints
 export const API_ENDPOINTS = {
@@ -21,6 +21,14 @@ export const API_ENDPOINTS = {
   COMPOSE_CORRECT: `${API_BASE_URL}/compose/correct`,
   COMPOSE_REFORMULATE: `${API_BASE_URL}/compose/reformulate`,
   COMPOSE_HEALTH: `${API_BASE_URL}/compose/health`,
+  
+  OUTLOOK_AUTH: `${API_BASE_URL}/outlook/auth/login`,
+  OUTLOOK_REVOKE_ACCESS: `${API_BASE_URL}/outlook/auth/revoke_access`,
+  OUTLOOK_STATUS: `${API_BASE_URL}/outlook/auth/status`,
+  
+  GMAIL_AUTH: `${API_BASE_URL}/gmail/auth/login`,
+  GMAIL_REVOKE_ACCESS: `${API_BASE_URL}/gmail/auth/revoke_access`,
+  GMAIL_STATUS: `${API_BASE_URL}/gmail/auth/status`,
   
   // Add more endpoints as needed
 } as const;

@@ -68,12 +68,10 @@ def get_microsoft_token(user_id: str, required_scopes: list) -> Optional[Dict]:
         # Try to get an account from the cache
         accounts = app.get_accounts()
         result = None
-        logger.debug(f"Missing scopes: {missing_scopes}")
         # If we have accounts in the cache, try to get a token silently
         if accounts and not missing_scopes:
             result = app.acquire_token_silent(scopes, account=accounts[0])
         if not result:
-            logger.debug(f"No token acquired silently, attempting interactive authentication with scopes: {scopes}")
             result = app.acquire_token_interactive(
                 scopes=scopes,
                 prompt="select_account"
