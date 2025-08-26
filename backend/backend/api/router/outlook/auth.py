@@ -17,10 +17,10 @@ from backend.services.auth.microsoft_auth import check_microsoft_auth_services
 
 # Initialisation du router et du logger
 # Note: Le préfixe /api est maintenant défini dans main.py
-router = APIRouter(tags=["sources"])
-logger = log.bind(name="backend.api.adapters_auth")
+router = APIRouter(prefix="/outlook", tags=["Outlook auth msal"])
+logger = log.bind(name="backend.api.outlook.auth")
 
-from backend.services.auth.middleware.auth import get_current_user
+from backend.services.auth.middleware.auth_firebase import get_current_user
 
 @router.get("/auth/status")
 async def get_outlook_auth_status(user=Depends(get_current_user)):
@@ -59,7 +59,7 @@ async def get_microsoft_auth_url(callback_url: str = None, scope: str = None, us
             return JSONResponse({"error": "Microsoft client configuration incomplete"}, status_code=500)
         
         # Define redirect URI (either use the provided one or default)
-        redirect_uri = callback_url or "https://chardouin.fr/api/outlook/auth/callback"
+        redirect_uri = callback_url or "http://localhost:8000/api/outlook/auth/callback"
         
         # Define scopes based on the requested scope parameter
         
@@ -141,7 +141,7 @@ async def microsoft_auth_callback(code: str = None, error: str = None, state: st
         
         # Extract state data
         user_id = "outlook"
-        redirect_uri = "https://chardouin.fr/api/sources/microsoft/callback"
+        redirect_uri = "http://localhost:8000/api/outlook/auth/callback"
         requested_scope = None
         
         if state:
@@ -196,9 +196,12 @@ async def microsoft_auth_callback(code: str = None, error: str = None, state: st
         )
         
         # Échanger le code d'autorisation contre un token d'accès
+        # Utiliser les scopes par défaut si aucun scope spécifique n'est demandé
+        scopes_to_use = requested_scope if requested_scope else OUTLOOK_SCOPES
+        
         result = app.acquire_token_by_authorization_code(
             code=code,
-            scopes=requested_scope,
+            scopes=scopes_to_use,
             redirect_uri=redirect_uri
         )
         

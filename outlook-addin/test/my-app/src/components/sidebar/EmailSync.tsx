@@ -10,6 +10,10 @@ import {
   Text
 } from '@fluentui/react';
 import { useTranslations } from '../../utils/i18n';
+import { useAuth } from '../../contexts/AuthContext';
+import { authFetch } from '../../utils/authFetch';
+import { API_ENDPOINTS } from '../../config/api';
+
 
 interface EmailSyncProps {
   userEmail: string;
@@ -24,35 +28,44 @@ interface SyncStatus {
 
 const EmailSync: React.FC<EmailSyncProps> = ({ userEmail }) => {
   const t = useTranslations();
+  const { user } = useAuth();
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({
     isConnected: false,
     isChecking: true
   });
 
-  // Check MSAL token validity on component mount
+  // Check Outlook auth status on component mount
   useEffect(() => {
-    checkMSALToken();
-  }, [userEmail]);
+    if (user) {
+      checkOutlookAuthStatus();
+    }
+  }, [user]);
 
-  const checkMSALToken = async () => {
+  const checkOutlookAuthStatus = async () => {
     setSyncStatus(prev => ({ ...prev, isChecking: true, error: undefined }));
     
     try {
-      // Call backend to validate MSAL token
-      const response = await fetch('https://chardouin.fr/api/msal/validate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userEmail: userEmail
-        })
+      if (!user) {
+        setSyncStatus({
+          isConnected: false,
+          isChecking: false,
+          error: 'User not authenticated'
+        });
+        return;
+      }
+
+      // Get Firebase token for backend authentication
+      const token = await user.getIdToken();
+      
+      // Call backend to check Outlook auth status
+      const response = await authFetch(API_ENDPOINTS.OUTLOOK_STATUS, {
+        method: 'GET',
       });
 
       if (response.ok) {
         const data = await response.json();
         setSyncStatus({
-          isConnected: data.isValid || false,
+          isConnected: data.authenticated && data.valid,
           isChecking: false,
           lastSync: data.lastSync ? new Date(data.lastSync) : undefined
         });
@@ -60,11 +73,11 @@ const EmailSync: React.FC<EmailSyncProps> = ({ userEmail }) => {
         setSyncStatus({
           isConnected: false,
           isChecking: false,
-          error: 'Failed to check token status'
+          error: 'Failed to check Outlook auth status'
         });
       }
     } catch (error) {
-      console.error('Error checking MSAL token:', error);
+      console.error('Error checking Outlook auth status:', error);
       setSyncStatus({
         isConnected: false,
         isChecking: false,
@@ -77,24 +90,30 @@ const EmailSync: React.FC<EmailSyncProps> = ({ userEmail }) => {
     setSyncStatus(prev => ({ ...prev, isChecking: true, error: undefined }));
     
     try {
-      // Call backend to initiate MSAL authentication
-      const response = await fetch('https://chardouin.fr/api/msal/connect', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userEmail: userEmail
-        })
+      if (!user) {
+        setSyncStatus(prev => ({
+          ...prev,
+          isChecking: false,
+          error: 'User not authenticated'
+        }));
+        return;
+      }
+
+      // Get Firebase token for backend authentication
+      const token = await user.getIdToken();
+      
+      // Call backend to get Microsoft auth URL
+      const response = await authFetch(API_ENDPOINTS.OUTLOOK_AUTH, {
+        method: 'GET',
       });
 
       if (response.ok) {
         const data = await response.json();
         
-        if (data.authUrl) {
+        if (data.auth_url) {
           // Open authentication URL in new window
           const authWindow = window.open(
-            data.authUrl,
+            data.auth_url,
             'outlook-auth',
             'width=500,height=600,scrollbars=yes,resizable=yes'
           );
@@ -104,13 +123,13 @@ const EmailSync: React.FC<EmailSyncProps> = ({ userEmail }) => {
             try {
               if (authWindow?.closed) {
                 clearInterval(pollForAuth);
-                // Recheck token status after auth window closes
-                setTimeout(checkMSALToken, 1000);
+                // Recheck auth status after auth window closes
+                setTimeout(checkOutlookAuthStatus, 1000);
               }
             } catch (error) {
               // Cross-origin error when trying to access closed window
               clearInterval(pollForAuth);
-              setTimeout(checkMSALToken, 1000);
+              setTimeout(checkOutlookAuthStatus, 1000);
             }
           }, 1000);
         } else {
@@ -141,36 +160,97 @@ const EmailSync: React.FC<EmailSyncProps> = ({ userEmail }) => {
     setSyncStatus(prev => ({ ...prev, isChecking: true, error: undefined }));
     
     try {
-      const response = await fetch('https://chardouin.fr/api/msal/sync', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          userEmail: userEmail
-        })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setSyncStatus({
-          isConnected: true,
-          isChecking: false,
-          lastSync: new Date()
-        });
-      } else {
+      if (!user) {
         setSyncStatus(prev => ({
           ...prev,
           isChecking: false,
-          error: 'Failed to sync emails'
+          error: 'User not authenticated'
         }));
+        return;
       }
+
+      // Get Firebase token for backend authentication
+      const token = await user.getIdToken();
+      
+      // For now, just refresh the auth status as sync functionality
+      // In the future, this could call a dedicated sync endpoint
+      await checkOutlookAuthStatus();
+      
+      // If still connected after check, update last sync time
+      setSyncStatus(prev => {
+        if (prev.isConnected) {
+          return {
+            ...prev,
+            isChecking: false,
+            lastSync: new Date()
+          };
+        }
+        return {
+          ...prev,
+          isChecking: false,
+          error: 'Outlook not connected. Please reconnect.'
+        };
+      });
+      
     } catch (error) {
       console.error('Error syncing emails:', error);
       setSyncStatus(prev => ({
         ...prev,
         isChecking: false,
         error: 'Network error while syncing emails'
+      }));
+    }
+  };
+
+  const disconnectOutlook = async () => {
+    setSyncStatus(prev => ({ ...prev, isChecking: true, error: undefined }));
+    
+    try {
+      if (!user) {
+        setSyncStatus(prev => ({
+          ...prev,
+          isChecking: false,
+          error: 'User not authenticated'
+        }));
+        return;
+      }
+
+      // Get Firebase token for backend authentication
+      const token = await user.getIdToken();
+      
+      // Call backend to revoke Microsoft access
+      const response = await authFetch(API_ENDPOINTS.OUTLOOK_REVOKE_ACCESS, {
+        method: 'DELETE',
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setSyncStatus({
+            isConnected: false,
+            isChecking: false,
+            lastSync: undefined
+          });
+        } else {
+          setSyncStatus(prev => ({
+            ...prev,
+            isChecking: false,
+            error: data.message || 'Failed to disconnect Outlook'
+          }));
+        }
+      } else {
+        setSyncStatus(prev => ({
+          ...prev,
+          isChecking: false,
+          error: 'Failed to disconnect Outlook'
+        }));
+      }
+    } catch (error) {
+      console.error('Error disconnecting Outlook:', error);
+      setSyncStatus(prev => ({
+        ...prev,
+        isChecking: false,
+        error: 'Network error while disconnecting Outlook'
       }));
     }
   };
@@ -206,7 +286,7 @@ const EmailSync: React.FC<EmailSyncProps> = ({ userEmail }) => {
                   )}
                 </MessageBar>
                 
-                <Stack horizontal tokens={{ childrenGap: 8 }}>
+                <Stack horizontal tokens={{ childrenGap: 8 }} wrap>
                   <PrimaryButton 
                     text={t.syncEmail}
                     onClick={syncEmails}
@@ -214,7 +294,14 @@ const EmailSync: React.FC<EmailSyncProps> = ({ userEmail }) => {
                   />
                   <DefaultButton 
                     text={t.retry}
-                    onClick={checkMSALToken}
+                    onClick={checkOutlookAuthStatus}
+                    disabled={syncStatus.isChecking}
+                  />
+                  <DefaultButton 
+                    text="Disconnect"
+                    onClick={disconnectOutlook}
+                    disabled={syncStatus.isChecking}
+                    styles={{ root: { color: '#d13438' } }}
                   />
                 </Stack>
               </Stack>
