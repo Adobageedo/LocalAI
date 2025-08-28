@@ -7,7 +7,7 @@ Il détecte les patterns de style global et les variations contextuelles.
 
 import os
 import sys
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from datetime import datetime
 
 # Ajouter le chemin du backend au sys.path
@@ -23,10 +23,10 @@ class StyleAnalyzer:
     Analyseur de style d'écriture basé sur les emails d'un utilisateur utilisant l'IA générative.
     """
     
-    def __init__(self):
+    def __init__(self, model, temperature, max_tokens):
         """Initialise l'analyseur de style."""
-        self.llm = LLM(temperature=0.3, max_tokens=2000)
-    
+        self.llm = LLM(model=model, temperature=temperature, max_tokens=max_tokens)
+
     def _prepare_emails_for_analysis(self, emails: List[Dict[str, Any]]) -> str:
         """
         Prépare les emails pour l'analyse LLM en formatant le contenu.
@@ -69,8 +69,6 @@ class StyleAnalyzer:
             logger.warning("Aucun email fourni pour l'analyse de style")
             return {"style_analysis": "Aucun email disponible pour l'analyse."}
         
-        logger.info(f"Analyse du style sur {len(emails)} emails avec LLM")
-        
         try:
             # Préparer les emails pour l'analyse
             formatted_emails = self._prepare_emails_for_analysis(emails)
@@ -80,8 +78,6 @@ class StyleAnalyzer:
             
             # Générer l'analyse avec le LLM
             style_analysis = await self.llm.generate(analysis_prompt)
-            
-            logger.info("Analyse de style générée avec succès")
             
             return {
                 'style_analysis': style_analysis,

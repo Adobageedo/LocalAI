@@ -185,3 +185,9 @@ logging:
 paths:
   # Répertoire des jetons (relatif à la racine du projet)
   tokens: "auth/tokens"
+
+style_analyzer:
+  max_emails_for_analysis: 10
+  model: gpt-5-mini
+  temperature: 1
+  max_tokens: 2000

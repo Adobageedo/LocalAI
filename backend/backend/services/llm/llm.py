@@ -19,7 +19,6 @@ class LLM:
     This class wraps different LLM implementations (OpenAI, Ollama) and provides
     a consistent API for generating text, chat completions, and embeddings.
     """
-    AVAILABLE_MODELS = {"gpt-4.1", "nano", "mini"}
     def __init__(
         self, 
         model: Optional[str] = None,
@@ -43,7 +42,7 @@ class LLM:
         self.max_tokens = max_tokens or self.llm_config.get("max_tokens", 1000)
         
         # Get the provider for this instance
-        self.router = RouterLLM()
+        self.router = RouterLLM(model=self.model, temperature=self.temperature, max_tokens=self.max_tokens)
         self.llm = None  # Will be instantiated on first use
         
         logger.info(f"LLM initialized with model={self.model}, temperature={self.temperature}")
@@ -59,7 +58,7 @@ class LLM:
     def _ensure_llm_instance(self):
         """Ensure we have an LLM instance, creating one if needed"""
         if self.llm is None:
-            self.llm = self.router.rag_llm("")  # Empty query, we just need the instance
+            self.llm = self.router._create_llm_instance()
             logger.debug(f"LLM instance created: {type(self.llm).__name__}")
         return self.llm
     
