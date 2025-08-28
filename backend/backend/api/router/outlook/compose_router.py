@@ -17,6 +17,7 @@ from .email_config import (
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..')))
 from backend.services.auth.middleware.auth_firebase import get_current_user
 from backend.services.rag.retrieve_rag_information_modular import get_rag_response_modular
+from backend.services.tone_of_voice.generate_style_profiles import StyleProfileGenerator
 from backend.core.logger import log
 
 logger = log.bind(name="backend.api.outlook.compose_router")
@@ -54,6 +55,28 @@ class ErrorResponse(BaseModel):
     error: str
     message: str
     details: Optional[Dict[str, Any]] = None
+
+# Helper function for style analysis integration
+async def get_user_style_context(user_id: str) -> str:
+    """Fetch user's style analysis and format it for prompt integration"""
+    if not user_id or user_id == "anonymous":
+        return ""
+    
+    try:
+        style_generator = StyleProfileGenerator()
+        style_result = await style_generator.fetch_style_analysis(user_id)
+        
+        if style_result.get('success') and style_result.get('existing_profile'):
+            style_analysis = style_result['existing_profile'].get('style_analysis')
+            if style_analysis:
+                return f"\n\nIMPORTANT - USER'S WRITING STYLE CONTEXT:\nPlease adapt your response to match the user's personal writing style described below:\n{style_analysis}\n\nEnsure your generated content reflects this style while maintaining the requested tone and language."
+        
+        logger.debug(f"No style analysis available for user {user_id}")
+        return ""
+        
+    except Exception as e:
+        logger.warning(f"Failed to fetch style analysis for user {user_id}: {str(e)}")
+        return ""
 
 # Router setup
 router = APIRouter(tags=["Outlook Compose"])
@@ -108,6 +131,10 @@ async def generate_email(
             body=None  # No original body for generation
         )
         
+        # Get user's style analysis for personalization
+        user_id = request.userId or (current_user.get("uid") if current_user else "anonymous")
+        style_context = await get_user_style_context(user_id)
+        
         # Build the system prompt
         system_prompt = prompt_builder.build_system_prompt(
             tone=request.tone,
@@ -116,6 +143,10 @@ async def generate_email(
             additional_info=request.additionalInfo,
             use_rag=request.use_rag or False
         )
+        
+        # Add style analysis to system prompt if available
+        if style_context:
+            system_prompt += style_context
         
         # Create user prompt for generation
         user_prompt = f"Please generate an email based on this description: {request.additionalInfo}. Return only the text of the email generated."
