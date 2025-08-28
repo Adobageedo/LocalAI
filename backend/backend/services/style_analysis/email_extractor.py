@@ -19,7 +19,7 @@ from backend.core.logger import log
 from backend.services.auth.microsoft_auth import get_outlook_service
 from backend.services.auth.google_auth import get_gmail_service
 
-logger = log.bind(name="backend.services.tone_of_voice.email_extractor")
+logger = log.bind(name="backend.services.style_analysis.email_extractor")
 
 class OutlookEmailExtractor:
     """

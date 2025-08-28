@@ -28,12 +28,12 @@ from backend.core.logger import log
 from backend.core.config import load_config
 from backend.services.auth.credentials_manager import get_authenticated_users_by_provider, check_microsoft_credentials
 from backend.services.db.models import ToneProfile, User
-from email_extractor import OutlookEmailExtractor, GmailEmailExtractor
-from email_preprocessor import EmailPreprocessor
-from style_analyzer import StyleAnalyzer
+from backend.services.style_analysis.email_extractor import OutlookEmailExtractor, GmailEmailExtractor
+from backend.services.style_analysis.email_preprocessor import EmailPreprocessor
+from backend.services.style_analysis.style_analyzer import StyleAnalyzer
 from backend.services.auth.google_auth import check_google_auth_services
 from backend.services.auth.microsoft_auth import check_microsoft_auth_services
-logger = log.bind(name="backend.services.tone_of_voice.generate_style_profiles")
+logger = log.bind(name="backend.services.style_analysis.generate_style_profiles")
 
 
 class StyleProfileGenerator:

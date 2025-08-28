@@ -17,8 +17,8 @@ from .email_config import (
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..')))
 from backend.services.auth.middleware.auth_firebase import get_current_user
 from backend.services.rag.retrieve_rag_information_modular import get_rag_response_modular
-from backend.services.tone_of_voice.generate_style_profiles import StyleProfileGenerator
 from backend.core.logger import log
+from backend.api.utils.get_style_analysis import get_user_style_context
 
 logger = log.bind(name="backend.api.outlook.compose_router")
 
@@ -55,28 +55,6 @@ class ErrorResponse(BaseModel):
     error: str
     message: str
     details: Optional[Dict[str, Any]] = None
-
-# Helper function for style analysis integration
-async def get_user_style_context(user_id: str) -> str:
-    """Fetch user's style analysis and format it for prompt integration"""
-    if not user_id or user_id == "anonymous":
-        return ""
-    
-    try:
-        style_generator = StyleProfileGenerator()
-        style_result = await style_generator.fetch_style_analysis(user_id)
-        
-        if style_result.get('success') and style_result.get('existing_profile'):
-            style_analysis = style_result['existing_profile'].get('style_analysis')
-            if style_analysis:
-                return f"\n\nIMPORTANT - USER'S WRITING STYLE CONTEXT:\nPlease adapt your response to match the user's personal writing style described below:\n{style_analysis}\n\nEnsure your generated content reflects this style while maintaining the requested tone and language."
-        
-        logger.debug(f"No style analysis available for user {user_id}")
-        return ""
-        
-    except Exception as e:
-        logger.warning(f"Failed to fetch style analysis for user {user_id}: {str(e)}")
-        return ""
 
 # Router setup
 router = APIRouter(tags=["Outlook Compose"])
@@ -147,6 +125,7 @@ async def generate_email(
         # Add style analysis to system prompt if available
         if style_context:
             system_prompt += style_context
+        logger.info(f"System prompt: {system_prompt}")
         
         # Create user prompt for generation
         user_prompt = f"Please generate an email based on this description: {request.additionalInfo}. Return only the text of the email generated."
@@ -183,7 +162,8 @@ async def generate_email(
                 "language": request.language,
                 "use_rag": request.use_rag,
                 "model": rag_response.get("model"),
-                "temperature": rag_response.get("temperature", 0.7)
+                "temperature": rag_response.get("temperature", 0.7),
+                "style_analysis_used": bool(style_context)
             }
         )
         
@@ -243,6 +223,9 @@ async def correct_email(
             body=request.body
         )
         
+        # Get user's style analysis for personalization
+        user_id = request.userId or (current_user.get("uid") if current_user else "anonymous")
+        style_context = await get_user_style_context(user_id)
         # Build system prompt for correction
         system_prompt = prompt_builder.build_system_prompt(
             tone=request.tone,
@@ -252,6 +235,10 @@ async def correct_email(
             use_rag=False  # Correction doesn't need RAG
         )
         
+        # Add style analysis to system prompt if available
+        if style_context:
+            system_prompt += style_context
+        logger.info(f"System prompt: {system_prompt}")
         user_prompt = f"Please correct this email text: {request.body}. Return only the text of the email corrected."
         
         # Get AI response
@@ -279,7 +266,8 @@ async def correct_email(
                 "original_length": len(request.body),
                 "corrected_length": len(rag_response.get("answer", "")),
                 "model": rag_response.get("model"),
-                "temperature": 0.3
+                "temperature": 0.3,
+                "style_analysis_used": bool(style_context)
             }
         )
         
@@ -340,6 +328,10 @@ async def reformulate_email(
             body=request.body
         )
         
+        # Get user's style analysis for personalization
+        user_id = request.userId or (current_user.get("uid") if current_user else "anonymous")
+        style_context = await get_user_style_context(user_id)
+        
         # Build system prompt for reformulation
         additional_instructions = f"Please reformulate this email to improve clarity, style, and impact while preserving the original meaning. {request.additionalInfo if request.additionalInfo else ''}. Return only the text of the email reformulated."
         
@@ -350,6 +342,10 @@ async def reformulate_email(
             additional_info=additional_instructions,
             use_rag=request.use_rag or False
         )
+        logger.info(f"System prompt: {system_prompt}")
+        # Add style analysis to system prompt if available
+        if style_context:
+            system_prompt += style_context
         
         user_prompt = f"Please reformulate this email text to improve clarity and style: {request.body}. Return only the text of the email reformulated."
         
@@ -382,7 +378,8 @@ async def reformulate_email(
                 "reformulated_length": len(rag_response.get("answer", "")),
                 "model": rag_response.get("model"),
                 "temperature": 0.5,
-                "instructions": request.additionalInfo
+                "instructions": request.additionalInfo,
+                "style_analysis_used": bool(style_context)
             }
         )
         

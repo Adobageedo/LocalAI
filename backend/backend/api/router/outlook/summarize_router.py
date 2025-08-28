@@ -13,7 +13,6 @@ from PyPDF2 import PdfReader
 from docx import Document  # python-docx
 from openpyxl import load_workbook  # Excel
 from pptx import Presentation  # PowerPoint
-import asyncio
 from .email_config import SupportedLanguage
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..')))
@@ -287,6 +286,10 @@ Provide a {request_data.summary_type.value} summary of this email in this langua
             user_prompt += "\n\nFormat the summary as bullet points, with each point representing a distinct piece of information."
         elif request_data.summary_type == SummaryType.ACTION_ITEMS:
             user_prompt += "\n\nExtract and list all action items, tasks, requests, and deadlines mentioned in the content."
+        
+        # Get user's style analysis for personalization
+        user_id = current_user.get("uid") if current_user else "anonymous"
+        
         # Create message for LLM service
         messages = [{"role": "user", "content": content_to_summarize}]
         

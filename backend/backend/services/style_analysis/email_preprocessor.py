@@ -17,7 +17,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.
 
 from backend.core.logger import log
 
-logger = log.bind(name="backend.services.tone_of_voice.email_preprocessor")
+logger = log.bind(name="backend.services.style_analysis.email_preprocessor")
 
 class EmailPreprocessor:
     """

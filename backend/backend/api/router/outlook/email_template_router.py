@@ -20,6 +20,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.
 from backend.services.auth.middleware.auth_firebase import get_current_user
 from backend.services.rag.retrieve_rag_information_modular import get_rag_response_modular
 from backend.core.logger import log
+from backend.api.utils.get_style_analysis import get_user_style_context
 
 logger = log.bind(name="backend.api.outlook.email_template_router")
 
@@ -69,6 +70,9 @@ async def generate_email_template(data: EmailTemplateRequest, user = Depends(get
         body=data.body
     )
     
+    # Get user's style analysis for personalization
+    style_context = await get_user_style_context(user_id)
+    
     system_prompt = EmailPromptBuilder.build_system_prompt(
         tone=data.tone,
         language=data.language,
@@ -77,6 +81,10 @@ async def generate_email_template(data: EmailTemplateRequest, user = Depends(get
         use_rag=data.use_rag
     )
     
+    # Add style analysis to system prompt if available
+    if style_context:
+        system_prompt += style_context
+    logger.debug(f"System prompt: {system_prompt}")
 
     # Use the existing RAG system to generate the response
     try:
@@ -114,7 +122,7 @@ async def generate_email_template(data: EmailTemplateRequest, user = Depends(get
             sources=sources,
             temperature=0.7,
             use_retrieval=data.use_rag,
-            include_profile_context=False,
+            include_profile_context=bool(style_context),
             conversation_history=None
         )
         
