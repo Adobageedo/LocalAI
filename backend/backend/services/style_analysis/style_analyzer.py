@@ -16,7 +16,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.
 from backend.core.logger import log
 from backend.services.llm.llm import LLM
 
-logger = log.bind(name="backend.services.tone_of_voice.style_analyzer")
+logger = log.bind(name="backend.services.style_analysis.style_analyzer")
 
 class StyleAnalyzer:
     """
