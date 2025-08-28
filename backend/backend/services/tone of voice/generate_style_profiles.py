@@ -25,25 +25,26 @@ from typing import List, Dict, Any, Optional
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
 
 from backend.core.logger import log
+from backend.core.config import load_config
 from backend.services.auth.credentials_manager import get_authenticated_users_by_provider, check_microsoft_credentials
 from backend.services.db.models import ToneProfile, User
-from email_extractor import OutlookEmailExtractor
+from email_extractor import OutlookEmailExtractor, GmailEmailExtractor
 from email_preprocessor import EmailPreprocessor
 from style_analyzer import StyleAnalyzer
-
+from backend.services.auth.google_auth import check_google_auth_services
+from backend.services.auth.microsoft_auth import check_microsoft_auth_services
 logger = log.bind(name="backend.services.tone_of_voice.generate_style_profiles")
 
 
 class StyleProfileGenerator:
     """Générateur de profils de style pour les utilisateurs Outlook"""
     
-    def __init__(self, dry_run: bool = False):
-        self.dry_run = dry_run
+    def __init__(self, max_emails_for_analysis: Optional[int] = None ):
+        self.config = load_config().get("style_analyzer", {})
         self.email_preprocessor = EmailPreprocessor()
-        self.style_analyzer = StyleAnalyzer()
-        
-        logger.info(f"StyleProfileGenerator initialisé (dry_run={dry_run})")
-    
+        self.style_analyzer = StyleAnalyzer(model=self.config.get('model', 'gpt-5-mini'), temperature=self.config.get('temperature', 0.3), max_tokens=self.config.get('max_tokens', 2000))
+        self.max_emails_for_analysis = max_emails_for_analysis or self.config.get('max_emails_for_analysis', 10)
+            
     async def generate_profile_for_user(self, user_id: str, force: bool = False) -> Dict[str, Any]:
         """
         Génère un profil de style pour un utilisateur spécifique.
@@ -60,17 +61,23 @@ class StyleProfileGenerator:
             'success': False,
             'profile_created': False,
             'profile_updated': False,
+            'style_analysis': None,
             'email_count': 0,
             'error': None,
             'existing_profile': None
         }
         
         try:
-            logger.info(f"Traitement de l'utilisateur {user_id}")
-            self.email_extractor = OutlookEmailExtractor(user_id)
-
+            if self.provider=="gmail":
+                self.email_extractor = GmailEmailExtractor(user_id)
+            elif self.provider=="outlook":
+                self.email_extractor = OutlookEmailExtractor(user_id)
+            else:
+                result['error'] = f"Provider {self.provider} non supporté"
+                logger.error(result['error'])
+                return result
             # Vérifier si un profil existe déjà
-            existing_profile = ToneProfile.get_by_user_and_provider(user_id, 'outlook')
+            existing_profile = ToneProfile.get_by_user_and_provider(user_id, self.provider)
             if existing_profile:
                 result['existing_profile'] = existing_profile.to_dict()
                 if not force:
@@ -89,7 +96,7 @@ class StyleProfileGenerator:
             
             # Extraire les emails
             logger.info(f"Extraction des emails pour {user_id}")
-            emails = await self.email_extractor.get_sent_emails()
+            emails = self.email_extractor.get_sent_emails()
             
             if not emails:
                 result['error'] = f"Aucun email trouvé pour {user_id}"
@@ -100,7 +107,6 @@ class StyleProfileGenerator:
             result['email_count'] = len(emails)
             
             # Prétraiter les emails
-            logger.info(f"Prétraitement des emails pour {user_id}")
             processed_emails = []
             for email in emails:
                 try:
@@ -115,22 +121,14 @@ class StyleProfileGenerator:
                 result['error'] = f"Aucun email valide après prétraitement pour {user_id}"
                 logger.warning(result['error'])
                 return result
-            
-            logger.info(f"{len(processed_emails)} emails prétraités pour {user_id}")
-            
+                        
             # Limiter le nombre d'emails pour l'analyse (pour éviter les tokens excessifs)
-            max_emails_for_analysis = 20
-            if len(processed_emails) > max_emails_for_analysis:
-                processed_emails = processed_emails[:max_emails_for_analysis]
-                logger.info(f"Limitation à {max_emails_for_analysis} emails pour l'analyse")
             
-            if self.dry_run:
-                logger.info(f"[DRY RUN] Analyserait {len(processed_emails)} emails pour {user_id}")
-                result['success'] = True
-                return result
+            if len(processed_emails) > self.max_emails_for_analysis:
+                processed_emails = processed_emails[:self.max_emails_for_analysis]
+                logger.info(f"Limitation à {self.max_emails_for_analysis} emails pour l'analyse")
             
             # Analyser le style avec LLM
-            logger.info(f"Analyse du style avec LLM pour {user_id}")
             analysis_result = await self.style_analyzer.analyze_user_style(processed_emails)
             
             if not analysis_result or 'style_analysis' not in analysis_result:
@@ -139,7 +137,7 @@ class StyleProfileGenerator:
                 return result
             
             style_analysis = analysis_result['style_analysis']
-            analysis_metadata = analysis_result.get('analysis_metadata', {})
+            result['style_analysis'] = style_analysis
             
             # Sauvegarder ou mettre à jour le profil
             if existing_profile and force:
@@ -148,8 +146,10 @@ class StyleProfileGenerator:
                     style_analysis=style_analysis,
                     email_count=len(processed_emails)
                 )
-                logger.info(f"Profil mis à jour pour {user_id}")
                 result['profile_updated'] = True
+            elif existing_profile and not force:
+                result['success'] = True
+                return result
             else:
                 # Créer un nouveau profil
                 profile = ToneProfile.create(
@@ -169,11 +169,11 @@ class StyleProfileGenerator:
                     return result
             
             result['success'] = True
-            logger.info(f"Profil de style généré avec succès pour {user_id}")
             
         except Exception as e:
             result['error'] = f"Erreur lors du traitement de {user_id}: {str(e)}"
             logger.error(result['error'])
+            return result
         
         return result
     
@@ -239,6 +239,24 @@ class StyleProfileGenerator:
         logger.info(f"Génération terminée: {successful_profiles} succès, {failed_profiles} échecs, {skipped_profiles} ignorés")
         return summary
 
+    async def fetch_style_analysis(self, user_id: str) -> Dict[str, Any]:
+        """Récupère l'analyse de style pour un utilisateur"""
+        #check if user has a credit
+        google=check_google_auth_services(user_id)
+        if google['authenticated'] and "gmail" in google['services']:
+            self.provider="gmail"
+            result = await self.generate_profile_for_user(user_id)
+            return result
+        else:
+            outlook=check_microsoft_auth_services(user_id)
+            if outlook['authenticated'] and "outlook" in outlook['services']:
+                self.provider="outlook"
+                result = await self.generate_profile_for_user(user_id)
+                return result
+            else:
+                error_result = {"error": "User is not authenticated with Microsoft or does not have access to Outlook"}
+                return error_result
+        
 
 async def main():
     """Fonction principale du script"""
@@ -253,9 +271,8 @@ async def main():
     args = parser.parse_args()
     
     logger.info("=== Début du script de génération de profils de style ===")
-    logger.info(f"Options: dry_run={args.dry_run}, user_id={args.user_id}, force={args.force}")
     
-    generator = StyleProfileGenerator(dry_run=args.dry_run)
+    generator = StyleProfileGenerator()
     
     try:
         if args.user_id:

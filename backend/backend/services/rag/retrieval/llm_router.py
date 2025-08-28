@@ -14,7 +14,10 @@ class LLM:
         self.llm_cfg = self.config.get("llm", {})
 
         self.model = model or self.llm_cfg.get("model", "gpt-5-mini")
-        self.temperature = temperature if temperature is not None else self.llm_cfg.get("temperature", 0.2)
+        if self.model == "gpt-5-mini":
+            self.temperature = 1
+        else:
+            self.temperature = temperature if temperature is not None else self.llm_cfg.get("temperature", 0.2)
         self.max_tokens = max_tokens or self.llm_cfg.get("max_tokens", 1000)
 
         self.provider = self.llm_cfg.get("provider", "openai")

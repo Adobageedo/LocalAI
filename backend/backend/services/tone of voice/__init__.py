@@ -14,11 +14,9 @@ basé sur ses emails envoyés. Il inclut :
 from .email_extractor import OutlookEmailExtractor
 from .email_preprocessor import EmailPreprocessor
 from .style_analyzer import StyleAnalyzer
-from .tone_profile_manager import ToneProfileManager
 
 __all__ = [
     'OutlookEmailExtractor',
     'EmailPreprocessor', 
-    'StyleAnalyzer',
-    'ToneProfileManager'
+    'StyleAnalyzer'
 ]

@@ -64,7 +64,6 @@ class EmailPreprocessor:
             # Ajouter les métadonnées de l'email à la fin du corps nettoyé
             email_metadata = self._format_email_metadata(email_data)
             if email_metadata:
-                logger.info(f"Métadonnées de l'email: {email_metadata}")
                 cleaned_body += "\n\n" + email_metadata
             
             # Mettre à jour le corps nettoyé
@@ -81,8 +80,6 @@ class EmailPreprocessor:
             # Calculer des métriques de base
             metrics = self.calculate_basic_metrics(cleaned_body)
             processed_email['metrics'] = metrics
-            
-            logger.debug(f"Email prétraité: {len(original_body)} -> {len(cleaned_body)} caractères")
             
             return processed_email
             
@@ -304,14 +301,9 @@ class EmailPreprocessor:
             try:
                 processed_email = self.preprocess_email(email)
                 processed_emails.append(processed_email)
-                
-                if (i + 1) % 10 == 0:
-                    logger.info(f"Prétraité {i + 1}/{len(emails)} emails")
-                    
+                                    
             except Exception as e:
                 logger.error(f"Erreur lors du prétraitement de l'email {i}: {str(e)}")
                 # Ajouter l'email original en cas d'erreur
                 processed_emails.append(email)
-        
-        logger.info(f"Prétraitement terminé: {len(processed_emails)} emails traités")
         return processed_emails
