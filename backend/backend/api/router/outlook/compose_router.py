@@ -19,6 +19,7 @@ from backend.services.auth.middleware.auth_firebase import get_current_user
 from backend.services.rag.retrieve_rag_information_modular import get_rag_response_modular
 from backend.core.logger import log
 from backend.api.utils.get_style_analysis import get_user_style_context
+from backend.api.utils.config_loader import get_compose_config, is_style_analysis_enabled
 
 logger = log.bind(name="backend.api.outlook.compose_router")
 
@@ -109,9 +110,14 @@ async def generate_email(
             body=None  # No original body for generation
         )
         
-        # Get user's style analysis for personalization
+        # Get configuration settings
+        config = get_compose_config()
+        
+        # Get user's style analysis for personalization (if enabled)
         user_id = request.userId or (current_user.get("uid") if current_user else "anonymous")
-        style_context = await get_user_style_context(user_id)
+        style_context = None
+        if is_style_analysis_enabled('compose'):
+            style_context = await get_user_style_context(user_id)
         
         # Build the system prompt
         system_prompt = prompt_builder.build_system_prompt(
@@ -119,7 +125,7 @@ async def generate_email(
             language=request.language,
             email_context=email_context,
             additional_info=request.additionalInfo,
-            use_rag=request.use_rag or False
+            use_rag=request.use_rag if request.use_rag is not None else config['default_use_rag']
         )
         
         # Add style analysis to system prompt if available
@@ -136,8 +142,8 @@ async def generate_email(
             system_prompt=system_prompt,
             user_id=request.userId or (current_user.get("uid") if current_user else "anonymous"),
             conversation_history=request.conversationId,
-            use_retrieval=request.use_rag or False,
-            temperature=0.7
+            use_retrieval=request.use_rag if request.use_rag is not None else config['default_use_rag'],
+            temperature=config['default_temperature']
         )
         logger.debug(ComposeResponse(
             generated_text=rag_response.get("answer", ""),
@@ -147,9 +153,11 @@ async def generate_email(
             metadata={
                 "tone": request.tone,
                 "language": request.language,
-                "use_rag": request.use_rag,
-                "model": rag_response.get("model"),
-                "temperature": rag_response.get("temperature", 0.7)
+                "use_rag": request.use_rag if request.use_rag is not None else config['default_use_rag'],
+                "model": rag_response.get("model", config['default_model']),
+                "temperature": rag_response.get("temperature", config['default_temperature']),
+                "style_analysis_used": bool(style_context),
+                "style_analysis_enabled": is_style_analysis_enabled('compose')
             }
         ))
         return ComposeResponse(
@@ -160,10 +168,11 @@ async def generate_email(
             metadata={
                 "tone": request.tone,
                 "language": request.language,
-                "use_rag": request.use_rag,
-                "model": rag_response.get("model"),
-                "temperature": rag_response.get("temperature", 0.7),
-                "style_analysis_used": bool(style_context)
+                "use_rag": request.use_rag if request.use_rag is not None else config['default_use_rag'],
+                "model": rag_response.get("model", config['default_model']),
+                "temperature": rag_response.get("temperature", config['default_temperature']),
+                "style_analysis_used": bool(style_context),
+                "style_analysis_enabled": is_style_analysis_enabled('compose')
             }
         )
         
@@ -223,9 +232,15 @@ async def correct_email(
             body=request.body
         )
         
-        # Get user's style analysis for personalization
+        # Get configuration settings
+        config = get_compose_config()
+        
+        # Get user's style analysis for personalization (if enabled)
         user_id = request.userId or (current_user.get("uid") if current_user else "anonymous")
-        style_context = await get_user_style_context(user_id)
+        style_context = None
+        if is_style_analysis_enabled('compose'):
+            style_context = await get_user_style_context(user_id)
+        
         # Build system prompt for correction
         system_prompt = prompt_builder.build_system_prompt(
             tone=request.tone,
@@ -248,7 +263,7 @@ async def correct_email(
             user_id=request.userId or (current_user.get("uid") if current_user else "anonymous"),
             conversation_history=request.conversationId,
             use_retrieval=False,  # Correction doesn't need RAG
-            temperature=0.3  # Lower temperature for more consistent corrections
+            temperature=config['correction_temperature']  # Use config temperature for corrections
         )
         
         logger.info("Email correction completed successfully",
@@ -261,13 +276,13 @@ async def correct_email(
             success=True,
             message="Email corrigé avec succès",
             metadata={
-                "operation": "correction",
                 "language": request.language,
                 "original_length": len(request.body),
                 "corrected_length": len(rag_response.get("answer", "")),
-                "model": rag_response.get("model"),
-                "temperature": 0.3,
-                "style_analysis_used": bool(style_context)
+                "model": rag_response.get("model", config['default_model']),
+                "temperature": rag_response.get("temperature", config['correction_temperature']),
+                "style_analysis_used": bool(style_context),
+                "style_analysis_enabled": is_style_analysis_enabled('compose')
             }
         )
         
@@ -328,9 +343,14 @@ async def reformulate_email(
             body=request.body
         )
         
-        # Get user's style analysis for personalization
+        # Get configuration settings
+        config = get_compose_config()
+        
+        # Get user's style analysis for personalization (if enabled)
         user_id = request.userId or (current_user.get("uid") if current_user else "anonymous")
-        style_context = await get_user_style_context(user_id)
+        style_context = None
+        if is_style_analysis_enabled('compose'):
+            style_context = await get_user_style_context(user_id)
         
         # Build system prompt for reformulation
         additional_instructions = f"Please reformulate this email to improve clarity, style, and impact while preserving the original meaning. {request.additionalInfo if request.additionalInfo else ''}. Return only the text of the email reformulated."
@@ -340,9 +360,9 @@ async def reformulate_email(
             language=request.language,
             email_context=email_context,
             additional_info=additional_instructions,
-            use_rag=request.use_rag or False
+            use_rag=request.use_rag if request.use_rag is not None else config['default_use_rag']
         )
-        logger.info(f"System prompt: {system_prompt}")
+        
         # Add style analysis to system prompt if available
         if style_context:
             system_prompt += style_context
@@ -355,8 +375,8 @@ async def reformulate_email(
             system_prompt=system_prompt,
             user_id=request.userId or (current_user.get("uid") if current_user else "anonymous"),
             conversation_history=request.conversationId,
-            use_retrieval=request.use_rag or False,
-            temperature=0.5  # Moderate temperature for creative reformulation
+            use_retrieval=request.use_rag if request.use_rag is not None else config['default_use_rag'],
+            temperature=config['reformulation_temperature']  # Use config temperature for reformulation
         )
         
         logger.info("Email reformulation completed successfully",
@@ -370,16 +390,16 @@ async def reformulate_email(
             message="Email reformulé avec succès",
             sources=rag_response.get("sources", []) if request.use_rag else [],
             metadata={
-                "operation": "reformulation",
                 "tone": request.tone,
                 "language": request.language,
-                "use_rag": request.use_rag,
+                "use_rag": request.use_rag if request.use_rag is not None else config['default_use_rag'],
                 "original_length": len(request.body),
                 "reformulated_length": len(rag_response.get("answer", "")),
-                "model": rag_response.get("model"),
-                "temperature": 0.5,
+                "model": rag_response.get("model", config['default_model']),
+                "temperature": rag_response.get("temperature", config['reformulation_temperature']),
                 "instructions": request.additionalInfo,
-                "style_analysis_used": bool(style_context)
+                "style_analysis_used": bool(style_context),
+                "style_analysis_enabled": is_style_analysis_enabled('compose')
             }
         )
         

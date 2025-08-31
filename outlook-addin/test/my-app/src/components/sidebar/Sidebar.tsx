@@ -9,6 +9,7 @@ import {
 } from '@fluentui/react';
 import EmailSync from './EmailSync';
 import AuthSection from './AuthSection';
+import UserPreferences from './UserPreferences';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTranslations } from '../../utils/i18n';
 
@@ -41,6 +42,12 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onDismiss }) => {
         {user && user.email && (
           <Stack.Item>
             <EmailSync userEmail={user.email} />
+          </Stack.Item>
+        )}
+        
+        {user && (
+          <Stack.Item>
+            <UserPreferences />
           </Stack.Item>
         )}
         

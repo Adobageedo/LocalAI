@@ -12,6 +12,10 @@ export const API_ENDPOINTS = {
   // Authentication endpoints
   USERS: `${API_BASE_URL}/users`,
   
+  // User management endpoints
+  USER_PROFILE: `${API_BASE_URL}/user/profile`,
+  USER_PREFERENCES: `${API_BASE_URL}/user/preferences`,
+  
   // Outlook endpoints
   OUTLOOK_PROMPT: `${API_BASE_URL}/outlook/prompt`,
   OUTLOOK_SUMMARIZE: `${API_BASE_URL}/outlook/summarize`,

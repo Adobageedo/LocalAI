@@ -18,6 +18,7 @@ import { useOffice } from '../../contexts/OfficeContext';
 import { useTranslations, getOutlookLanguage } from '../../utils/i18n';
 import { authFetch } from '../../utils/authFetch';
 import { API_ENDPOINTS } from '../../config/api';
+import TemplateChatInterface from './TemplateChatInterface';
 
 const TemplateGenerator: React.FC = () => {
   const { user } = useAuth();
@@ -31,6 +32,8 @@ const TemplateGenerator: React.FC = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [showChat, setShowChat] = useState(false);
+  const [conversationId, setConversationId] = useState<string | null>(null);
 
   const toneOptions: IDropdownOption[] = [
     { key: 'professional', text: t.toneProfessional },
@@ -103,6 +106,8 @@ const TemplateGenerator: React.FC = () => {
         console.log('=== END API RESPONSE DATA ===');
         setGeneratedTemplate(data.generated_text);
         setSuccess('Template generated successfully!');
+        // Create new conversation for this template
+        setConversationId(Date.now().toString());
       } else {
         throw new Error('Invalid response from API');
       }
@@ -174,70 +179,85 @@ const TemplateGenerator: React.FC = () => {
         </MessageBar>
       )}
 
-      <TextField
-        label={t.additionalInfo}
-        multiline
-        rows={2}
-        value={additionalInfo}
-        onChange={(_, newValue) => setAdditionalInfo(newValue || '')}
-        placeholder={t.additionalInfoPlaceholder}
-        disabled={isGenerating}
-      />
+      {!generatedTemplate && (
+        <>
+          <TextField
+            label={t.additionalInfo}
+            multiline
+            rows={2}
+            value={additionalInfo}
+            onChange={(_, newValue) => setAdditionalInfo(newValue || '')}
+            placeholder={t.additionalInfoPlaceholder}
+            disabled={isGenerating}
+          />
 
-      <Dropdown
-        label={t.tone}
-        selectedKey={tone}
-        onChange={(_, option) => setTone(option?.key as string)}
-        options={toneOptions}
-        disabled={isGenerating}
-      />
+          <Dropdown
+            label={t.tone}
+            selectedKey={tone}
+            onChange={(_, option) => setTone(option?.key as string)}
+            options={toneOptions}
+            disabled={isGenerating}
+          />
 
-      <PrimaryButton
-        text={isGenerating ? t.generatingTemplate : t.generateTemplate}
-        onClick={handleGenerateTemplate}
-        disabled={isGenerating}
-        iconProps={{ iconName: 'Sparkle' }}
-      />
+          <PrimaryButton
+            text={isGenerating ? t.generatingTemplate : t.generateTemplate}
+            onClick={handleGenerateTemplate}
+            disabled={isGenerating}
+            iconProps={{ iconName: 'Sparkle' }}
+          />
 
-      {isGenerating && (
-        <Stack horizontal horizontalAlign="center" tokens={{ childrenGap: 8 }}>
-          <Spinner size={SpinnerSize.small} />
-          <Text variant="medium">{t.generatingTemplate}</Text>
-        </Stack>
+          {isGenerating && (
+            <Stack horizontal horizontalAlign="center" tokens={{ childrenGap: 8 }}>
+              <Spinner size={SpinnerSize.small} />
+              <Text variant="medium">{t.generatingTemplate}</Text>
+            </Stack>
+          )}
+        </>
       )}
 
       {generatedTemplate && (
-        <Stack tokens={{ childrenGap: 12 }}>
-          <Text variant="medium" styles={{ root: { fontWeight: 600 } }}>
-            {t.templateGenerated}:
-          </Text>
-          <div
-            style={{
-              border: '1px solid #e1e1e1',
-              borderRadius: '4px',
-              padding: '12px',
-              backgroundColor: '#f8f8f8',
-              minHeight: '100px',
-              whiteSpace: 'pre-wrap',
-              fontSize: '14px',
-              lineHeight: '1.4'
+        <Stack tokens={{ childrenGap: 12 }}>          
+          <TemplateChatInterface
+            initialTemplate={generatedTemplate}
+            conversationId={conversationId || Date.now().toString()}
+            onTemplateUpdate={(newTemplate) => {
+              setGeneratedTemplate(newTemplate);
+              setSuccess('Template refined successfully!');
             }}
-          >
-            {generatedTemplate}
-          </div>
-          
-          <Stack horizontal tokens={{ childrenGap: 8 }}>
-            <PrimaryButton
-              text={t.insertTemplate}
-              onClick={handleInsertTemplate}
-              iconProps={{ iconName: 'Mail' }}
-            />
-            <DefaultButton
-              text="Copy to Clipboard"
-              onClick={handleCopyTemplate}
-              iconProps={{ iconName: 'Copy' }}
-            />
+            isInline={true}
+            userRequest={`Please create an email template based on the provided context`}
+            emailContext={{
+              subject: currentEmail?.subject,
+              from: currentEmail?.from,
+              additionalInfo: additionalInfo,
+              tone: tone
+            }}
+          />
+          <Stack horizontal tokens={{ childrenGap: 8 }} horizontalAlign="space-between">
+            {/* <DefaultButton
+              text="New Template"
+              onClick={() => {
+                setGeneratedTemplate('');
+                setConversationId(null);
+                setError('');
+                setSuccess('');
+              }}
+              iconProps={{ iconName: 'Add' }}
+            /> */}
+            <Stack horizontal tokens={{ childrenGap: 8 }}>
+              <PrimaryButton
+                text={t.insertTemplate}
+                onClick={handleInsertTemplate}
+                iconProps={{ iconName: 'Mail' }}
+              />
+              <DefaultButton
+                text="Copy to Clipboard"
+                onClick={handleCopyTemplate}
+                iconProps={{ iconName: 'Copy' }}
+              />
+            </Stack>
           </Stack>
+
         </Stack>
       )}
     </Stack>

@@ -27,7 +27,8 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.
 from backend.core.logger import log
 from backend.core.config import load_config
 from backend.services.auth.credentials_manager import get_authenticated_users_by_provider, check_microsoft_credentials
-from backend.services.db.models import ToneProfile, User
+from backend.services.db.model.style_analysis import StyleAnalysis
+from backend.services.db.model.user import User
 from backend.services.style_analysis.email_extractor import OutlookEmailExtractor, GmailEmailExtractor
 from backend.services.style_analysis.email_preprocessor import EmailPreprocessor
 from backend.services.style_analysis.style_analyzer import StyleAnalyzer
@@ -77,7 +78,7 @@ class StyleProfileGenerator:
                 logger.error(result['error'])
                 return result
             # Vérifier si un profil existe déjà
-            existing_profile = ToneProfile.get_by_user_and_provider(user_id, self.provider)
+            existing_profile = StyleAnalysis.get_by_user_and_provider(user_id, self.provider)
             if existing_profile:
                 result['existing_profile'] = existing_profile.to_dict()
                 if not force:
@@ -152,7 +153,7 @@ class StyleProfileGenerator:
                 return result
             else:
                 # Créer un nouveau profil
-                profile = ToneProfile.create(
+                profile = StyleAnalysis.create(
                     user_id=user_id,
                     provider='outlook',
                     style_analysis=style_analysis,
