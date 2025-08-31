@@ -10,9 +10,13 @@ import {
   Spinner,
   SpinnerSize,
   Dropdown,
-  IDropdownOption
+  IDropdownOption,
+  getTheme,
+  FontWeights,
+  mergeStyles,
+  IStackStyles
 } from '@fluentui/react';
-import { Sparkle20Regular } from '@fluentui/react-icons';
+import { Sparkle24Regular, Mail24Regular, Copy24Regular, Add24Regular } from '@fluentui/react-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOffice } from '../../contexts/OfficeContext';
 import { useTranslations, getOutlookLanguage } from '../../utils/i18n';
@@ -34,6 +38,124 @@ const TemplateGenerator: React.FC = () => {
   const [success, setSuccess] = useState('');
   const [showChat, setShowChat] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
+
+  const theme = getTheme();
+  
+  const cardStyles: IStackStyles = {
+    root: {
+      backgroundColor: theme.palette.white,
+      border: `1px solid ${theme.palette.neutralLight}`,
+      borderRadius: '16px',
+      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+      padding: '32px',
+      marginBottom: '20px',
+      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+      position: 'relative',
+      overflow: 'hidden',
+      '@media (max-width: 768px)': {
+        padding: '20px',
+        borderRadius: '12px'
+      },
+      '@media (max-width: 480px)': {
+        padding: '16px',
+        margin: '0 -8px 16px -8px'
+      },
+      '&:hover': {
+        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.15)',
+        transform: 'translateY(-2px)',
+        borderColor: theme.palette.themePrimary
+      },
+      '&::before': {
+        content: '""',
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: '4px',
+        background: `linear-gradient(90deg, ${theme.palette.themePrimary}, ${theme.palette.themeSecondary})`,
+        borderRadius: '16px 16px 0 0'
+      }
+    }
+  };
+  
+  const headerStyles = mergeStyles({
+    fontSize: '20px',
+    fontWeight: FontWeights.bold,
+    color: theme.palette.neutralPrimary,
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    marginBottom: '8px',
+    paddingTop: '8px'
+  });
+  
+  const subHeaderStyles = mergeStyles({
+    fontSize: '14px',
+    fontWeight: FontWeights.regular,
+    color: theme.palette.neutralSecondary,
+    marginBottom: '24px',
+    lineHeight: '1.4'
+  });
+  
+  const modernButtonStyles = {
+    root: {
+      borderRadius: '12px',
+      height: '44px',
+      fontSize: '14px',
+      fontWeight: FontWeights.semibold,
+      minWidth: '120px',
+      transition: 'all 0.2s ease-in-out',
+      '@media (max-width: 768px)': {
+        height: '40px',
+        fontSize: '13px',
+        minWidth: '100px'
+      },
+      '@media (max-width: 480px)': {
+        height: '36px',
+        fontSize: '12px',
+        minWidth: '80px',
+        padding: '0 12px'
+      }
+    }
+  };
+  
+  const secondaryButtonStyles = {
+    root: {
+      borderRadius: '12px',
+      height: '44px',
+      fontSize: '14px',
+      fontWeight: FontWeights.regular,
+      minWidth: '100px',
+      border: `2px solid ${theme.palette.neutralLight}`,
+      transition: 'all 0.2s ease-in-out',
+      '@media (max-width: 768px)': {
+        height: '40px',
+        fontSize: '13px',
+        minWidth: '90px'
+      },
+      '@media (max-width: 480px)': {
+        height: '36px',
+        fontSize: '12px',
+        minWidth: '70px',
+        padding: '0 8px'
+      }
+    }
+  };
+  
+  const textFieldStyles = {
+    fieldGroup: {
+      borderRadius: '12px',
+      border: `2px solid ${theme.palette.neutralLight}`,
+      transition: 'all 0.2s ease-in-out',
+      '&:hover': {
+        borderColor: theme.palette.themePrimary
+      }
+    },
+    field: {
+      fontSize: '14px',
+      lineHeight: '1.5'
+    }
+  };
 
   const toneOptions: IDropdownOption[] = [
     { key: 'professional', text: t.toneProfessional },
@@ -159,36 +281,75 @@ const TemplateGenerator: React.FC = () => {
   }
 
   return (
-    <Stack tokens={{ childrenGap: 16 }} styles={{ root: { padding: '20px' } }}>
-      <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 8 }}>
-        <Sparkle20Regular style={{ fontSize: '18px', color: '#0078d4' }} />
-        <Text variant="mediumPlus" styles={{ root: { fontWeight: 600 } }}>
-          {t.generateTemplate}
-        </Text>
-      </Stack>
+    <Stack 
+      tokens={{ childrenGap: 24 }} 
+      styles={{ 
+        root: { 
+          padding: '24px',
+          backgroundColor: '#fafbfc',
+          minHeight: '100vh',
+          '@media (max-width: 768px)': {
+            padding: '16px'
+          },
+          '@media (max-width: 480px)': {
+            padding: '12px'
+          }
+        } 
+      }}
+    >
 
       {error && (
-        <MessageBar messageBarType={MessageBarType.error} onDismiss={() => setError('')}>
+        <MessageBar 
+          messageBarType={MessageBarType.error} 
+          onDismiss={() => setError('')}
+          styles={{
+            root: {
+              borderRadius: '12px',
+              marginBottom: '16px',
+              fontSize: '14px',
+              fontWeight: FontWeights.regular
+            }
+          }}
+        >
           {error}
         </MessageBar>
       )}
 
       {success && (
-        <MessageBar messageBarType={MessageBarType.success} onDismiss={() => setSuccess('')}>
+        <MessageBar 
+          messageBarType={MessageBarType.success} 
+          onDismiss={() => setSuccess('')}
+          styles={{
+            root: {
+              borderRadius: '12px',
+              marginBottom: '16px',
+              fontSize: '14px',
+              fontWeight: FontWeights.regular
+            }
+          }}
+        >
           {success}
         </MessageBar>
       )}
 
       {!generatedTemplate && (
-        <>
+        <Stack tokens={{ childrenGap: 20 }} styles={cardStyles}>
+          <Text className={headerStyles}>
+            <Sparkle24Regular /> Générer un Template d'Email
+          </Text>
+          <Text className={subHeaderStyles}>
+            Créez un template d'email personnalisé basé sur le contexte de l'email actuel.
+          </Text>
+          
           <TextField
             label={t.additionalInfo}
             multiline
-            rows={2}
+            rows={3}
             value={additionalInfo}
             onChange={(_, newValue) => setAdditionalInfo(newValue || '')}
             placeholder={t.additionalInfoPlaceholder}
             disabled={isGenerating}
+            styles={textFieldStyles}
           />
 
           <Dropdown
@@ -197,6 +358,10 @@ const TemplateGenerator: React.FC = () => {
             onChange={(_, option) => setTone(option?.key as string)}
             options={toneOptions}
             disabled={isGenerating}
+            styles={{
+              dropdown: { borderRadius: '12px' },
+              title: { borderRadius: '12px', border: `2px solid ${theme.palette.neutralLight}` }
+            }}
           />
 
           <PrimaryButton
@@ -204,15 +369,42 @@ const TemplateGenerator: React.FC = () => {
             onClick={handleGenerateTemplate}
             disabled={isGenerating}
             iconProps={{ iconName: 'Sparkle' }}
+            styles={modernButtonStyles}
           />
 
           {isGenerating && (
-            <Stack horizontal horizontalAlign="center" tokens={{ childrenGap: 8 }}>
-              <Spinner size={SpinnerSize.small} />
-              <Text variant="medium">{t.generatingTemplate}</Text>
+            <Stack 
+              horizontal 
+              horizontalAlign="center" 
+              tokens={{ childrenGap: 12 }} 
+              styles={{ 
+                root: { 
+                  padding: '16px 24px',
+                  backgroundColor: theme.palette.themeLighterAlt,
+                  borderRadius: '12px',
+                  border: `1px solid ${theme.palette.themeLight}`,
+                  marginTop: '16px'
+                } 
+              }}
+            >
+              <Spinner 
+                size={SpinnerSize.medium} 
+                styles={{ circle: { borderTopColor: theme.palette.themePrimary } }} 
+              />
+              <Text 
+                styles={{ 
+                  root: { 
+                    fontSize: '16px', 
+                    fontWeight: FontWeights.semibold, 
+                    color: theme.palette.themePrimary 
+                  } 
+                }}
+              >
+                {t.generatingTemplate}
+              </Text>
             </Stack>
           )}
-        </>
+        </Stack>
       )}
 
       {generatedTemplate && (
@@ -233,9 +425,26 @@ const TemplateGenerator: React.FC = () => {
               tone: tone
             }}
           />
-          <Stack horizontal tokens={{ childrenGap: 8 }} horizontalAlign="space-between">
-            {/* <DefaultButton
-              text="New Template"
+          <Stack 
+            horizontal 
+            tokens={{ childrenGap: 12 }} 
+            horizontalAlign="space-between"
+            wrap
+            styles={{
+              root: {
+                padding: '20px',
+                backgroundColor: '#f3f9ff',
+                borderRadius: '12px',
+                border: `2px solid ${theme.palette.themePrimary}`,
+                '@media (max-width: 768px)': {
+                  flexDirection: 'column',
+                  gap: '12px'
+                }
+              }
+            }}
+          >
+            <DefaultButton
+              text="Nouveau Template"
               onClick={() => {
                 setGeneratedTemplate('');
                 setConversationId(null);
@@ -243,17 +452,20 @@ const TemplateGenerator: React.FC = () => {
                 setSuccess('');
               }}
               iconProps={{ iconName: 'Add' }}
-            /> */}
-            <Stack horizontal tokens={{ childrenGap: 8 }}>
+              styles={secondaryButtonStyles}
+            />
+            <Stack horizontal tokens={{ childrenGap: 12 }}>
               <PrimaryButton
                 text={t.insertTemplate}
                 onClick={handleInsertTemplate}
                 iconProps={{ iconName: 'Mail' }}
+                styles={modernButtonStyles}
               />
               <DefaultButton
-                text="Copy to Clipboard"
+                text="Copier"
                 onClick={handleCopyTemplate}
                 iconProps={{ iconName: 'Copy' }}
+                styles={secondaryButtonStyles}
               />
             </Stack>
           </Stack>

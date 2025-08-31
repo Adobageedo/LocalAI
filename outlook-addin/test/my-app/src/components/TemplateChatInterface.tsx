@@ -10,9 +10,12 @@ import {
   Spinner,
   SpinnerSize,
   ScrollablePane,
-  IStackTokens
+  IStackTokens,
+  getTheme,
+  FontWeights,
+  mergeStyles
 } from '@fluentui/react';
-import { Send20Regular, Bot20Regular, Person20Regular } from '@fluentui/react-icons';
+import { Send20Regular, Bot20Regular, Person20Regular, Sparkle20Regular } from '@fluentui/react-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useTranslations } from '../utils/i18n';
 import { authFetch } from '../utils/authFetch';
@@ -56,7 +59,51 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
   const [currentTemplate, setCurrentTemplate] = useState(initialTemplate);
   const scrollableRef = useRef<HTMLDivElement>(null);
 
-  const stackTokens: IStackTokens = { childrenGap: 12 };
+  const theme = getTheme();
+  const stackTokens: IStackTokens = { childrenGap: 16 };
+  
+  const modernTextFieldStyles = {
+    fieldGroup: {
+      borderRadius: '12px',
+      border: `2px solid ${theme.palette.neutralLight}`,
+      transition: 'all 0.2s ease-in-out',
+      '@media (max-width: 768px)': {
+        borderRadius: '8px'
+      },
+      '&:hover': {
+        borderColor: theme.palette.themePrimary
+      },
+      '&:focus-within': {
+        borderColor: theme.palette.themePrimary
+      }
+    },
+    field: {
+      fontSize: '14px',
+      lineHeight: '1.5',
+      padding: '12px',
+      '@media (max-width: 768px)': {
+        fontSize: '13px',
+        padding: '10px'
+      }
+    }
+  };
+  
+  const modernButtonStyles = {
+    root: {
+      borderRadius: '12px',
+      height: '44px',
+      fontSize: '14px',
+      fontWeight: FontWeights.semibold,
+      minWidth: '80px',
+      transition: 'all 0.2s ease-in-out',
+      '@media (max-width: 768px)': {
+        height: '40px',
+        fontSize: '13px',
+        minWidth: '70px',
+        borderRadius: '8px'
+      }
+    }
+  };
 
   // Load conversation history or initialize with template
   useEffect(() => {
@@ -213,15 +260,38 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
 
   const containerStyles = isInline 
     ? { 
-        height: '400px', 
-        border: '1px solid #e1e1e1', 
-        borderRadius: '4px',
-        marginTop: '16px'
+        height: '450px', 
+        border: `2px solid ${theme.palette.neutralLight}`, 
+        borderRadius: '16px',
+        marginTop: '20px',
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+        backgroundColor: theme.palette.white,
+        overflow: 'hidden' as const,
+        '@media (max-width: 768px)': {
+          height: '400px',
+          borderRadius: '12px',
+          marginTop: '16px'
+        },
+        '@media (max-width: 480px)': {
+          height: '350px',
+          margin: '12px -8px 0 -8px'
+        }
       }
     : { 
-        height: '500px', 
-        border: '1px solid #e1e1e1', 
-        borderRadius: '4px' 
+        height: '550px', 
+        border: `2px solid ${theme.palette.neutralLight}`, 
+        borderRadius: '16px',
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+        backgroundColor: theme.palette.white,
+        overflow: 'hidden' as const,
+        '@media (max-width: 768px)': {
+          height: '500px',
+          borderRadius: '12px'
+        },
+        '@media (max-width: 480px)': {
+          height: '450px',
+          margin: '0 -8px'
+        }
       };
 
   return (
@@ -233,16 +303,31 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
         verticalAlign="center"
         styles={{ 
           root: { 
-            padding: '12px 16px', 
-            borderBottom: '1px solid #e1e1e1',
-            backgroundColor: '#f8f9fa'
+            padding: '16px 24px', 
+            borderBottom: `2px solid ${theme.palette.neutralLighter}`,
+            background: `linear-gradient(90deg, ${theme.palette.themePrimary}, ${theme.palette.themeSecondary})`,
+            position: 'relative',
+            '@media (max-width: 768px)': {
+              padding: '12px 16px'
+            },
+            '@media (max-width: 480px)': {
+              padding: '10px 12px'
+            }
           } 
         }}
       >
-        <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 8 }}>
-          <Bot20Regular style={{ fontSize: '18px', color: '#0078d4' }} />
-          <Text variant="medium" styles={{ root: { fontWeight: 600 } }}>
-            Refine Template with AI
+        <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 12 }}>
+          <Sparkle20Regular style={{ fontSize: '20px', color: theme.palette.white }} />
+          <Text 
+            variant="mediumPlus" 
+            styles={{ 
+              root: { 
+                fontWeight: FontWeights.bold,
+                color: theme.palette.white
+              } 
+            }}
+          >
+            Affiner avec l'IA
           </Text>
         </Stack>
       </Stack>
@@ -251,7 +336,13 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
         <MessageBar 
           messageBarType={MessageBarType.error} 
           onDismiss={() => setError('')}
-          styles={{ root: { margin: '0 16px' } }}
+          styles={{ 
+            root: { 
+              margin: '16px 20px 0 20px',
+              borderRadius: '8px',
+              fontSize: '14px'
+            } 
+          }}
         >
           {error}
         </MessageBar>
@@ -263,30 +354,59 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
         style={{
           flex: 1,
           overflowY: 'auto',
-          padding: '16px',
-          backgroundColor: '#ffffff'
-        }}
+          padding: '20px',
+          backgroundColor: '#fafbfc',
+          '@media (max-width: 768px)': {
+            padding: '16px'
+          },
+          '@media (max-width: 480px)': {
+            padding: '12px'
+          }
+        } as React.CSSProperties}
       >
-        <Stack tokens={{ childrenGap: 16 }}>
+        <Stack tokens={{ childrenGap: 20 }}>
           {messages.map((message) => (
             <Stack
               key={message.id}
               horizontal={message.role === 'user'}
               horizontalAlign={message.role === 'user' ? 'end' : 'start'}
-              tokens={{ childrenGap: 8 }}
+              tokens={{ childrenGap: 12 }}
             >
               {message.role === 'assistant' && (
-                <Bot20Regular style={{ fontSize: '16px', color: '#0078d4', marginTop: '4px' }} />
+                <div style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  backgroundColor: theme.palette.themePrimary,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginTop: '4px',
+                  flexShrink: 0
+                }}>
+                  <Bot20Regular style={{ fontSize: '16px', color: theme.palette.white }} />
+                </div>
               )}
               
               <Stack
                 styles={{
                   root: {
-                    maxWidth: '80%',
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    backgroundColor: message.role === 'user' ? '#0078d4' : '#f3f2f1',
-                    color: message.role === 'user' ? '#ffffff' : '#323130'
+                    maxWidth: '75%',
+                    padding: '12px 16px',
+                    borderRadius: message.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                    backgroundColor: message.role === 'user' ? theme.palette.themePrimary : theme.palette.white,
+                    color: message.role === 'user' ? theme.palette.white : theme.palette.neutralPrimary,
+                    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+                    border: message.role === 'assistant' ? `1px solid ${theme.palette.neutralLighter}` : 'none',
+                    '@media (max-width: 768px)': {
+                      maxWidth: '85%',
+                      padding: '10px 12px',
+                      borderRadius: message.role === 'user' ? '12px 12px 4px 12px' : '12px 12px 12px 4px'
+                    },
+                    '@media (max-width: 480px)': {
+                      maxWidth: '90%',
+                      padding: '8px 10px'
+                    }
                   }
                 }}
               >
@@ -295,7 +415,8 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
                   styles={{ 
                     root: { 
                       whiteSpace: 'pre-wrap',
-                      lineHeight: '1.4'
+                      lineHeight: '1.5',
+                      fontSize: '14px'
                     } 
                   }}
                 >
@@ -306,7 +427,8 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
                   styles={{ 
                     root: { 
                       opacity: 0.7,
-                      marginTop: '4px'
+                      marginTop: '6px',
+                      fontSize: '11px'
                     } 
                   }}
                 >
@@ -315,26 +437,69 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
               </Stack>
 
               {message.role === 'user' && (
-                <Person20Regular style={{ fontSize: '16px', color: '#605e5c', marginTop: '4px' }} />
+                <div style={{
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  backgroundColor: theme.palette.neutralSecondary,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginTop: '4px',
+                  flexShrink: 0
+                }}>
+                  <Person20Regular style={{ fontSize: '16px', color: theme.palette.white }} />
+                </div>
               )}
             </Stack>
           ))}
 
           {isLoading && (
-            <Stack horizontal tokens={{ childrenGap: 8 }} horizontalAlign="start">
-              <Bot20Regular style={{ fontSize: '16px', color: '#0078d4', marginTop: '4px' }} />
+            <Stack horizontal tokens={{ childrenGap: 12 }} horizontalAlign="start">
+              <div style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                backgroundColor: theme.palette.themePrimary,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                marginTop: '4px',
+                flexShrink: 0
+              }}>
+                <Bot20Regular style={{ fontSize: '16px', color: theme.palette.white }} />
+              </div>
               <Stack
                 styles={{
                   root: {
-                    padding: '8px 12px',
-                    borderRadius: '8px',
-                    backgroundColor: '#f3f2f1'
+                    padding: '12px 16px',
+                    borderRadius: '16px 16px 16px 4px',
+                    backgroundColor: theme.palette.white,
+                    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+                    border: `1px solid ${theme.palette.neutralLighter}`
                   }
                 }}
               >
-                <Stack horizontal tokens={{ childrenGap: 8 }} verticalAlign="center">
-                  <Spinner size={SpinnerSize.xSmall} />
-                  <Text variant="small">Refining template...</Text>
+                <Stack horizontal tokens={{ childrenGap: 12 }} verticalAlign="center">
+                  <Spinner 
+                    size={SpinnerSize.small} 
+                    styles={{ 
+                      circle: { 
+                        borderTopColor: theme.palette.themePrimary 
+                      } 
+                    }} 
+                  />
+                  <Text 
+                    variant="small" 
+                    styles={{
+                      root: {
+                        fontSize: '14px',
+                        color: theme.palette.neutralSecondary
+                      }
+                    }}
+                  >
+                    Affinage en cours...
+                  </Text>
                 </Stack>
               </Stack>
             </Stack>
@@ -346,28 +511,51 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
       <Stack
         styles={{
           root: {
-            padding: '16px',
-            borderTop: '1px solid #e1e1e1',
-            backgroundColor: '#f8f9fa'
+            padding: '20px 24px',
+            borderTop: `2px solid ${theme.palette.neutralLighter}`,
+            backgroundColor: theme.palette.white,
+            '@media (max-width: 768px)': {
+              padding: '16px 20px'
+            },
+            '@media (max-width: 480px)': {
+              padding: '12px 16px'
+            }
           }
         }}
       >
-        <Stack horizontal tokens={{ childrenGap: 8 }} verticalAlign="end">
+        <Stack 
+          horizontal 
+          tokens={{ childrenGap: 12 }} 
+          verticalAlign="end"
+          styles={{
+            root: {
+              '@media (max-width: 480px)': {
+                flexDirection: 'column',
+                alignItems: 'stretch',
+                gap: '8px'
+              }
+            }
+          }}
+        >
           <TextField
-            placeholder="Ask me to improve the template..."
+            placeholder="Demandez-moi d'améliorer le template..."
             value={currentMessage}
             onChange={(_, newValue) => setCurrentMessage(newValue || '')}
             onKeyPress={handleKeyPress}
             multiline
             autoAdjustHeight
             disabled={isLoading}
-            styles={{ root: { flex: 1 } }}
+            styles={{
+              root: { flex: 1 },
+              ...modernTextFieldStyles
+            }}
           />
           <PrimaryButton
-            text="Send"
+            text="Envoyer"
             onClick={handleSendMessage}
             disabled={!currentMessage.trim() || isLoading}
             iconProps={{ iconName: 'Send' }}
+            styles={modernButtonStyles}
           />
         </Stack>
       </Stack>
