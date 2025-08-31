@@ -273,7 +273,7 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
           marginTop: '16px'
         },
         '@media (max-width: 480px)': {
-          height: '350px',
+          height: '800px',
           margin: '12px -8px 0 -8px'
         }
       }
