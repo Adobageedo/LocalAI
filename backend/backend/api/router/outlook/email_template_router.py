@@ -78,8 +78,12 @@ async def generate_email_template(data: EmailTemplateRequest, user = Depends(get
     # Get user_id from authenticated user, fallback to userId from request for development
     user_id = user.get("uid") if user else "None"
     
+    # Validate and convert string inputs to enums
+    validated_tone = LanguageConfig.validate_tone(data.tone or "professional")
+    validated_language = LanguageConfig.validate_language(data.language or "en")
+    
     logger.info(f"Generating email template for user: {user_id}")
-    logger.debug(f"Request data: tone={data.tone.value}, language={data.language.value}, use_rag={data.use_rag}, subject={data.subject}, from={data.from_email}")
+    logger.debug(f"Request data: tone={validated_tone.value}, language={validated_language.value}, use_rag={data.use_rag}, subject={data.subject}, from={data.from_email}")
     
     # Build email context and system prompt using the production builder
     email_context = EmailPromptBuilder.build_email_context(
@@ -97,10 +101,10 @@ async def generate_email_template(data: EmailTemplateRequest, user = Depends(get
         style_context = await get_user_style_context(user_id)
     
     system_prompt = EmailPromptBuilder.build_system_prompt(
-        tone=data.tone,
-        language=data.language,
+        tone=validated_tone,
+        language=validated_language,
         email_context=email_context,
-        additional_info=data.additionalInfo,
+        additional_info=data.additional_info,
         use_rag=data.use_rag if data.use_rag is not None else config['default_use_rag']
     )
     
