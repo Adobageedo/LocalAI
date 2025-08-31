@@ -34,7 +34,7 @@ function ComposerApp() {
 
   return (
     <div className="container">
-      <Stack tokens={{ childrenGap: 16 }} styles={{ root: { padding: '20px' } }}>
+      <Stack tokens={{ childrenGap: 16 }} styles={{ root: { padding: '3px' } }}>
         {/* Header with Settings Button */}
         <Stack horizontal verticalAlign="center" horizontalAlign="space-between" styles={{ root: { width: '100%' } }}>
           <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 8 }}>

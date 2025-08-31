@@ -261,24 +261,30 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
   const containerStyles = isInline 
     ? { 
         height: '800px', 
+        width: '95%',
+        margin: '20px auto 0 auto',
         border: `2px solid ${theme.palette.neutralLight}`, 
         borderRadius: '16px',
-        marginTop: '20px',
         boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
         backgroundColor: theme.palette.white,
         overflow: 'hidden' as const,
         '@media (max-width: 768px)': {
           height: '800px',
+          width: '98%',
           borderRadius: '12px',
-          marginTop: '16px'
+          margin: '16px auto 0 auto'
         },
         '@media (max-width: 480px)': {
           height: '800px',
-          margin: '12px -8px 0 -8px'
+          width: '100%',
+          margin: '12px 0 0 0',
+          borderRadius: '8px'
         }
       }
     : { 
         height: '900px', 
+        width: '95%',
+        margin: '0 auto',
         border: `2px solid ${theme.palette.neutralLight}`, 
         borderRadius: '16px',
         boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
@@ -286,11 +292,14 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
         overflow: 'hidden' as const,
         '@media (max-width: 768px)': {
           height: '900px',
+          width: '98%',
           borderRadius: '12px'
         },
         '@media (max-width: 480px)': {
           height: '800px',
-          margin: '0 -8px'
+          width: '100%',
+          margin: '0',
+          borderRadius: '8px'
         }
       };
 
@@ -303,15 +312,15 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
         verticalAlign="center"
         styles={{ 
           root: { 
-            padding: '16px 24px', 
+            padding: '16px 12px', 
             borderBottom: `2px solid ${theme.palette.neutralLighter}`,
             background: `linear-gradient(90deg, ${theme.palette.themePrimary}, ${theme.palette.themeSecondary})`,
             position: 'relative',
             '@media (max-width: 768px)': {
-              padding: '12px 16px'
+              padding: '12px 8px'
             },
             '@media (max-width: 480px)': {
-              padding: '10px 12px'
+              padding: '10px 6px'
             }
           } 
         }}
@@ -338,7 +347,7 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
           onDismiss={() => setError('')}
           styles={{ 
             root: { 
-              margin: '16px 20px 0 20px',
+              margin: '16px 8px 0 8px',
               borderRadius: '8px',
               fontSize: '14px'
             } 
@@ -354,13 +363,13 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
         style={{
           flex: 1,
           overflowY: 'auto',
-          padding: '20px',
+          padding: '20px 8px',
           backgroundColor: '#fafbfc',
           '@media (max-width: 768px)': {
-            padding: '16px'
+            padding: '16px 6px'
           },
           '@media (max-width: 480px)': {
-            padding: '12px'
+            padding: '12px 4px'
           }
         } as React.CSSProperties}
       >
@@ -391,7 +400,7 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
               <Stack
                 styles={{
                   root: {
-                    maxWidth: '75%',
+                    maxWidth: message.role === 'assistant' ? '100%' : '75%',
                     padding: '12px 16px',
                     borderRadius: message.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
                     backgroundColor: message.role === 'user' ? theme.palette.themePrimary : theme.palette.white,
@@ -399,12 +408,12 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
                     boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
                     border: message.role === 'assistant' ? `1px solid ${theme.palette.neutralLighter}` : 'none',
                     '@media (max-width: 768px)': {
-                      maxWidth: '85%',
+                      maxWidth: message.role === 'assistant' ? '100%' : '85%',
                       padding: '10px 12px',
                       borderRadius: message.role === 'user' ? '12px 12px 4px 12px' : '12px 12px 12px 4px'
                     },
                     '@media (max-width: 480px)': {
-                      maxWidth: '90%',
+                      maxWidth: message.role === 'assistant' ? '100%' : '90%',
                       padding: '8px 10px'
                     }
                   }
@@ -511,14 +520,14 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
       <Stack
         styles={{
           root: {
-            padding: '20px 24px',
+            padding: '20px 12px',
             borderTop: `2px solid ${theme.palette.neutralLighter}`,
             backgroundColor: theme.palette.white,
             '@media (max-width: 768px)': {
-              padding: '16px 20px'
+              padding: '16px 8px'
             },
             '@media (max-width: 480px)': {
-              padding: '12px 16px'
+              padding: '12px 6px'
             }
           }
         }}
