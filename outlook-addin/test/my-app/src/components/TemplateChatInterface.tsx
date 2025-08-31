@@ -260,7 +260,7 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
 
   const containerStyles = isInline 
     ? { 
-        height: '450px', 
+        height: '800px', 
         border: `2px solid ${theme.palette.neutralLight}`, 
         borderRadius: '16px',
         marginTop: '20px',
@@ -278,7 +278,7 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
         }
       }
     : { 
-        height: '550px', 
+        height: '900px', 
         border: `2px solid ${theme.palette.neutralLight}`, 
         borderRadius: '16px',
         boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',

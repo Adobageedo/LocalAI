@@ -9,6 +9,7 @@ import {
   mergeStyles,
   IStackStyles
 } from '@fluentui/react';
+import EmailContext from '../EmailContext';
 import { Mail24Regular, DocumentText24Regular, Sparkle24Regular } from '@fluentui/react-icons';
 import TemplateGenerator from './TemplateGenerator';
 import FileSynthesizer from './FileSynthesizer';
@@ -81,6 +82,7 @@ const TabbedInterface: React.FC = () => {
 
   return (
     <Stack styles={containerStyles}>      
+      <EmailContext />
       <Stack styles={{ root: { padding: '0 24px', '@media (max-width: 768px)': { padding: '0 16px' }, '@media (max-width: 480px)': { padding: '0 12px' } } }}>
         <Pivot 
           selectedKey={selectedTab} 

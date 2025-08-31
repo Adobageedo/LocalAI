@@ -23,6 +23,7 @@ import { useTranslations, getOutlookLanguage } from '../../utils/i18n';
 import { authFetch } from '../../utils/authFetch';
 import { API_ENDPOINTS } from '../../config/api';
 import TemplateChatInterface from '../TemplateChatInterface';
+import EmailContext from '../EmailContext';
 
 const TemplateGenerator: React.FC = () => {
   const { user } = useAuth();

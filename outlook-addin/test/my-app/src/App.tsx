@@ -3,7 +3,6 @@ import { initializeIcons } from '@fluentui/react/lib/Icons';
 import { AuthProvider } from './contexts/AuthContext';
 import { OfficeProvider } from './contexts/OfficeContext';
 import { useAuth } from './contexts/AuthContext';
-import EmailContext from './components/EmailContext';
 import TabbedInterface from './components/read/TabbedInterface';
 import { EmailComposer } from './components/compose';
 import AuthSection from './components/sidebar/AuthSection';
@@ -19,7 +18,6 @@ initializeIcons();
 function MainApp() {
   return (
     <div className="container">
-      <EmailContext />
       <TabbedInterface />
     </div>
   );
