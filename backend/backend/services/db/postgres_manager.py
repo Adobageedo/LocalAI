@@ -79,6 +79,14 @@ class PostgresManager:
         """Get a connection from the pool with context manager support"""
         connection = None
         try:
+            # Ensure pool is initialized (handles cases where initial setup failed)
+            if self._pool is None:
+                logger.warning("PostgreSQL connection pool not initialized. Attempting to initialize now...")
+                if not self._setup_connection_pool():
+                    raise RuntimeError(
+                        f"Database connection pool initialization failed. "
+                        f"Check connection parameters Host={DB_HOST} Port={DB_PORT} DB={DB_NAME} User={DB_USER}."
+                    )
             connection = self._pool.getconn()
             yield connection
         except psycopg2.OperationalError as oe:

@@ -16,6 +16,8 @@ import { Person20Regular } from '@fluentui/react-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { API_ENDPOINTS } from '../../config/api';
 import { useTranslations } from '../../utils/i18n';
+import { authFetch } from '../../utils/authFetch';
+import { UserPreferencesService } from '../../services/userPreferencesService';
 
 // Country codes for phone numbers
 const COUNTRY_CODES: IDropdownOption[] = [
@@ -74,41 +76,49 @@ const AuthSection: React.FC = () => {
         const uid = userCredential.user?.uid;
         
         if (uid) {
-          // Create a user object matching your database schema
-          const userData = {
-            id: uid,
-            email: email,
-            name: fullName,
-            phone: countryCode + phone,
-            address: {
-              street: streetAddress,
-              addressLine2: addressLine2,
-              city: city,
-              state: state,
-              postalCode: postalCode,
-              country: country
-            }
-          };
-          console.log('Creating user in database:', userData);
-
-          // Send the user data to your backend
+          // Wait for Firebase auth to be fully processed
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
           try {
-            const response = await fetch(API_ENDPOINTS.USERS, {
+            // Create user profile using the user creation API
+            const profileData = {
+              email: email,
+              name: fullName,
+              phone: countryCode + phone
+            };
+            
+            console.log('Creating user profile in database:', profileData);
+            const profileResponse = await authFetch(API_ENDPOINTS.USER_PROFILE, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
               },
-              body: JSON.stringify(userData)
+              body: JSON.stringify(profileData),
             });
-
-            if (!response.ok) {
-              throw new Error(`Backend registration failed: ${response.statusText}`);
+            
+            if (!profileResponse.ok) {
+              const errorData = await profileResponse.json().catch(() => ({}));
+              throw new Error(errorData.detail || `HTTP ${profileResponse.status}: ${profileResponse.statusText}`);
             }
-
-            const result = await response.json();
-            console.log('User created in backend:', result);
+            
+            const profileResult = await profileResponse.json();
+            console.log('User profile created successfully:', profileResult);
+            
+            // Create default user preferences
+            const defaultPreferences = UserPreferencesService.getDefaultPreferences();
+            console.log('Creating default user preferences:', defaultPreferences);
+            
+            const preferencesResponse = await UserPreferencesService.createUserPreferences(defaultPreferences);
+            
+            if (!preferencesResponse.success) {
+              console.warn('Failed to create default preferences:', preferencesResponse.error);
+              // Don't fail registration if preferences creation fails
+            } else {
+              console.log('Default preferences created successfully:', preferencesResponse.data);
+            }
+            
           } catch (backendError: any) {
-            console.error('Backend registration error:', backendError);
+            console.error('Backend user creation error:', backendError);
             setError(`Account created but profile setup failed: ${backendError.message}`);
             return;
           }

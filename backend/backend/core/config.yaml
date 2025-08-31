@@ -190,4 +190,110 @@ style_analyzer:
   max_emails_for_analysis: 10
   model: gpt-5-mini
   temperature: 1
-  max_tokens: 2000
+
+# Configuration des routes API
+api_routes:
+  # Configuration globale pour toutes les routes
+  global:
+    # Timeout par défaut pour les requêtes (en secondes)
+    request_timeout: 300
+    # Taille maximale des requêtes (en MB)
+    max_request_size_mb: 10
+    # Activation du cache des réponses
+    enable_response_cache: true
+    # Durée de vie du cache (en secondes)
+    cache_ttl: 3600
+    # Activation de l'analyse de style par défaut
+    enable_style_analysis: true
+    # Activation des logs détaillés
+    enable_debug_logging: false
+
+  # Configuration spécifique aux routes Outlook
+  outlook:
+    # Route de composition d'emails
+    compose:
+      # Modèle LLM par défaut
+      default_model: "gpt-4"
+      # Température par défaut pour la génération
+      default_temperature: 0.7
+      # Température pour la correction
+      correction_temperature: 0.3
+      # Température pour la reformulation
+      reformulation_temperature: 0.5
+      # Utilisation du RAG par défaut
+      default_use_rag: true
+      # Longueur maximale du contenu généré
+      max_content_length: 5000
+      # Activation de l'analyse de style
+      enable_style_analysis: true
+      # Timeout spécifique (en secondes)
+      timeout: 180
+
+    # Route des templates d'emails
+    email_template:
+      # Modèle LLM par défaut
+      default_model: "gpt-4"
+      # Température par défaut
+      default_temperature: 0.7
+      # Utilisation du RAG par défaut
+      default_use_rag: true
+      # Longueur maximale du template
+      max_template_length: 3000
+      # Activation de l'analyse de style
+      enable_style_analysis: true
+      # Timeout spécifique (en secondes)
+      timeout: 120
+      # Activation du contexte de profil
+      include_profile_context: true
+
+    # Route de résumé
+    summarize:
+      # Modèle LLM par défaut
+      default_model: "gpt-4"
+      # Température pour les résumés (plus basse pour plus de précision)
+      default_temperature: 0.3
+      # Types de résumés supportés
+      supported_types: ["concise", "detailed", "bullet_points", "action_items"]
+      # Longueur maximale du contenu à résumer
+      max_input_length: 50000
+      # Longueur maximale du résumé généré
+      max_summary_length: 2000
+      # Activation de l'analyse de style
+      enable_style_analysis: true
+      # Timeout spécifique (en secondes)
+      timeout: 150
+      # Formats de documents supportés
+      supported_formats: ["text", "pdf", "docx", "xlsx", "pptx"]
+
+    # Route d'authentification
+    auth:
+      # Durée de vie des tokens (en secondes)
+      token_lifetime: 3600
+      # Activation du refresh automatique
+      auto_refresh: true
+      # Timeout pour les requêtes d'auth (en secondes)
+      timeout: 30
+      # Scopes requis pour Outlook
+      required_scopes: ["https://graph.microsoft.com/Mail.Read", "https://graph.microsoft.com/Mail.Send"]
+
+  # Configuration spécifique aux routes Gmail
+  gmail:
+    # Route d'authentification
+    auth:
+      # Durée de vie des tokens (en secondes)
+      token_lifetime: 3600
+      # Activation du refresh automatique
+      auto_refresh: true
+      # Timeout pour les requêtes d'auth (en secondes)
+      timeout: 30
+      # Scopes requis pour Gmail
+      required_scopes: ["https://www.googleapis.com/auth/gmail.readonly", "https://www.googleapis.com/auth/gmail.send"]
+
+  # Configuration des endpoints de santé
+  health:
+    # Activation des checks détaillés
+    enable_detailed_checks: true
+    # Timeout pour les checks (en secondes)
+    check_timeout: 10
+    # Intervalle entre les checks automatiques (en secondes)
+    auto_check_interval: 300

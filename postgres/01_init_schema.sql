@@ -121,14 +121,12 @@ CREATE TABLE IF NOT EXISTS email_content (
 CREATE TABLE IF NOT EXISTS user_preferences (
     id SERIAL PRIMARY KEY,
     user_id VARCHAR(255) NOT NULL,
-    language VARCHAR(10) NOT NULL DEFAULT 'fr',
-    preferences JSONB,
+    language VARCHAR(10) NOT NULL DEFAULT 'en',
     dark_mode BOOLEAN NOT NULL DEFAULT FALSE,
     email_notifications BOOLEAN NOT NULL DEFAULT FALSE,
-    mail_server VARCHAR(255),
-    mail_username VARCHAR(255),
-    mail_password VARCHAR(255),
-    mail_security VARCHAR(20) DEFAULT 'ssl',
+    personnal_style_analysis BOOLEAN NOT NULL DEFAULT FALSE,
+    use_meeting_scripts BOOLEAN NOT NULL DEFAULT FALSE,
+    use_own_documents BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE

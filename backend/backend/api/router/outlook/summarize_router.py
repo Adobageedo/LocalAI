@@ -19,6 +19,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.
 from backend.services.auth.middleware.auth_firebase import get_current_user
 from backend.services.llm.llm import LLM
 from backend.core.logger import log
+from backend.api.utils.config_loader import get_summarize_config, is_style_analysis_enabled
 
 logger = log.bind(name="backend.api.outlook.summarize_router")
 
@@ -151,6 +152,9 @@ async def summarize(
 ):
     """Summarize email content or file attachment using direct LLM"""
     try:
+        # Get configuration settings
+        config = get_summarize_config()
+        
         # Log the request (excluding sensitive content)
         logger.info(f"Received summarize request for user {request_data.userId}, language: {request_data.language}, summary type: {request_data.summary_type}, processing mode: {request_data.processing_mode}")
         
@@ -293,8 +297,8 @@ Provide a {request_data.summary_type.value} summary of this email in this langua
         # Create message for LLM service
         messages = [{"role": "user", "content": content_to_summarize}]
         
-        # Initialize LLM client with specified temperature
-        llm_client = LLM(temperature=0.3)  # Lower temperature for more factual summaries
+        # Initialize LLM client with configuration temperature
+        llm_client = LLM(temperature=config['default_temperature'])  # Use config temperature for summaries
         
         # Call LLM service to generate summary
         try:
@@ -318,8 +322,8 @@ Provide a {request_data.summary_type.value} summary of this email in this langua
             summary=summary,
             sources=[],  # No sources when using direct LLM
             summary_type=request_data.summary_type,
-            temperature=0.3,
-            model=llm_client.model,  # Use the model name from LLM client
+            temperature=config['default_temperature'],
+            model=llm_client.model or config['default_model'],  # Use the model name from LLM client or config
             use_retrieval=False  # Direct LLM doesn't use retrieval
         )
         

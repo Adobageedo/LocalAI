@@ -15,7 +15,8 @@ import {
   IconButton,
   TooltipHost,
   IStackTokens,
-  IStackStyles
+  IStackStyles,
+  DefaultButton
 } from '@fluentui/react';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
@@ -28,6 +29,7 @@ import {
   processEscapeSequences
 } from '../../services/composeService';
 import { getOutlookLanguage } from '../../utils/i18n';
+import TemplateChatInterface from '../read/TemplateChatInterface';
 
 const EmailComposer: React.FC = () => {
   const { user } = useAuth();
@@ -52,6 +54,19 @@ const EmailComposer: React.FC = () => {
   const [showFormattedPreview, setShowFormattedPreview] = useState(false);
   const [lastGeneratedText, setLastGeneratedText] = useState('');
   
+  // Chat states for conversational refinement
+  const [showChat, setShowChat] = useState<{[key: string]: boolean}>({
+    generate: false,
+    correct: false,
+    reformulate: false
+  });
+  const [conversationIds, setConversationIds] = useState<{[key: string]: string}>({});
+  const [hasGenerated, setHasGenerated] = useState<{[key: string]: boolean}>({
+    generate: false,
+    correct: false,
+    reformulate: false
+  });
+  
   // Utility function to format text for display
   const formatTextForDisplay = (text: string): string => {
     if (showFormattedPreview) {
@@ -61,21 +76,55 @@ const EmailComposer: React.FC = () => {
   };
 
   // Load email content for correct/reformulate tabs
+  const refreshEmailContent = async () => {
+    try {
+      const content = await getCurrentEmailContent();
+      setCurrentEmailBody(content);
+      setStatusMessage({
+        message: 'Contenu de l\'email actualisé avec succès',
+        type: MessageBarType.success
+      });
+      // Clear success message after 3 seconds
+      setTimeout(() => setStatusMessage(null), 3000);
+    } catch (error) {
+      console.warn('Could not load email content:', error);
+      setStatusMessage({
+        message: 'Impossible de charger le contenu de l\'email depuis Outlook',
+        type: MessageBarType.warning
+      });
+    }
+  };
+
   useEffect(() => {
     if (activeTab === 'correct' || activeTab === 'reformulate') {
-      getCurrentEmailContent()
-        .then(content => {
-          setCurrentEmailBody(content);
-        })
-        .catch(error => {
-          console.warn('Could not load email content:', error);
-          setStatusMessage({
-            message: 'Impossible de charger le contenu de l\'email depuis Outlook',
-            type: MessageBarType.warning
-          });
-        });
+      refreshEmailContent();
     }
   }, [activeTab]);
+
+  // Auto-refresh email content every 5 seconds when on correct/reformulate tabs
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout;
+    
+    if ((activeTab === 'correct' || activeTab === 'reformulate') && !hasGenerated[activeTab]) {
+      intervalId = setInterval(() => {
+        getCurrentEmailContent()
+          .then(content => {
+            if (content !== currentEmailBody) {
+              setCurrentEmailBody(content);
+            }
+          })
+          .catch(error => {
+            console.warn('Auto-refresh failed:', error);
+          });
+      }, 5000); // Refresh every 5 seconds
+    }
+
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [activeTab, currentEmailBody, hasGenerated]);
 
   const toneOptions: IDropdownOption[] = [
     { key: 'professional', text: 'Professionnel' },
@@ -126,6 +175,46 @@ const EmailComposer: React.FC = () => {
     }
   };
 
+  // Get conversation ID for a tab
+  const getConversationId = (tabKey: string) => {
+    if (!conversationIds[tabKey]) {
+      const newId = Date.now().toString();
+      setConversationIds(prev => ({ ...prev, [tabKey]: newId }));
+      return newId;
+    }
+    return conversationIds[tabKey];
+  };
+
+  const toggleChat = (tabKey: string) => {
+    setShowChat(prev => ({ ...prev, [tabKey]: !prev[tabKey] }));
+  };
+
+  const renderChatInterface = (tabKey: string) => {
+    if (!showChat[tabKey]) return null;
+
+    return (
+      <TemplateChatInterface
+        initialTemplate={lastGeneratedText}
+        conversationId={getConversationId(tabKey)}
+        onTemplateUpdate={(newTemplate) => {
+          setLastGeneratedText(newTemplate);
+          setStatusMessage({
+            message: 'Template raffiné avec succès!',
+            type: MessageBarType.success
+          });
+        }}
+        isInline={true}
+        userRequest={`Refine the ${tabKey} email content`}
+        emailContext={{
+          subject: '',
+          from: getUserEmailFromOutlook() || user?.email || '',
+          additionalInfo: tabKey === 'generate' ? description : reformulateInstructions,
+          tone: selectedTone
+        }}
+      />
+    );
+  };
+
   const handleGenerateEmail = async () => {
     if (!description.trim()) {
       setStatusMessage({
@@ -152,8 +241,9 @@ const EmailComposer: React.FC = () => {
       // Save for preview
       setLastGeneratedText(generatedText);
       
-      // Insert directly into Outlook
-      await insertIntoOutlookWithStatus(generatedText);
+      // Mark as generated and show chat
+      setHasGenerated(prev => ({ ...prev, generate: true }));
+      setShowChat(prev => ({ ...prev, generate: true }));
 
     } catch (error) {
       console.error('Generate email failed:', error);
@@ -186,9 +276,11 @@ const EmailComposer: React.FC = () => {
       });
 
       const correctedText = response.generated_text;
+      setLastGeneratedText(correctedText);
       
-      // Insert corrected text back into Outlook
-      await insertIntoOutlookWithStatus(correctedText);
+      // Mark as generated and show chat
+      setHasGenerated(prev => ({ ...prev, correct: true }));
+      setShowChat(prev => ({ ...prev, correct: true }));
 
     } catch (error) {
       console.error('Correct email failed:', error);
@@ -223,9 +315,11 @@ const EmailComposer: React.FC = () => {
       });
 
       const reformulatedText = response.generated_text;
+      setLastGeneratedText(reformulatedText);
       
-      // Insert reformulated text back into Outlook
-      await insertIntoOutlookWithStatus(reformulatedText);
+      // Mark as generated and show chat
+      setHasGenerated(prev => ({ ...prev, reformulate: true }));
+      setShowChat(prev => ({ ...prev, reformulate: true }));
 
     } catch (error) {
       console.error('Reformulate email failed:', error);
@@ -240,36 +334,65 @@ const EmailComposer: React.FC = () => {
 
   const renderGenerateTab = () => (
     <Stack tokens={{ childrenGap: 16 }}>
-      <Stack tokens={{ childrenGap: 12 }} styles={cardStyles}>
-        <Text variant="mediumPlus" styles={{ root: { fontWeight: 600 } }}>
-          ✨ Générer un Email
-        </Text>
-        
-        <TextField
-          label="Description de l'email *"
-          value={description}
-          onChange={(_, newValue) => setDescription(newValue || '')}
-          placeholder="Décrivez l'email que vous souhaitez générer..."
-          multiline
-          rows={4}
-          required
-        />
-        
-        <Dropdown
-          label="Ton"
-          selectedKey={selectedTone}
-          onChange={(_, option) => option && setSelectedTone(option.key as string)}
-          options={toneOptions}
-        />
-        
-        <PrimaryButton
-          text="✨ Générer et Insérer dans Outlook"
-          onClick={handleGenerateEmail}
-          disabled={isLoading || !description.trim()}
-        />
-      </Stack>
+      {!hasGenerated.generate && (
+        <Stack tokens={{ childrenGap: 12 }} styles={cardStyles}>
+          <Text variant="mediumPlus" styles={{ root: { fontWeight: 600 } }}>
+            ✨ Générer un Email
+          </Text>
+          
+          <TextField
+            label="Description de l'email *"
+            value={description}
+            onChange={(_, newValue) => setDescription(newValue || '')}
+            placeholder="Décrivez l'email que vous souhaitez générer..."
+            multiline
+            rows={4}
+            required
+          />
+          
+          <Dropdown
+            label="Ton"
+            selectedKey={selectedTone}
+            onChange={(_, option) => option && setSelectedTone(option.key as string)}
+            options={toneOptions}
+          />
+          
+          <PrimaryButton
+            text="✨ Générer Email"
+            onClick={handleGenerateEmail}
+            disabled={isLoading || !description.trim()}
+          />
+        </Stack>
+      )}
       
-      {/* Preview Section */}
+      {hasGenerated.generate && (
+        <Stack tokens={{ childrenGap: 12 }} styles={cardStyles}>
+          <Stack horizontal horizontalAlign="space-between" verticalAlign="center">
+            <Text variant="mediumPlus" styles={{ root: { fontWeight: 600 } }}>
+              ✨ Email Généré
+            </Text>
+            <Stack horizontal tokens={{ childrenGap: 8 }}>
+              <PrimaryButton
+                text="📧 Insérer dans Outlook"
+                onClick={() => insertIntoOutlookWithStatus(lastGeneratedText)}
+                disabled={isLoading || !lastGeneratedText}
+              />
+              <DefaultButton
+                text="Nouveau"
+                onClick={() => {
+                  setHasGenerated(prev => ({ ...prev, generate: false }));
+                  setShowChat(prev => ({ ...prev, generate: false }));
+                  setLastGeneratedText('');
+                  setDescription('');
+                }}
+                iconProps={{ iconName: 'Add' }}
+              />
+            </Stack>
+          </Stack>
+        </Stack>
+      )}
+      
+      {/* Preview Section
       {lastGeneratedText && (
         <Stack tokens={{ childrenGap: 12 }} styles={cardStyles}>
           <Stack horizontal horizontalAlign="space-between" verticalAlign="center">
@@ -311,88 +434,153 @@ const EmailComposer: React.FC = () => {
             disabled={isLoading}
           />
         </Stack>
-      )}
+      )} */}
+      
+      {renderChatInterface('generate')}
     </Stack>
   );
 
   const renderCorrectTab = () => (
     <Stack tokens={{ childrenGap: 16 }}>
-      <Stack tokens={{ childrenGap: 12 }} styles={cardStyles}>
-        <Text variant="mediumPlus" styles={{ root: { fontWeight: 600 } }}>
-          ✅ Corriger un Email
-        </Text>
-        
-        <Text variant="small" styles={{ root: { color: '#605e5c' } }}>
-          Le texte actuel de votre email Outlook sera automatiquement chargé ci-dessous :
-        </Text>
-        
-        <TextField
-          label="Texte actuel dans Outlook"
-          value={currentEmailBody}
-          onChange={(_, newValue) => setCurrentEmailBody(newValue || '')}
-          placeholder="Le contenu de votre email apparaîtra ici automatiquement..."
-          multiline
-          rows={6}
-          readOnly
-          styles={{
-            field: {
-              backgroundColor: '#f8f9fa',
-              border: '1px solid #e1e5e9'
-            }
-          }}
-        />
+      {!hasGenerated.correct && (
+        <Stack tokens={{ childrenGap: 12 }} styles={cardStyles}>
+          <Text variant="mediumPlus" styles={{ root: { fontWeight: 600 } }}>
+            ✅ Corriger un Email
+          </Text>
+          
+          <Stack horizontal horizontalAlign="space-between" verticalAlign="center">
+            <Text variant="small" styles={{ root: { color: '#605e5c' } }}>
+              Le texte actuel de votre email Outlook (actualisé automatiquement) :
+            </Text>
+          </Stack>
+          
+          <TextField
+            label="Texte actuel dans Outlook"
+            value={currentEmailBody}
+            onChange={(_, newValue) => setCurrentEmailBody(newValue || '')}
+            placeholder="Le contenu de votre email apparaîtra ici automatiquement..."
+            multiline
+            rows={6}
+            styles={{
+              field: {
+                backgroundColor: '#f8f9fa',
+                border: '1px solid #e1e5e9'
+              }
+            }}
+          />
 
-        <PrimaryButton
-          text="✅ Corriger et Insérer dans Outlook"
-          onClick={handleCorrectEmail}
-          disabled={isLoading || !currentEmailBody.trim()}
-        />
-      </Stack>
+          <PrimaryButton
+            text="✅ Corriger Email"
+            onClick={handleCorrectEmail}
+            disabled={isLoading || !currentEmailBody.trim()}
+          />
+        </Stack>
+      )}
+      
+      {hasGenerated.correct && (
+        <Stack tokens={{ childrenGap: 12 }} styles={cardStyles}>
+          <Stack horizontal horizontalAlign="space-between" verticalAlign="center">
+            <Text variant="mediumPlus" styles={{ root: { fontWeight: 600 } }}>
+              ✅ Email Corrigé
+            </Text>
+            <Stack horizontal tokens={{ childrenGap: 8 }}>
+              <PrimaryButton
+                text="📧 Insérer dans Outlook"
+                onClick={() => insertIntoOutlookWithStatus(lastGeneratedText)}
+                disabled={isLoading || !lastGeneratedText}
+              />
+              <DefaultButton
+                text="Nouveau"
+                onClick={() => {
+                  setHasGenerated(prev => ({ ...prev, correct: false }));
+                  setShowChat(prev => ({ ...prev, correct: false }));
+                  setLastGeneratedText('');
+                }}
+                iconProps={{ iconName: 'Add' }}
+              />
+            </Stack>
+          </Stack>
+        </Stack>
+      )}
+      
+      {renderChatInterface('correct')}
     </Stack>
   );
 
   const renderReformulateTab = () => (
     <Stack tokens={{ childrenGap: 16 }}>
-      <Stack tokens={{ childrenGap: 12 }} styles={cardStyles}>
-        <Text variant="mediumPlus" styles={{ root: { fontWeight: 600 } }}>
-          🔄 Reformuler un Email
-        </Text>
-        
-        <Text variant="small" styles={{ root: { color: '#605e5c' } }}>
-          Le texte actuel de votre email Outlook sera automatiquement chargé ci-dessous :
-        </Text>
-        
-        <TextField
-          label="Texte actuel dans Outlook"
-          value={currentEmailBody}
-          onChange={(_, newValue) => setCurrentEmailBody(newValue || '')}
-          placeholder="Le contenu de votre email apparaîtra ici automatiquement..."
-          multiline
-          rows={5}
-          readOnly
-          styles={{
-            field: {
-              backgroundColor: '#f8f9fa',
-              border: '1px solid #e1e5e9'
-            }
-          }}
-        />
+      {!hasGenerated.reformulate && (
+        <Stack tokens={{ childrenGap: 12 }} styles={cardStyles}>
+          <Text variant="mediumPlus" styles={{ root: { fontWeight: 600 } }}>
+            🔄 Reformuler un Email
+          </Text>
+          
+          <Stack horizontal horizontalAlign="space-between" verticalAlign="center">
+            <Text variant="small" styles={{ root: { color: '#605e5c' } }}>
+              Le texte actuel de votre email Outlook (actualisé automatiquement) :
+            </Text>
+          </Stack>
+          
+          <TextField
+            label="Texte actuel dans Outlook"
+            value={currentEmailBody}
+            onChange={(_, newValue) => setCurrentEmailBody(newValue || '')}
+            placeholder="Le contenu de votre email apparaîtra ici automatiquement..."
+            multiline
+            rows={5}
+            styles={{
+              field: {
+                backgroundColor: '#f8f9fa',
+                border: '1px solid #e1e5e9'
+              }
+            }}
+          />
 
-        <TextField
-          label="Instructions de reformulation (optionnel)"
-          value={reformulateInstructions}
-          onChange={(_, newValue) => setReformulateInstructions(newValue || '')}
-          placeholder="Ex: Rendre plus formel, plus concis, plus amical..."
-          multiline
-          rows={2}
-        />
+          <TextField
+            label="Instructions de reformulation (optionnel)"
+            value={reformulateInstructions}
+            onChange={(_, newValue) => setReformulateInstructions(newValue || '')}
+            placeholder="Ex: Rendre plus formel, plus concis, plus amical..."
+            multiline
+            rows={2}
+          />
 
-        <PrimaryButton
-          text="🔄 Reformuler et Insérer dans Outlook"
-          onClick={handleReformulateEmail}
-          disabled={isLoading || !currentEmailBody.trim()}
-        />
-      </Stack>
+          <PrimaryButton
+            text="🔄 Reformuler Email"
+            onClick={handleReformulateEmail}
+            disabled={isLoading || !currentEmailBody.trim()}
+          />
+        </Stack>
+      )}
+      
+      {hasGenerated.reformulate && (
+        <Stack tokens={{ childrenGap: 12 }} styles={cardStyles}>
+          <Stack horizontal horizontalAlign="space-between" verticalAlign="center">
+            <Text variant="mediumPlus" styles={{ root: { fontWeight: 600 } }}>
+              🔄 Email Reformulé
+            </Text>
+            <Stack horizontal tokens={{ childrenGap: 8 }}>
+              <PrimaryButton
+                text="📧 Insérer dans Outlook"
+                onClick={() => insertIntoOutlookWithStatus(lastGeneratedText)}
+                disabled={isLoading || !lastGeneratedText}
+              />
+              <DefaultButton
+                text="Nouveau"
+                onClick={() => {
+                  setHasGenerated(prev => ({ ...prev, reformulate: false }));
+                  setShowChat(prev => ({ ...prev, reformulate: false }));
+                  setLastGeneratedText('');
+                  setReformulateInstructions('');
+                }}
+                iconProps={{ iconName: 'Add' }}
+              />
+            </Stack>
+          </Stack>
+        </Stack>
+      )}
+      
+      {renderChatInterface('reformulate')}
     </Stack>
   );
 

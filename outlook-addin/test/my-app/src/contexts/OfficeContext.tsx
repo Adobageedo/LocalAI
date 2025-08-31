@@ -12,6 +12,7 @@ interface EmailData {
 interface OfficeContextType {
   isOfficeReady: boolean;
   currentEmail: EmailData | null;
+  isLoadingEmail: boolean;
   loadEmailContext: () => void;
   insertTemplate: (template: string) => Promise<void>;
   error: string | null;
@@ -34,6 +35,7 @@ interface OfficeProviderProps {
 export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
   const [isOfficeReady, setIsOfficeReady] = useState(false);
   const [currentEmail, setCurrentEmail] = useState<EmailData | null>(null);
+  const [isLoadingEmail, setIsLoadingEmail] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [test, setTest] = useState(false);
 
@@ -64,8 +66,9 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
       return;
     }
 
-    // Clear any previous errors
+    // Clear any previous errors and set loading state
     setError(null);
+    setIsLoadingEmail(true);
     // Use the same approach as the working taskpane.js
     Office.context.mailbox.getCallbackTokenAsync(function(result) {
       if (result.status === Office.AsyncResultStatus.Succeeded) {
@@ -136,6 +139,7 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
           loadBasicEmailContext();
         } else {
           setError(`Authentication error: ${result.error?.message || 'Unknown error'}`);
+          setIsLoadingEmail(false);
         }
       }
     });
@@ -192,10 +196,12 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
       } else {
         console.log('No email item available in basic context');
         setError('No email selected or email context unavailable');
+        setIsLoadingEmail(false);
       }
     } catch (error) {
       console.error('Error in loadBasicEmailContext:', error);
       setError('Unable to load email context in corporate environment');
+      setIsLoadingEmail(false);
     }
   };
 
@@ -208,6 +214,7 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
       fullConversation, 
       internetMessageId 
     });
+    setIsLoadingEmail(false);
     console.log('Email context loaded:', { 
       subject, 
       from, 
@@ -334,6 +341,7 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
   const value = {
     isOfficeReady,
     currentEmail,
+    isLoadingEmail,
     loadEmailContext,
     insertTemplate,
     error

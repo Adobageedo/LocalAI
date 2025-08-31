@@ -2,6 +2,11 @@ from pathlib import Path
 import os
 from dotenv import load_dotenv
 
+# Load environment variables
+# 1) Load .env located alongside this file (backend/backend/core/.env)
+# 2) Then also load any env from default search path (current working dir / process env)
+ENV_PATH = Path(__file__).resolve().parent / ".env"
+load_dotenv(ENV_PATH)
 load_dotenv()
 
 # Chemins de base
@@ -74,11 +79,12 @@ OUTLOOK_TENANT_ID=os.getenv("OUTLOOK_TENANT_ID", "")
 OUTLOOK_TOKEN_PATH=os.getenv("OUTLOOK_TOKEN_PATH", "")
 OUTLOOK_REDIRECT_URI=os.getenv("OUTLOOK_REDIRECT_URI", "")
 
-POSTGRES_USER=os.getenv("POSTGRES_USER", "")
-POSTGRES_PASSWORD=os.getenv("POSTGRES_PASSWORD", "")
-POSTGRES_DB=os.getenv("POSTGRES_DB", "")
-POSTGRES_HOST=os.getenv("POSTGRES_HOST", "")
-POSTGRES_PORT=os.getenv("POSTGRES_PORT", "")
+# Postgres defaults for local development (overridden by env/.env if provided)
+POSTGRES_USER=os.getenv("POSTGRES_USER", "localai")
+POSTGRES_PASSWORD=os.getenv("POSTGRES_PASSWORD", "localai_password")
+POSTGRES_DB=os.getenv("POSTGRES_DB", "localai_db")
+POSTGRES_HOST=os.getenv("POSTGRES_HOST", "127.0.0.1")
+POSTGRES_PORT=os.getenv("POSTGRES_PORT", "5432")
 STORAGE_PATH=os.getenv("STORAGE_PATH", "")
 
 # Supabase configuration

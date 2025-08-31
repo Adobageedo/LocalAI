@@ -18,12 +18,16 @@ from .router.outlook.summarize_router import router as summarize_router
 from .router.outlook.compose_router import router as compose_router
 from .router.outlook.auth import router as outlook_auth_router
 from .router.gmail.auth import router as gmail_auth_router
+from .router.user_router import router as user_router
+
 # Configuration des préfixes API centralisée
+app.include_router(outlook_router, prefix="/api")
 app.include_router(outlook_auth_router, prefix="/api")
 app.include_router(summarize_router, prefix="/api")
 app.include_router(compose_router, prefix="/api")
 app.include_router(gmail_auth_router, prefix="/api")
-app.include_router(outlook_auth_router, prefix="/api")
+app.include_router(user_router, prefix="/api")
+
 # Add middleware
 # 1. Compression for better network performance
 app.add_middleware(GZipMiddleware, minimum_size=1000)

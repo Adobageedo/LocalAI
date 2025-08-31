@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Stack, Text, Separator, IconButton } from '@fluentui/react';
+import { Stack, Text, Separator, IconButton, Spinner, SpinnerSize } from '@fluentui/react';
 import { Mail20Regular, Person20Regular } from '@fluentui/react-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useOffice } from '../contexts/OfficeContext';
@@ -8,7 +8,7 @@ import Sidebar from './sidebar/Sidebar';
 
 const EmailContext: React.FC = () => {
   const { user } = useAuth();
-  const { currentEmail, loadEmailContext } = useOffice();
+  const { currentEmail, isLoadingEmail, loadEmailContext } = useOffice();
   const t = useTranslations();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
@@ -33,7 +33,14 @@ const EmailContext: React.FC = () => {
         />
       </Stack>
 
-      {currentEmail ? (
+      {isLoadingEmail ? (
+        <Stack horizontalAlign="center" tokens={{ childrenGap: 12 }} styles={{ root: { padding: '20px' } }}>
+          <Spinner size={SpinnerSize.medium} />
+          <Text variant="medium" styles={{ root: { color: '#605e5c', textAlign: 'center' } }}>
+            Loading email content...
+          </Text>
+        </Stack>
+      ) : currentEmail ? (
         <Stack tokens={{ childrenGap: 12 }}>
           <Stack tokens={{ childrenGap: 4 }}>
             <Text variant="small" styles={{ root: { fontWeight: 600, color: '#323130' } }}>
