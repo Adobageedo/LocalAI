@@ -60,7 +60,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onDismiss }) => {
       isOpen={isOpen}
       onDismiss={onDismiss}
       type={PanelType.medium}
-      closeButtonAriaLabel={t.close || "Fermer"}
+      hasCloseButton={false}
       styles={{
         main: { 
           maxWidth: '400px',
