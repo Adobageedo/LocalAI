@@ -17,9 +17,13 @@ import {
   Dropdown,
   IDropdownOption,
   TooltipHost,
-  Icon
+  Icon,
+  getTheme,
+  FontWeights,
+  mergeStyles,
+  IStackStyles
 } from '@fluentui/react';
-import { DocumentText24Regular, Mail24Regular } from '@fluentui/react-icons';
+import { DocumentText24Regular, Mail24Regular, DocumentSearch24Regular } from '@fluentui/react-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOffice } from '../../contexts/OfficeContext';
 import { authFetch } from '../../utils/authFetch';
@@ -61,6 +65,112 @@ const FileSynthesizer: React.FC = () => {
   const [emailSummaryType, setEmailSummaryType] = useState<FrontendSummaryType>('concise');
   const [fileSummaryType, setFileSummaryType] = useState<FrontendSummaryType>('concise');
   const t = useTranslations();
+
+  const theme = getTheme();
+  
+  const cardStyles: IStackStyles = {
+    root: {
+      backgroundColor: theme.palette.white,
+      border: `1px solid ${theme.palette.neutralLight}`,
+      borderRadius: '16px',
+      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+      padding: '32px',
+      marginBottom: '20px',
+      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+      position: 'relative',
+      overflow: 'hidden',
+      '@media (max-width: 768px)': {
+        padding: '20px',
+        borderRadius: '12px'
+      },
+      '@media (max-width: 480px)': {
+        padding: '16px',
+        margin: '0 -8px 16px -8px'
+      },
+      '&:hover': {
+        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.15)',
+        transform: 'translateY(-2px)',
+        borderColor: theme.palette.themePrimary
+      },
+      '&::before': {
+        content: '""',
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: '4px',
+        background: `linear-gradient(90deg, ${theme.palette.themePrimary}, ${theme.palette.themeSecondary})`,
+        borderRadius: '16px 16px 0 0'
+      }
+    }
+  };
+  
+  const headerStyles = mergeStyles({
+    fontSize: '20px',
+    fontWeight: FontWeights.bold,
+    color: theme.palette.neutralPrimary,
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    marginBottom: '8px',
+    paddingTop: '8px'
+  });
+  
+  const subHeaderStyles = mergeStyles({
+    fontSize: '14px',
+    fontWeight: FontWeights.regular,
+    color: theme.palette.neutralSecondary,
+    marginBottom: '24px',
+    lineHeight: '1.4'
+  });
+  
+  const modernButtonStyles = {
+    root: {
+      borderRadius: '12px',
+      height: '44px',
+      fontSize: '14px',
+      fontWeight: FontWeights.semibold,
+      minWidth: '120px',
+      transition: 'all 0.2s ease-in-out',
+      '@media (max-width: 768px)': {
+        height: '40px',
+        fontSize: '13px',
+        minWidth: '100px'
+      },
+      '@media (max-width: 480px)': {
+        height: '36px',
+        fontSize: '12px',
+        minWidth: '80px',
+        padding: '0 12px'
+      }
+    }
+  };
+  
+  const summaryCardStyles: IStackStyles = {
+    root: {
+      backgroundColor: '#f8fffe',
+      border: `2px solid ${theme.palette.green}`,
+      borderRadius: '12px',
+      padding: '20px',
+      marginTop: '16px',
+      boxShadow: '0 2px 8px rgba(0, 120, 212, 0.1)'
+    }
+  };
+  
+  const attachmentCardStyles = {
+    root: {
+      margin: '8px 0',
+      borderRadius: '12px',
+      border: `1px solid ${theme.palette.neutralLight}`,
+      boxShadow: '0 2px 6px rgba(0, 0, 0, 0.08)',
+      transition: 'all 0.2s ease-in-out',
+      '&:hover': {
+        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.12)',
+        transform: 'translateY(-1px)',
+        borderColor: theme.palette.themePrimary
+      }
+    }
+  };
 
   // Load attachments when component mounts
   useEffect(() => {
@@ -274,38 +384,120 @@ const FileSynthesizer: React.FC = () => {
     const actionProps: IButtonProps[] = [
       {
         iconProps: { iconName: 'DocumentSearch' },
-        text: 'Synthesize',
+        text: 'Synthétiser',
         onClick: () => handleSynthesizeFile(attachment),
-        disabled: attachment.isProcessing
+        disabled: attachment.isProcessing,
+        styles: {
+          root: {
+            borderRadius: '8px',
+            fontSize: '13px',
+            fontWeight: FontWeights.semibold,
+            backgroundColor: theme.palette.themePrimary,
+            color: theme.palette.white,
+            border: 'none',
+            '&:hover': {
+              backgroundColor: theme.palette.themeDark
+            }
+          }
+        }
       }
     ];
 
     return (
-      <DocumentCard styles={{ root: { margin: '8px 0' } }}>
+      <DocumentCard styles={attachmentCardStyles}>
         <DocumentCardDetails>
-          <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 8 }}>
-            <DocumentCardTitle title={attachment.name} />
+          <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 12 }} styles={{ root: { padding: '4px 0' } }}>
+            <DocumentText24Regular 
+              style={{ 
+                fontSize: '20px', 
+                color: theme.palette.themePrimary 
+              }} 
+            />
+            <Stack>
+              <DocumentCardTitle 
+                title={attachment.name} 
+                styles={{
+                  root: {
+                    fontSize: '16px',
+                    fontWeight: FontWeights.semibold,
+                    color: theme.palette.neutralPrimary
+                  }
+                }}
+              />
+              <Text 
+                variant="small" 
+                styles={{ 
+                  root: { 
+                    color: theme.palette.neutralSecondary,
+                    fontSize: '12px',
+                    marginTop: '2px'
+                  } 
+                }}
+              >
+                {(attachment.size / 1024).toFixed(1)} KB • {attachment.contentType.split('/')[1]?.toUpperCase()}
+              </Text>
+            </Stack>
           </Stack>
           
-          <Text variant="small" styles={{ root: { color: '#666', marginLeft: '8px' } }}>
-            {(attachment.size / 1024).toFixed(1)} KB • {attachment.contentType.split('/')[1]}
-          </Text>
-          
           {attachment.isProcessing && (
-            <Stack horizontal tokens={{ childrenGap: 8 }} styles={{ root: { margin: '8px' } }}>
-              <Spinner size={SpinnerSize.small} />
+            <Stack 
+              horizontal 
+              tokens={{ childrenGap: 12 }} 
+              styles={{ 
+                root: { 
+                  margin: '12px 0',
+                  padding: '12px 16px',
+                  backgroundColor: theme.palette.themeLighterAlt,
+                  borderRadius: '8px',
+                  border: `1px solid ${theme.palette.themeLight}`
+                } 
+              }}
+            >
+              <Spinner 
+                size={SpinnerSize.small} 
+                styles={{ circle: { borderTopColor: theme.palette.themePrimary } }} 
+              />
               <Stack>
-                <Text>Processing...</Text>
+                <Text 
+                  styles={{ 
+                    root: { 
+                      fontSize: '14px',
+                      fontWeight: FontWeights.semibold,
+                      color: theme.palette.themePrimary
+                    } 
+                  }}
+                >
+                  Analyse en cours...
+                </Text>
                 {attachment.errorMessage && (
-                  <Text variant="small" styles={{ root: { color: '#a80000' } }}>{attachment.errorMessage}</Text>
+                  <Text 
+                    variant="small" 
+                    styles={{ 
+                      root: { 
+                        color: theme.palette.redDark,
+                        marginTop: '4px'
+                      } 
+                    }}
+                  >
+                    {attachment.errorMessage}
+                  </Text>
                 )}
               </Stack>
             </Stack>
           )}
           
           {attachment.summary && (
-            <Stack styles={{ root: { margin: '8px', padding: '8px', backgroundColor: '#f8f8f8', borderRadius: '4px' } }}>
-              <Text variant="small" styles={{ root: { whiteSpace: 'pre-wrap' } }}>
+            <Stack styles={summaryCardStyles}>
+              <Text 
+                styles={{ 
+                  root: { 
+                    fontSize: '14px',
+                    lineHeight: '1.6',
+                    whiteSpace: 'pre-wrap',
+                    color: theme.palette.neutralPrimary
+                  } 
+                }}
+              >
                 {attachment.summary}
               </Text>
             </Stack>
@@ -422,108 +614,226 @@ const FileSynthesizer: React.FC = () => {
   }
 
   return (
-    <Stack tokens={{ childrenGap: 16 }} styles={{ root: { padding: '20px' } }}>
+    <Stack 
+      tokens={{ childrenGap: 24 }} 
+      styles={{ 
+        root: { 
+          padding: '24px',
+          backgroundColor: '#fafbfc',
+          minHeight: '100vh',
+          '@media (max-width: 768px)': {
+            padding: '16px'
+          },
+          '@media (max-width: 480px)': {
+            padding: '12px'
+          }
+        } 
+      }}
+    >
       {/* Email Summary Section */}
-      <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 8 }}>
-        <Mail24Regular style={{ fontSize: '18px', color: '#0078d4' }} />
-        <Text variant="mediumPlus" styles={{ root: { fontWeight: 600 } }}>
-          {t.synthesizeEmail || 'Summarize Email'}
+      <Stack tokens={{ childrenGap: 20 }} styles={cardStyles}>
+        <Text className={headerStyles}>
+          <Mail24Regular /> Résumer l'Email
         </Text>
-      </Stack>
+        <Text className={subHeaderStyles}>
+          Générez un résumé intelligent de l'email actuel selon le type de synthèse souhaité.
+        </Text>
 
-      <Stack tokens={{ childrenGap: 10 }} styles={{ root: { marginBottom: '16px' } }}>
-        <Stack horizontal tokens={{ childrenGap: 8 }}>
-          <Dropdown
-            label={t.summaryType || 'Summary Type'}
-            selectedKey={emailSummaryType}
-            options={summaryTypeOptions}
-            onChange={(_, option) => option && setEmailSummaryType(option.key as FrontendSummaryType)}
-            styles={{ dropdown: { width: 180 }, root: { marginBottom: '8px' } }}
-          />
-        </Stack>
+        <Dropdown
+          label={t.summaryType || 'Type de Résumé'}
+          selectedKey={emailSummaryType}
+          options={summaryTypeOptions}
+          onChange={(_, option) => option && setEmailSummaryType(option.key as FrontendSummaryType)}
+          styles={{
+            dropdown: { borderRadius: '12px', width: '200px' },
+            title: { borderRadius: '12px', border: `2px solid ${theme.palette.neutralLight}` }
+          }}
+        />
 
         <PrimaryButton 
           onClick={handleSummarizeEmail} 
           disabled={isSummarizing || !currentEmail}
-          styles={{ root: { width: 'auto', alignSelf: 'flex-start' } }}
+          styles={modernButtonStyles}
+          iconProps={{ iconName: 'Mail' }}
         >
-          {isSummarizing ? (
-            <>
-              <Spinner size={SpinnerSize.xSmall} styles={{ root: { marginRight: '8px' } }} />
-              {t.synthesizing || 'Summarizing...'}
-            </>
-          ) : (
-            t.summarizeEmail || 'Summarize Email'
-          )}
+          {isSummarizing ? 'Résumé en cours...' : 'Résumer l\'Email'}
         </PrimaryButton>
 
-        {emailSummary && (
+        {isSummarizing && (
           <Stack 
+            horizontal 
+            horizontalAlign="center" 
+            tokens={{ childrenGap: 12 }} 
             styles={{ 
               root: { 
-                backgroundColor: '#f8f8f8', 
-                padding: '12px', 
-                borderRadius: '4px',
-                marginTop: '12px'
+                padding: '16px 24px',
+                backgroundColor: theme.palette.themeLighterAlt,
+                borderRadius: '12px',
+                border: `1px solid ${theme.palette.themeLight}`,
+                marginTop: '16px'
               } 
             }}
           >
-            <Text variant="medium" styles={{ root: { whiteSpace: 'pre-wrap' } }}>
+            <Spinner 
+              size={SpinnerSize.medium} 
+              styles={{ circle: { borderTopColor: theme.palette.themePrimary } }} 
+            />
+            <Text 
+              styles={{ 
+                root: { 
+                  fontSize: '16px', 
+                  fontWeight: FontWeights.semibold, 
+                  color: theme.palette.themePrimary 
+                } 
+              }}
+            >
+              Analyse en cours...
+            </Text>
+          </Stack>
+        )}
+
+        {emailSummary && (
+          <Stack styles={summaryCardStyles}>
+            <Text 
+              styles={{ 
+                root: { 
+                  fontSize: '14px',
+                  lineHeight: '1.6',
+                  whiteSpace: 'pre-wrap',
+                  color: theme.palette.neutralPrimary
+                } 
+              }}
+            >
               {emailSummary}
             </Text>
           </Stack>
         )}
       </Stack>
 
-      <Separator />
-
       {/* Attachments Section */}
-      <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 8 }}>
-        <DocumentText24Regular style={{ fontSize: '18px', color: '#0078d4' }} />
-        <Text variant="mediumPlus" styles={{ root: { fontWeight: 600 } }}>
-          {t.synthesizeAttachments || 'Synthesize Attachments'}
+      <Stack tokens={{ childrenGap: 20 }} styles={cardStyles}>
+        <Text className={headerStyles}>
+          <DocumentText24Regular /> Synthétiser les Pièces Jointes
         </Text>
-      </Stack>
-      
-      <Stack horizontal tokens={{ childrenGap: 8 }} styles={{ root: { marginTop: '8px' } }}>
+        <Text className={subHeaderStyles}>
+          Analysez et résumez automatiquement le contenu des fichiers joints à cet email.
+        </Text>
+        
         <Dropdown
-          label={t.summaryType || 'Summary Type'}
+          label={t.summaryType || 'Type de Synthèse'}
           selectedKey={fileSummaryType}
           options={summaryTypeOptions}
           onChange={(_, option) => option && setFileSummaryType(option.key as FrontendSummaryType)}
-          styles={{ dropdown: { width: 180 }, root: { marginBottom: '8px' } }}
-        />
-      </Stack>
-
-      {error && (
-        <MessageBar messageBarType={MessageBarType.error} onDismiss={() => setError('')}>
-          {error}
-        </MessageBar>
-      )}
-
-      {success && (
-        <MessageBar messageBarType={MessageBarType.success} onDismiss={() => setSuccess('')}>
-          {success}
-        </MessageBar>
-      )}
-
-      {isLoading ? (
-        <Stack horizontal horizontalAlign="center" tokens={{ childrenGap: 8 }} styles={{ root: { padding: '20px' } }}>
-          <Spinner size={SpinnerSize.small} />
-          <Text>{t.loading || 'Loading attachments...'}</Text>
-        </Stack>
-      ) : attachments.length > 0 ? (
-        <List
-          items={attachments}
-          onRenderCell={(item?: Attachment, index?: number) => {
-            return item ? renderAttachment(item) : null;
+          styles={{
+            dropdown: { borderRadius: '12px', width: '200px' },
+            title: { borderRadius: '12px', border: `2px solid ${theme.palette.neutralLight}` }
           }}
         />
-      ) : (
-        <Stack horizontalAlign="center" styles={{ root: { padding: '20px', color: '#666' } }}>
-          <Text>{t.noAttachments || 'No attachments found in this email'}</Text>
-        </Stack>
-      )}
+
+        {error && (
+          <MessageBar 
+            messageBarType={MessageBarType.error} 
+            onDismiss={() => setError('')}
+            styles={{
+              root: {
+                borderRadius: '12px',
+                marginTop: '16px',
+                fontSize: '14px',
+                fontWeight: FontWeights.regular
+              }
+            }}
+          >
+            {error}
+          </MessageBar>
+        )}
+
+        {success && (
+          <MessageBar 
+            messageBarType={MessageBarType.success} 
+            onDismiss={() => setSuccess('')}
+            styles={{
+              root: {
+                borderRadius: '12px',
+                marginTop: '16px',
+                fontSize: '14px',
+                fontWeight: FontWeights.regular
+              }
+            }}
+          >
+            {success}
+          </MessageBar>
+        )}
+
+        {isLoading ? (
+          <Stack 
+            horizontal 
+            horizontalAlign="center" 
+            tokens={{ childrenGap: 12 }} 
+            styles={{ 
+              root: { 
+                padding: '24px',
+                backgroundColor: theme.palette.themeLighterAlt,
+                borderRadius: '12px',
+                border: `1px solid ${theme.palette.themeLight}`
+              } 
+            }}
+          >
+            <Spinner 
+              size={SpinnerSize.medium} 
+              styles={{ circle: { borderTopColor: theme.palette.themePrimary } }} 
+            />
+            <Text 
+              styles={{ 
+                root: { 
+                  fontSize: '16px', 
+                  fontWeight: FontWeights.semibold, 
+                  color: theme.palette.themePrimary 
+                } 
+              }}
+            >
+              {t.loading || 'Chargement des pièces jointes...'}
+            </Text>
+          </Stack>
+        ) : attachments.length > 0 ? (
+          <List
+            items={attachments}
+            onRenderCell={(item?: Attachment, index?: number) => {
+              return item ? renderAttachment(item) : null;
+            }}
+          />
+        ) : (
+          <Stack 
+            horizontalAlign="center" 
+            styles={{ 
+              root: { 
+                padding: '32px', 
+                backgroundColor: theme.palette.neutralLighterAlt,
+                borderRadius: '12px',
+                border: `1px dashed ${theme.palette.neutralLight}`
+              } 
+            }}
+          >
+            <DocumentText24Regular 
+              style={{ 
+                fontSize: '48px', 
+                color: theme.palette.neutralTertiary, 
+                marginBottom: '12px' 
+              }} 
+            />
+            <Text 
+              styles={{ 
+                root: { 
+                  fontSize: '16px',
+                  color: theme.palette.neutralSecondary,
+                  textAlign: 'center'
+                } 
+              }}
+            >
+              {t.noAttachments || 'Aucune pièce jointe trouvée dans cet email'}
+            </Text>
+          </Stack>
+        )}
+      </Stack>
     </Stack>
   );
 };

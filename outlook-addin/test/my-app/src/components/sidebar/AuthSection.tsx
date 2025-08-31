@@ -10,9 +10,13 @@ import {
   Dropdown,
   IDropdownOption,
   Spinner,
-  SpinnerSize
+  SpinnerSize,
+  getTheme,
+  FontWeights,
+  mergeStyles,
+  IStackStyles
 } from '@fluentui/react';
-import { Person20Regular } from '@fluentui/react-icons';
+import { Person24Regular, PersonAccounts24Regular, SignOut24Regular } from '@fluentui/react-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { API_ENDPOINTS } from '../../config/api';
 import { useTranslations } from '../../utils/i18n';
@@ -51,6 +55,77 @@ const AuthSection: React.FC = () => {
   const [authLoading, setAuthLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  
+  const theme = getTheme();
+  
+  const cardStyles: IStackStyles = {
+    root: {
+      backgroundColor: theme.palette.white,
+      border: `1px solid ${theme.palette.neutralLight}`,
+      borderRadius: '16px',
+      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+      padding: '24px',
+      marginBottom: '20px',
+      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+      position: 'relative',
+      overflow: 'hidden',
+      '&::before': {
+        content: '""',
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        height: '4px',
+        background: `linear-gradient(90deg, ${theme.palette.themePrimary}, ${theme.palette.themeSecondary})`,
+        borderRadius: '16px 16px 0 0'
+      }
+    }
+  };
+  
+  const headerStyles = mergeStyles({
+    fontSize: '18px',
+    fontWeight: FontWeights.bold,
+    color: theme.palette.neutralPrimary,
+    display: 'flex',
+    alignItems: 'center',
+    gap: '12px',
+    marginBottom: '8px',
+    paddingTop: '8px'
+  });
+  
+  const subHeaderStyles = mergeStyles({
+    fontSize: '14px',
+    fontWeight: FontWeights.regular,
+    color: theme.palette.neutralSecondary,
+    marginBottom: '20px',
+    lineHeight: '1.4'
+  });
+  
+  const modernButtonStyles = {
+    root: {
+      borderRadius: '12px',
+      height: '44px',
+      fontSize: '14px',
+      fontWeight: FontWeights.semibold,
+      minWidth: '120px',
+      transition: 'all 0.2s ease-in-out'
+    }
+  };
+  
+  const textFieldStyles = {
+    fieldGroup: {
+      borderRadius: '12px',
+      border: `2px solid ${theme.palette.neutralLight}`,
+      transition: 'all 0.2s ease-in-out',
+      '&:hover': {
+        borderColor: theme.palette.themePrimary
+      }
+    },
+    field: {
+      fontSize: '14px',
+      lineHeight: '1.5'
+    }
+  };
 
   const handleSubmit = async () => {
     // Validation for login
@@ -161,30 +236,112 @@ const AuthSection: React.FC = () => {
 
   if (loading) {
     return (
-      <Stack horizontalAlign="center" tokens={{ childrenGap: 16 }} styles={{ root: { padding: '20px' } }}>
-        <Spinner size={SpinnerSize.medium} label="Loading authentication..." />
+      <Stack horizontalAlign="center" tokens={{ childrenGap: 16 }} styles={cardStyles}>
+        <Spinner 
+          size={SpinnerSize.large} 
+          styles={{ circle: { borderTopColor: theme.palette.themePrimary } }} 
+        />
+        <Text 
+          styles={{ 
+            root: { 
+              fontSize: '16px',
+              fontWeight: FontWeights.semibold,
+              color: theme.palette.themePrimary
+            } 
+          }}
+        >
+          Chargement de l'authentification...
+        </Text>
       </Stack>
     );
   }
 
   if (user) {
     return (
-      <Stack tokens={{ childrenGap: 16 }} styles={{ root: { padding: '20px' } }}>
-        <Text variant="large" styles={{ root: { fontWeight: 600 } }}>
-          {t.welcomeBack}
+      <Stack tokens={{ childrenGap: 20 }} styles={cardStyles}>
+        <Text className={headerStyles}>
+          <Person24Regular /> Compte Utilisateur
         </Text>
-        <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 8 }}>
-          <Person20Regular style={{ fontSize: '16px', color: '#0078d4' }} />
-          <Text variant="medium">{t.signedInAs}: {user.email}</Text>
+        <Text className={subHeaderStyles}>
+          Vous êtes connecté et prêt à utiliser l'assistant IA.
+        </Text>
+        
+        <Stack tokens={{ childrenGap: 12 }}>
+          <Text 
+            styles={{ 
+              root: { 
+                fontSize: '14px',
+                fontWeight: FontWeights.semibold,
+                color: theme.palette.neutralPrimary,
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              } 
+            }}
+          >
+            Email Connecté
+          </Text>
+          <Stack 
+            horizontal 
+            verticalAlign="center" 
+            tokens={{ childrenGap: 12 }}
+            styles={{
+              root: {
+                padding: '12px 16px',
+                backgroundColor: theme.palette.themeLighterAlt,
+                borderRadius: '8px',
+                border: `1px solid ${theme.palette.themeLight}`
+              }
+            }}
+          >
+            <Person24Regular style={{ fontSize: '18px', color: theme.palette.themePrimary }} />
+            <Text 
+              styles={{ 
+                root: { 
+                  fontSize: '14px',
+                  fontWeight: FontWeights.regular,
+                  color: theme.palette.neutralPrimary
+                } 
+              }}
+            >
+              {user.email}
+            </Text>
+          </Stack>
         </Stack>
-        <DefaultButton text={t.signOut} onClick={handleLogout} />
+        
+        <DefaultButton 
+          text="Se Déconnecter" 
+          onClick={handleLogout} 
+          styles={modernButtonStyles}
+          iconProps={{ iconName: 'SignOut' }}
+        />
+        
         {success && (
-          <MessageBar messageBarType={MessageBarType.success} onDismiss={() => setSuccess('')}>
+          <MessageBar 
+            messageBarType={MessageBarType.success} 
+            onDismiss={() => setSuccess('')}
+            styles={{
+              root: {
+                borderRadius: '12px',
+                fontSize: '14px',
+                fontWeight: FontWeights.regular
+              }
+            }}
+          >
             {success}
           </MessageBar>
         )}
         {error && (
-          <MessageBar messageBarType={MessageBarType.error} onDismiss={() => setError('')}>
+          <MessageBar 
+            messageBarType={MessageBarType.error} 
+            onDismiss={() => setError('')}
+            styles={{
+              root: {
+                borderRadius: '12px',
+                fontSize: '14px',
+                fontWeight: FontWeights.regular
+              }
+            }}
+          >
             {error}
           </MessageBar>
         )}
@@ -193,153 +350,182 @@ const AuthSection: React.FC = () => {
   }
 
   return (
-    <Stack tokens={{ childrenGap: 16 }} styles={{ root: { padding: '20px' } }}>
-      <Text variant="large" styles={{ root: { fontWeight: 600 } }}>
-        {isRegistering ? t.createAccount : t.signInToAccount}
+    <Stack tokens={{ childrenGap: 20 }} styles={cardStyles}>
+      <Text className={headerStyles}>
+        <PersonAccounts24Regular /> {isRegistering ? 'Créer un Compte' : 'Se Connecter'}
       </Text>
-      <Text variant="medium" styles={{ root: { color: '#605e5c' } }}>
-        {t.useCredentials}
+      <Text className={subHeaderStyles}>
+        {isRegistering ? 'Créez votre compte pour accéder à l\'assistant IA.' : 'Connectez-vous pour utiliser l\'assistant IA.'}
       </Text>
 
       {error && (
-        <MessageBar messageBarType={MessageBarType.error} onDismiss={() => setError('')}>
+        <MessageBar 
+          messageBarType={MessageBarType.error} 
+          onDismiss={() => setError('')}
+          styles={{
+            root: {
+              borderRadius: '12px',
+              fontSize: '14px',
+              fontWeight: FontWeights.regular
+            }
+          }}
+        >
           {error}
         </MessageBar>
       )}
 
       {success && (
-        <MessageBar messageBarType={MessageBarType.success} onDismiss={() => setSuccess('')}>
+        <MessageBar 
+          messageBarType={MessageBarType.success} 
+          onDismiss={() => setSuccess('')}
+          styles={{
+            root: {
+              borderRadius: '12px',
+              fontSize: '14px',
+              fontWeight: FontWeights.regular
+            }
+          }}
+        >
           {success}
         </MessageBar>
       )}
 
       <TextField
-        label={`${t.email} (${t.required})`}
+        label={`Email (requis)`}
         type="email"
         value={email}
         onChange={(_, newValue) => setEmail(newValue || '')}
-        placeholder="yourname@example.com"
+        placeholder="votre.email@exemple.com"
         iconProps={{ iconName: 'Contact' }}
         disabled={authLoading}
         required
+        styles={textFieldStyles}
       />
 
       <TextField
-        label={`${t.password} (${t.required})`}
+        label={`Mot de passe (requis)`}
         type="password"
         value={password}
         onChange={(_, newValue) => setPassword(newValue || '')}
-        placeholder={`${t.enterYour} ${t.password.toLowerCase()}`}
+        placeholder="Entrez votre mot de passe"
         iconProps={{ iconName: 'Lock' }}
         disabled={authLoading}
         canRevealPassword
         required
+        styles={textFieldStyles}
       />
 
       {/* Additional fields for registration */}
       {isRegistering && (
         <>
           <TextField
-            label={`${t.fullName} (${t.required})`}
+            label="Nom complet (requis)"
             value={fullName}
             onChange={(_, newValue) => setFullName(newValue || '')}
-            placeholder={`${t.enterYour} ${t.fullName.toLowerCase()}`}
+            placeholder="Votre nom complet"
             iconProps={{ iconName: 'Contact' }}
             disabled={authLoading}
             required
+            styles={textFieldStyles}
           />
 
-          <Stack horizontal tokens={{ childrenGap: 8 }}>
+          <Stack horizontal tokens={{ childrenGap: 12 }}>
             <Dropdown
-              label={`${t.countryCode} (${t.required})`}
+              label="Indicatif (requis)"
               selectedKey={countryCode}
               onChange={(_, option) => setCountryCode(option?.key as string || '+1')}
               options={COUNTRY_CODES}
               disabled={authLoading}
-              styles={{ root: { width: '140px' } }}
+              styles={{ 
+                root: { width: '140px' },
+                dropdown: { borderRadius: '12px' },
+                title: { borderRadius: '12px', border: `2px solid ${theme.palette.neutralLight}` }
+              }}
             />
             <TextField
-              label={`${t.phoneNumber} (${t.required})`}
+              label="Téléphone (requis)"
               value={phone}
               onChange={(_, newValue) => setPhone(newValue || '')}
               placeholder="123456789"
               iconProps={{ iconName: 'Phone' }}
               disabled={authLoading}
               required
-              styles={{ root: { flexGrow: 1 } }}
+              styles={{ ...textFieldStyles, root: { flexGrow: 1 } }}
             />
           </Stack>
 
           <TextField
-            label={`${t.streetAddress} (${t.required})`}
+            label="Adresse (requis)"
             value={streetAddress}
             onChange={(_, newValue) => setStreetAddress(newValue || '')}
-            placeholder={`${t.enterYour} ${t.streetAddress.toLowerCase()}`}
+            placeholder="Votre adresse"
             iconProps={{ iconName: 'MapPin' }}
             disabled={authLoading}
             required
+            styles={textFieldStyles}
           />
           
           <TextField
-            label={`${t.addressLine2} (${t.optional})`}
+            label="Complément d'adresse (optionnel)"
             value={addressLine2}
             onChange={(_, newValue) => setAddressLine2(newValue || '')}
-            placeholder={`${t.enterYour} ${t.addressLine2.toLowerCase()}`}
+            placeholder="Appartement, étage, etc."
             iconProps={{ iconName: 'MapPin' }}
             disabled={authLoading}
+            styles={textFieldStyles}
           />
           
-          <Stack horizontal tokens={{ childrenGap: 8 }}>
+          <Stack horizontal tokens={{ childrenGap: 12 }}>
             <TextField
-              label={`${t.city} (${t.required})`}
+              label="Ville (requis)"
               value={city}
               onChange={(_, newValue) => setCity(newValue || '')}
-              placeholder={`${t.enterYour} ${t.city.toLowerCase()}`}
+              placeholder="Votre ville"
               iconProps={{ iconName: 'CityNext' }}
               disabled={authLoading}
               required
-              styles={{ root: { flexGrow: 1 } }}
+              styles={{ ...textFieldStyles, root: { flexGrow: 1 } }}
             />
             <TextField
-              label={`${t.state} (${t.required})`}
+              label="Région (requis)"
               value={state}
               onChange={(_, newValue) => setState(newValue || '')}
-              placeholder={`${t.enterYour} ${t.state.toLowerCase()}`}
+              placeholder="Votre région"
               iconProps={{ iconName: 'MapPin' }}
               disabled={authLoading}
               required
-              styles={{ root: { flexGrow: 1 } }}
+              styles={{ ...textFieldStyles, root: { flexGrow: 1 } }}
             />
           </Stack>
           
-          <Stack horizontal tokens={{ childrenGap: 8 }}>
+          <Stack horizontal tokens={{ childrenGap: 12 }}>
             <TextField
-              label={`${t.postalCode} (${t.required})`}
+              label="Code postal (requis)"
               value={postalCode}
               onChange={(_, newValue) => setPostalCode(newValue || '')}
-              placeholder={`${t.enterYour} ${t.postalCode.toLowerCase()}`}
+              placeholder="12345"
               iconProps={{ iconName: 'NumberField' }}
               disabled={authLoading}
               required
-              styles={{ root: { flexGrow: 1 } }}
+              styles={{ ...textFieldStyles, root: { flexGrow: 1 } }}
             />
             <TextField
-              label={`${t.country} (${t.required})`}
+              label="Pays (requis)"
               value={country}
               onChange={(_, newValue) => setCountry(newValue || '')}
-              placeholder={`${t.enterYour} ${t.country.toLowerCase()}`}
+              placeholder="France"
               iconProps={{ iconName: 'Globe' }}
               disabled={authLoading}
               required
-              styles={{ root: { flexGrow: 1 } }}
+              styles={{ ...textFieldStyles, root: { flexGrow: 1 } }}
             />
           </Stack>
         </>
       )}
 
-      <Stack horizontal tokens={{ childrenGap: 8 }}>
+      <Stack horizontal tokens={{ childrenGap: 12 }} wrap>
         <PrimaryButton
-          text={isRegistering ? t.createAccount : t.signIn}
+          text={isRegistering ? 'Créer le Compte' : 'Se Connecter'}
           onClick={handleSubmit}
           disabled={
             authLoading || 
@@ -347,9 +533,11 @@ const AuthSection: React.FC = () => {
             !password || 
             (isRegistering && (!fullName || !phone || !streetAddress || !city || !postalCode || !country))
           }
+          styles={modernButtonStyles}
+          iconProps={{ iconName: isRegistering ? 'AddFriend' : 'Signin' }}
         />
         <DefaultButton
-          text={isRegistering ? t.backToSignIn : t.createAccount}
+          text={isRegistering ? 'Retour à la Connexion' : 'Créer un Compte'}
           onClick={() => {
             setIsRegistering(!isRegistering);
             setError('');
@@ -365,14 +553,50 @@ const AuthSection: React.FC = () => {
             setCountry('');
           }}
           disabled={authLoading}
+          styles={{
+            root: {
+              borderRadius: '12px',
+              height: '44px',
+              fontSize: '14px',
+              fontWeight: FontWeights.regular,
+              minWidth: '100px',
+              border: `2px solid ${theme.palette.neutralLight}`,
+              transition: 'all 0.2s ease-in-out'
+            }
+          }}
+          iconProps={{ iconName: isRegistering ? 'Back' : 'AddFriend' }}
         />
       </Stack>
 
       {authLoading && (
-        <Stack horizontal horizontalAlign="center" tokens={{ childrenGap: 8 }}>
-          <Spinner size={SpinnerSize.small} />
-          <Text variant="medium">
-            {isRegistering ? 'Creating account...' : 'Signing in...'}
+        <Stack 
+          horizontal 
+          horizontalAlign="center" 
+          tokens={{ childrenGap: 12 }} 
+          styles={{ 
+            root: { 
+              padding: '16px 24px',
+              backgroundColor: theme.palette.themeLighterAlt,
+              borderRadius: '12px',
+              border: `1px solid ${theme.palette.themeLight}`,
+              marginTop: '16px'
+            } 
+          }}
+        >
+          <Spinner 
+            size={SpinnerSize.medium} 
+            styles={{ circle: { borderTopColor: theme.palette.themePrimary } }} 
+          />
+          <Text 
+            styles={{ 
+              root: { 
+                fontSize: '16px', 
+                fontWeight: FontWeights.semibold, 
+                color: theme.palette.themePrimary 
+              } 
+            }}
+          >
+            {isRegistering ? 'Création du compte...' : 'Connexion en cours...'}
           </Text>
         </Stack>
       )}
