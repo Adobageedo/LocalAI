@@ -16,8 +16,7 @@ const EmailContext: React.FC = () => {
   const containerStyles: IStackStyles = {
     root: {
       backgroundColor: '#fafbfc',
-      minHeight: '100vh',
-      padding: '0',
+      paddingBottom: '30px',
       margin: '0'
     }
   };
@@ -27,15 +26,17 @@ const EmailContext: React.FC = () => {
     color: theme.palette.white,
     padding: '24px 32px',
     borderRadius: '0 0 24px 24px',
-    marginBottom: '24px',
+    marginBottom: '8px',
     boxShadow: '0 4px 16px rgba(0, 120, 212, 0.2)',
     '@media (max-width: 768px)': {
       padding: '20px 24px',
-      borderRadius: '0 0 16px 16px'
+      borderRadius: '0 0 16px 16px',
+      marginBottom: '6px'
     },
     '@media (max-width: 480px)': {
       padding: '16px 20px',
-      borderRadius: '0 0 12px 12px'
+      borderRadius: '0 0 12px 12px',
+      marginBottom: '4px'
     }
   });
   

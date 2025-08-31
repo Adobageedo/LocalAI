@@ -7,8 +7,18 @@ import {
   MessageBar, 
   MessageBarType,
   Stack,
-  Text
+  Text,
+  FontWeights,
+  useTheme,
+  mergeStyleSets
 } from '@fluentui/react';
+import { 
+  CloudSync24Regular,
+  CheckmarkCircle24Regular,
+  Warning24Regular,
+  PlugConnected24Regular,
+  PlugDisconnected24Regular
+} from '@fluentui/react-icons';
 import { useTranslations } from '../../utils/i18n';
 import { useAuth } from '../../contexts/AuthContext';
 import { authFetch } from '../../utils/authFetch';
@@ -29,9 +39,86 @@ interface SyncStatus {
 const EmailSync: React.FC<EmailSyncProps> = ({ userEmail }) => {
   const t = useTranslations();
   const { user } = useAuth();
+  const theme = useTheme();
   const [syncStatus, setSyncStatus] = useState<SyncStatus>({
     isConnected: false,
     isChecking: true
+  });
+
+  const styles = mergeStyleSets({
+    container: {
+      padding: '24px',
+      backgroundColor: theme.palette.white,
+      borderRadius: '16px',
+      border: `1px solid ${theme.palette.neutralLight}`,
+      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+      transition: 'all 0.2s ease-in-out',
+      ':hover': {
+        boxShadow: '0 4px 16px rgba(0, 0, 0, 0.15)',
+        transform: 'translateY(-1px)'
+      }
+    },
+    header: {
+      fontSize: '18px',
+      fontWeight: FontWeights.semibold,
+      color: theme.palette.themePrimary,
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px'
+    },
+    loadingContainer: {
+      padding: '16px 20px',
+      backgroundColor: theme.palette.themeLighterAlt,
+      borderRadius: '12px',
+      border: `1px solid ${theme.palette.themeLight}`
+    },
+    loadingText: {
+      fontSize: '14px',
+      fontWeight: FontWeights.regular,
+      color: theme.palette.themePrimary
+    },
+    buttonPrimary: {
+      borderRadius: '12px',
+      height: '40px',
+      fontSize: '14px',
+      fontWeight: FontWeights.semibold,
+      minWidth: '120px',
+      transition: 'all 0.2s ease-in-out'
+    },
+    buttonSecondary: {
+      borderRadius: '12px',
+      height: '40px',
+      fontSize: '14px',
+      fontWeight: FontWeights.regular,
+      minWidth: '100px',
+      border: `2px solid ${theme.palette.neutralLight}`,
+      transition: 'all 0.2s ease-in-out'
+    },
+    buttonDisconnect: {
+      borderRadius: '12px',
+      height: '40px',
+      fontSize: '14px',
+      fontWeight: FontWeights.regular,
+      minWidth: '100px',
+      backgroundColor: '#fef2f2',
+      border: '2px solid #fecaca',
+      color: '#dc2626',
+      transition: 'all 0.2s ease-in-out',
+      ':hover': {
+        backgroundColor: '#fee2e2',
+        border: '2px solid #f87171'
+      }
+    },
+    messageBar: {
+      borderRadius: '12px',
+      fontSize: '14px',
+      fontWeight: FontWeights.regular
+    },
+    syncInfo: {
+      fontSize: '12px',
+      color: theme.palette.neutralSecondary,
+      fontStyle: 'italic'
+    }
   });
 
   // Check Outlook auth status on component mount
@@ -256,65 +343,99 @@ const EmailSync: React.FC<EmailSyncProps> = ({ userEmail }) => {
   };
 
   return (
-    <div style={{ 
-      padding: '16px', 
-      borderBottom: '1px solid #edebe9',
-      backgroundColor: '#faf9f8'
-    }}>
-      <Stack tokens={{ childrenGap: 12 }}>
-        <Text variant="mediumPlus" style={{ fontWeight: 600 }}>
-          {t.syncEmail}
+    <div className={styles.container}>
+      <Stack tokens={{ childrenGap: 20 }}>
+        <Text className={styles.header}>
+          <CloudSync24Regular /> Synchronisation Outlook
         </Text>
 
         {syncStatus.isChecking && (
-          <Stack horizontal tokens={{ childrenGap: 8 }} verticalAlign="center">
-            <Spinner size={SpinnerSize.small} />
-            <Text variant="small">{t.checkingConnection}</Text>
+          <Stack 
+            horizontal 
+            tokens={{ childrenGap: 12 }} 
+            verticalAlign="center"
+            className={styles.loadingContainer}
+          >
+            <Spinner 
+              size={SpinnerSize.medium} 
+              styles={{ circle: { borderTopColor: theme.palette.themePrimary } }}
+            />
+            <Text className={styles.loadingText}>
+              Vérification de la connexion...
+            </Text>
           </Stack>
         )}
 
         {!syncStatus.isChecking && (
           <>
             {syncStatus.isConnected ? (
-              <Stack tokens={{ childrenGap: 8 }}>
-                <MessageBar messageBarType={MessageBarType.success}>
-                  {t.outlookConnected}
-                  {syncStatus.lastSync && (
-                    <Text variant="small" style={{ marginLeft: 8 }}>
-                      (Last sync: {syncStatus.lastSync.toLocaleTimeString()})
-                    </Text>
-                  )}
+              <Stack tokens={{ childrenGap: 16 }}>
+                <MessageBar 
+                  messageBarType={MessageBarType.success}
+                  styles={{ root: styles.messageBar }}
+                >
+                  <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 8 }}>
+                    <CheckmarkCircle24Regular style={{ color: '#107c10' }} />
+                    <div>
+                      <Text styles={{ root: { fontWeight: FontWeights.semibold } }}>
+                        Outlook connecté avec succès
+                      </Text>
+                      {syncStatus.lastSync && (
+                        <Text className={styles.syncInfo}>
+                          Dernière synchronisation: {syncStatus.lastSync.toLocaleString('fr-FR')}
+                        </Text>
+                      )}
+                    </div>
+                  </Stack>
                 </MessageBar>
                 
-                <Stack horizontal tokens={{ childrenGap: 8 }} wrap>
+                <Stack horizontal tokens={{ childrenGap: 12 }} wrap>
                   <PrimaryButton 
-                    text={t.syncEmail}
+                    text="Synchroniser"
                     onClick={syncEmails}
                     disabled={syncStatus.isChecking}
+                    styles={{ root: styles.buttonPrimary }}
+                    iconProps={{ iconName: 'Sync' }}
                   />
                   <DefaultButton 
-                    text={t.retry}
+                    text="Actualiser"
                     onClick={checkOutlookAuthStatus}
                     disabled={syncStatus.isChecking}
+                    styles={{ root: styles.buttonSecondary }}
+                    iconProps={{ iconName: 'Refresh' }}
                   />
                   <DefaultButton 
-                    text="Disconnect"
+                    text="Déconnecter"
                     onClick={disconnectOutlook}
                     disabled={syncStatus.isChecking}
-                    styles={{ root: { color: '#d13438' } }}
+                    styles={{ root: styles.buttonDisconnect }}
+                    iconProps={{ iconName: 'PlugDisconnected' }}
                   />
                 </Stack>
               </Stack>
             ) : (
-              <Stack tokens={{ childrenGap: 8 }}>
-                <MessageBar messageBarType={MessageBarType.warning}>
-                  {t.outlookNotConnected}
+              <Stack tokens={{ childrenGap: 16 }}>
+                <MessageBar 
+                  messageBarType={MessageBarType.warning}
+                  styles={{ root: styles.messageBar }}
+                >
+                  <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 8 }}>
+                    <Warning24Regular style={{ color: '#ff8c00' }} />
+                    <Text styles={{ root: { fontWeight: FontWeights.semibold } }}>
+                      Outlook n'est pas connecté
+                    </Text>
+                  </Stack>
+                  <Text styles={{ root: { fontSize: '13px', marginTop: '4px' } }}>
+                    Connectez votre compte Outlook pour synchroniser vos emails.
+                  </Text>
                 </MessageBar>
                 
                 <PrimaryButton 
-                  text={t.connectOutlook}
+                  text="Connecter Outlook"
                   onClick={connectOutlook}
                   disabled={syncStatus.isChecking}
+                  styles={{ root: styles.buttonPrimary }}
+                  iconProps={{ iconName: 'PlugConnected' }}
                 />
               </Stack>
             )}
@@ -322,8 +443,21 @@ const EmailSync: React.FC<EmailSyncProps> = ({ userEmail }) => {
         )}
 
         {syncStatus.error && (
-          <MessageBar messageBarType={MessageBarType.error}>
-            {syncStatus.error}
+          <MessageBar 
+            messageBarType={MessageBarType.error}
+            styles={{ root: styles.messageBar }}
+          >
+            <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 8 }}>
+              <Warning24Regular style={{ color: '#d13438' }} />
+              <div>
+                <Text styles={{ root: { fontWeight: FontWeights.semibold } }}>
+                  Erreur de connexion
+                </Text>
+                <Text styles={{ root: { fontSize: '13px', marginTop: '2px' } }}>
+                  {syncStatus.error}
+                </Text>
+              </div>
+            </Stack>
           </MessageBar>
         )}
       </Stack>

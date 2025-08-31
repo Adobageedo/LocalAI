@@ -80,16 +80,7 @@ const TabbedInterface: React.FC = () => {
   };
 
   return (
-    <Stack styles={containerStyles}>
-      <div className={headerStyles}>
-        <Text className={titleStyles}>
-          <Sparkle24Regular /> Assistant IA pour Outlook
-        </Text>
-        <Text className={subtitleStyles}>
-          Générez des templates d'emails et analysez vos pièces jointes avec l'intelligence artificielle
-        </Text>
-      </div>
-      
+    <Stack styles={containerStyles}>      
       <Stack styles={{ root: { padding: '0 24px', '@media (max-width: 768px)': { padding: '0 16px' }, '@media (max-width: 480px)': { padding: '0 12px' } } }}>
         <Pivot 
           selectedKey={selectedTab} 
