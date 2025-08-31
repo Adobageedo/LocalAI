@@ -268,7 +268,7 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
         backgroundColor: theme.palette.white,
         overflow: 'hidden' as const,
         '@media (max-width: 768px)': {
-          height: '400px',
+          height: '800px',
           borderRadius: '12px',
           marginTop: '16px'
         },
