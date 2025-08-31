@@ -32,16 +32,16 @@ const TabbedInterface: React.FC = () => {
   const headerStyles = mergeStyles({
     background: `linear-gradient(135deg, ${theme.palette.themePrimary}, ${theme.palette.themeSecondary})`,
     color: theme.palette.white,
-    padding: '24px 32px',
+    padding: '24px 8px',
     borderRadius: '0 0 24px 24px',
     marginBottom: '24px',
     boxShadow: '0 4px 16px rgba(0, 120, 212, 0.2)',
     '@media (max-width: 768px)': {
-      padding: '20px 24px',
+      padding: '20px 6px',
       borderRadius: '0 0 16px 16px'
     },
     '@media (max-width: 480px)': {
-      padding: '16px 20px',
+      padding: '16px 4px',
       borderRadius: '0 0 12px 12px'
     }
   });
@@ -83,7 +83,7 @@ const TabbedInterface: React.FC = () => {
   return (
     <Stack styles={containerStyles}>      
       <EmailContext />
-      <Stack styles={{ root: { padding: '0 24px', '@media (max-width: 768px)': { padding: '0 16px' }, '@media (max-width: 480px)': { padding: '0 12px' } } }}>
+      <Stack styles={{ root: { padding: '0 4px', '@media (max-width: 768px)': { padding: '0 2px' }, '@media (max-width: 480px)': { padding: '0 1px' } } }}>
         <Pivot 
           selectedKey={selectedTab} 
           onLinkClick={handleTabChange}

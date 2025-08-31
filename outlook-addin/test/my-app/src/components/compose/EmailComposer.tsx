@@ -172,18 +172,19 @@ const EmailComposer: React.FC = () => {
       border: `1px solid ${theme.palette.neutralLight}`,
       borderRadius: '16px',
       boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-      padding: '32px',
+      padding: '24px 8px',
       marginBottom: '20px',
       transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
       position: 'relative',
       overflow: 'hidden',
+      width: '100%',
       '@media (max-width: 768px)': {
-        padding: '20px',
+        padding: '20px 6px',
         borderRadius: '12px'
       },
       '@media (max-width: 480px)': {
-        padding: '16px',
-        margin: '0 -8px 16px -8px'
+        padding: '16px 4px',
+        margin: '0 0 16px 0'
       },
       '&:hover': {
         boxShadow: '0 8px 24px rgba(0, 0, 0, 0.15)',
@@ -227,9 +228,16 @@ const EmailComposer: React.FC = () => {
       backgroundColor: '#f3f9ff',
       border: `2px solid ${theme.palette.themePrimary}`,
       borderRadius: '16px',
-      padding: '24px',
+      padding: '24px 8px',
       marginBottom: '20px',
       position: 'relative',
+      width: '100%',
+      '@media (max-width: 768px)': {
+        padding: '20px 6px'
+      },
+      '@media (max-width: 480px)': {
+        padding: '16px 4px'
+      },
       '&::before': {
         content: '""',
         position: 'absolute',
@@ -900,14 +908,15 @@ const EmailComposer: React.FC = () => {
     <Stack styles={{ 
       root: { 
         height: '100%', 
-        padding: '24px', 
+        padding: '8px 4px', 
         backgroundColor: '#fafbfc',
         minHeight: '100vh',
+        width: '100%',
         '@media (max-width: 768px)': {
-          padding: '16px'
+          padding: '6px 2px'
         },
         '@media (max-width: 480px)': {
-          padding: '12px'
+          padding: '4px 0px'
         }
       } 
     }} tokens={{ childrenGap: 24 }}>
