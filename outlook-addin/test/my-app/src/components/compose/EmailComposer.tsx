@@ -100,10 +100,6 @@ const EmailComposer: React.FC = () => {
     try {
       const content = await getCurrentEmailContent();
       setCurrentEmailBody(content);
-      setStatusMessage({
-        message: 'Contenu de l\'email actualisé avec succès',
-        type: MessageBarType.success
-      });
       // Clear success message after 3 seconds
       setTimeout(() => setStatusMessage(null), 3000);
     } catch (error) {
@@ -310,10 +306,6 @@ const EmailComposer: React.FC = () => {
   const insertIntoOutlookWithStatus = async (text: string) => {
     try {
       await insertContentIntoOutlook(text);
-      setStatusMessage({
-        message: 'Contenu inséré dans Outlook avec succès !',
-        type: MessageBarType.success
-      });
     } catch (error) {
       console.error('Failed to insert into Outlook:', error);
       setStatusMessage({
@@ -346,10 +338,6 @@ const EmailComposer: React.FC = () => {
         conversationId={getConversationId(tabKey)}
         onTemplateUpdate={(newTemplate) => {
           setLastGeneratedText(newTemplate);
-          setStatusMessage({
-            message: 'Template raffiné avec succès!',
-            type: MessageBarType.success
-          });
         }}
         isInline={true}
         userRequest={`Refine the ${tabKey} email content`}
