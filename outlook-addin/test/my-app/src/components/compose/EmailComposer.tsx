@@ -29,7 +29,7 @@ import {
   processEscapeSequences
 } from '../../services/composeService';
 import { getOutlookLanguage } from '../../utils/i18n';
-import TemplateChatInterface from '../read/TemplateChatInterface';
+import TemplateChatInterface from '../TemplateChatInterface';
 
 const EmailComposer: React.FC = () => {
   const { user } = useAuth();

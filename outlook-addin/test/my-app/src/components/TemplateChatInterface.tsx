@@ -13,10 +13,10 @@ import {
   IStackTokens
 } from '@fluentui/react';
 import { Send20Regular, Bot20Regular, Person20Regular } from '@fluentui/react-icons';
-import { useAuth } from '../../contexts/AuthContext';
-import { useTranslations } from '../../utils/i18n';
-import { authFetch } from '../../utils/authFetch';
-import { API_ENDPOINTS } from '../../config/api';
+import { useAuth } from '../contexts/AuthContext';
+import { useTranslations } from '../utils/i18n';
+import { authFetch } from '../utils/authFetch';
+import { API_ENDPOINTS } from '../config/api';
 
 interface ChatMessage {
   id: string;

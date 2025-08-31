@@ -18,7 +18,7 @@ import { useOffice } from '../../contexts/OfficeContext';
 import { useTranslations, getOutlookLanguage } from '../../utils/i18n';
 import { authFetch } from '../../utils/authFetch';
 import { API_ENDPOINTS } from '../../config/api';
-import TemplateChatInterface from './TemplateChatInterface';
+import TemplateChatInterface from '../TemplateChatInterface';
 
 const TemplateGenerator: React.FC = () => {
   const { user } = useAuth();
