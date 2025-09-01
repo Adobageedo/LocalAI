@@ -425,7 +425,9 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
                     root: { 
                       whiteSpace: 'pre-wrap',
                       lineHeight: '1.5',
-                      fontSize: '14px'
+                      fontSize: '14px',
+                      fontWeight: message.role === 'user' ? FontWeights.semibold : FontWeights.regular,
+                      color: message.role === 'user' ? theme.palette.white : theme.palette.neutralPrimary
                     } 
                   }}
                 >
@@ -437,7 +439,8 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
                     root: { 
                       opacity: 0.7,
                       marginTop: '6px',
-                      fontSize: '11px'
+                      fontSize: '11px',
+                      color: message.role === 'user' ? theme.palette.white : theme.palette.neutralSecondary
                     } 
                   }}
                 >
