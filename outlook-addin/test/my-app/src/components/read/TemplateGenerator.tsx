@@ -16,7 +16,7 @@ import {
   mergeStyles,
   IStackStyles
 } from '@fluentui/react';
-import { Sparkle24Regular, Mail24Regular, Copy24Regular, Add24Regular, Eye24Regular, EyeOff24Regular } from '@fluentui/react-icons';
+import { Sparkle24Regular, Mail24Regular, Copy24Regular, Add24Regular } from '@fluentui/react-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOffice } from '../../contexts/OfficeContext';
 import { useTranslations, getOutlookLanguage } from '../../utils/i18n';
@@ -39,8 +39,6 @@ const TemplateGenerator: React.FC = () => {
   const [success, setSuccess] = useState('');
   const [showChat, setShowChat] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
-  const [isContentMasked, setIsContentMasked] = useState(false);
-  const [maskTimer, setMaskTimer] = useState<NodeJS.Timeout | null>(null);
 
   const theme = getTheme();
   
@@ -172,31 +170,13 @@ const TemplateGenerator: React.FC = () => {
 
   // Auto-detect language and set initial values on component mount
   useEffect(() => {
-    const detectedLanguage = getOutlookLanguage();
-    setLanguage(detectedLanguage);
+    // Set language based on Outlook settings
+    const detectedLang = getOutlookLanguage();
+    setLanguage(detectedLang);
+    
+    // Always set RAG to false initially (will be true in production)
+    setUseRag(false);
   }, []);
-
-  // Auto-mask content after 5 seconds
-  useEffect(() => {
-    if (currentEmail && !isContentMasked) {
-      const timer = setTimeout(() => {
-        setIsContentMasked(true);
-      }, 5000);
-      setMaskTimer(timer);
-      
-      return () => {
-        if (timer) clearTimeout(timer);
-      };
-    }
-  }, [currentEmail, isContentMasked]);
-
-  const toggleContentMask = () => {
-    setIsContentMasked(!isContentMasked);
-    if (maskTimer) {
-      clearTimeout(maskTimer);
-      setMaskTimer(null);
-    }
-  };
 
   const handleGenerateTemplate = async () => {
     setIsGenerating(true);
@@ -447,10 +427,6 @@ const TemplateGenerator: React.FC = () => {
               additionalInfo: additionalInfo,
               tone: tone
             }}
-          />
-          <EmailContext 
-            isContentMasked={isContentMasked}
-            onToggleMask={toggleContentMask}
           />
           <Stack 
             horizontal 

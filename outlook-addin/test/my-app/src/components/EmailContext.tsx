@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Stack, Text, Separator, IconButton, Spinner, SpinnerSize, getTheme, FontWeights, mergeStyles, IStackStyles } from '@fluentui/react';
 import { Mail24Regular, Person24Regular, Settings24Regular, ArrowClockwise24Regular, Eye24Regular, EyeOff24Regular } from '@fluentui/react-icons';
 import { useAuth } from '../contexts/AuthContext';
@@ -6,17 +6,19 @@ import { useOffice } from '../contexts/OfficeContext';
 import { useTranslations } from '../utils/i18n';
 import Sidebar from './sidebar/Sidebar';
 
-interface EmailContextProps {
-  isContentMasked?: boolean;
-  onToggleMask?: () => void;
-}
-
-const EmailContext: React.FC<EmailContextProps> = ({ isContentMasked = false, onToggleMask }) => {
+const EmailContext: React.FC = () => {
   const { user } = useAuth();
   const { currentEmail, isLoadingEmail, loadEmailContext } = useOffice();
   const t = useTranslations();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isMasked, setIsMasked] = useState(false);
   const theme = getTheme();
+  
+  // Automatically mask content 5 seconds after component mounts (app loaded)
+  useEffect(() => {
+    const timer = setTimeout(() => setIsMasked(true), 5000);
+    return () => clearTimeout(timer);
+  }, []);
   
   const containerStyles: IStackStyles = {
     root: {
@@ -51,6 +53,7 @@ const EmailContext: React.FC<EmailContextProps> = ({ isContentMasked = false, on
     display: 'flex',
     alignItems: 'center',
     gap: '12px',
+    color: 'white',
     '@media (max-width: 768px)': {
       fontSize: '18px'
     },
@@ -120,6 +123,18 @@ const EmailContext: React.FC<EmailContextProps> = ({ isContentMasked = false, on
     }
   };
 
+  // Smooth transition wrapper for masking/unmasking content
+  const contentWrapperStyles = (masked: boolean): IStackStyles => ({
+    root: {
+      overflow: 'hidden',
+      transition: 'max-height 300ms ease, opacity 300ms ease, transform 300ms ease',
+      maxHeight: masked ? 0 : 2000,
+      opacity: masked ? 0 : 1,
+      transform: masked ? 'translateY(-4px)' : 'translateY(0)',
+      pointerEvents: masked ? 'none' as const : 'auto',
+    }
+  });
+
   if (!user) {
     return null;
   }
@@ -131,48 +146,76 @@ const EmailContext: React.FC<EmailContextProps> = ({ isContentMasked = false, on
           <Text className={titleStyles}>
             <Mail24Regular /> Contexte de l'Email
           </Text>
-          <IconButton 
-            iconProps={{ iconName: 'Settings' }} 
-            title={t.settings || "Paramètres"}
-            ariaLabel={t.settings || "Paramètres"}
-            onClick={() => setIsSidebarOpen(true)}
-            styles={{
-              root: {
-                color: theme.palette.white,
-                backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                borderRadius: '8px',
-                width: '36px',
-                height: '36px',
-                '&:hover': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.2)'
+          <Stack horizontal tokens={{ childrenGap: 8 }}>
+            <IconButton
+              title={isMasked ? 'Afficher le contenu' : 'Masquer le contenu'}
+              ariaLabel={isMasked ? 'Afficher le contenu' : 'Masquer le contenu'}
+              onClick={() => setIsMasked((v) => !v)}
+              styles={{
+                root: {
+                  color: theme.palette.white,
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  borderRadius: '8px',
+                  width: '36px',
+                  height: '36px',
+                  '&:hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.2)'
+                  }
                 }
-              }
-            }}
-          />
+              }}
+              iconProps={{
+                // Using custom render with React component icons for consistency
+                // The IconButton supports iconProps by name, but we keep consistent visuals with Fluent UI React Icons
+                iconName: undefined as any
+              }}
+              onRenderIcon={() => (
+                isMasked ? <Eye24Regular /> : <EyeOff24Regular />
+              )}
+            />
+            <IconButton 
+              iconProps={{ iconName: 'Settings' }} 
+              title={t.settings || 'Paramètres'}
+              ariaLabel={t.settings || 'Paramètres'}
+              onClick={() => setIsSidebarOpen(true)}
+              styles={{
+                root: {
+                  color: theme.palette.white,
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  borderRadius: '8px',
+                  width: '36px',
+                  height: '36px',
+                  '&:hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.2)'
+                  }
+                }
+              }}
+            />
+          </Stack>
         </Stack>
       </div>
 
-      {isLoadingEmail ? (
-        <Stack horizontalAlign="center" tokens={{ childrenGap: 16 }} styles={loadingStyles}>
-          <Spinner 
-            size={SpinnerSize.large} 
-            styles={{ circle: { borderTopColor: theme.palette.themePrimary } }} 
-          />
-          <Text 
-            styles={{ 
-              root: { 
-                fontSize: '16px',
-                fontWeight: FontWeights.semibold,
-                color: theme.palette.themePrimary,
-                textAlign: 'center'
-              } 
-            }}
-          >
-            Chargement du contenu de l'email...
-          </Text>
-        </Stack>
-      ) : currentEmail ? (
-        <Stack tokens={{ childrenGap: 20 }} styles={cardStyles}>
+      <Stack styles={contentWrapperStyles(isMasked)}>
+        {isLoadingEmail ? (
+          <Stack horizontalAlign="center" tokens={{ childrenGap: 16 }} styles={loadingStyles}>
+            <Spinner 
+              size={SpinnerSize.large} 
+              styles={{ circle: { borderTopColor: theme.palette.themePrimary } }} 
+            />
+            <Text 
+              styles={{ 
+                root: { 
+                  fontSize: '16px',
+                  fontWeight: FontWeights.semibold,
+                  color: theme.palette.themePrimary,
+                  textAlign: 'center'
+                } 
+              }}
+            >
+              Chargement du contenu de l'email...
+            </Text>
+          </Stack>
+        ) : currentEmail ? (
+          <Stack tokens={{ childrenGap: 20 }} styles={cardStyles}>
           <Stack tokens={{ childrenGap: 12 }}>
             <Text 
               styles={{ 
@@ -242,43 +285,19 @@ const EmailContext: React.FC<EmailContextProps> = ({ isContentMasked = false, on
 
           {currentEmail.body && (
             <Stack tokens={{ childrenGap: 12 }}>
-              <Stack horizontal verticalAlign="center" horizontalAlign="space-between">
-                <Text 
-                  styles={{ 
-                    root: { 
-                      fontSize: '14px',
-                      fontWeight: FontWeights.semibold,
-                      color: theme.palette.neutralPrimary,
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px'
-                    } 
-                  }}
-                >
-                  Aperçu du Contenu
-                </Text>
-                {onToggleMask && (
-                  <IconButton
-                    iconProps={{ iconName: isContentMasked ? 'RedEye' : 'Hide' }}
-                    title={isContentMasked ? 'Afficher le contenu' : 'Masquer le contenu'}
-                    ariaLabel={isContentMasked ? 'Afficher le contenu' : 'Masquer le contenu'}
-                    onClick={onToggleMask}
-                    styles={{
-                      root: {
-                        color: theme.palette.themePrimary,
-                        backgroundColor: 'transparent',
-                        borderRadius: '6px',
-                        width: '32px',
-                        height: '32px',
-                        '&:hover': {
-                          backgroundColor: theme.palette.themeLighterAlt
-                        }
-                      }
-                    }}
-                  >
-                    {isContentMasked ? <Eye24Regular /> : <EyeOff24Regular />}
-                  </IconButton>
-                )}
-              </Stack>
+              <Text 
+                styles={{ 
+                  root: { 
+                    fontSize: '14px',
+                    fontWeight: FontWeights.semibold,
+                    color: theme.palette.neutralPrimary,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  } 
+                }}
+              >
+                Aperçu du Contenu
+              </Text>
               <Text 
                 styles={{ 
                   root: { 
@@ -287,28 +306,23 @@ const EmailContext: React.FC<EmailContextProps> = ({ isContentMasked = false, on
                     color: theme.palette.neutralSecondary,
                     lineHeight: '1.6',
                     padding: '16px',
-                    backgroundColor: isContentMasked ? theme.palette.neutralLighter : theme.palette.neutralLighterAlt,
+                    backgroundColor: theme.palette.neutralLighterAlt,
                     borderRadius: '12px',
                     border: `1px solid ${theme.palette.neutralLight}`,
                     maxHeight: '120px',
                     overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    filter: isContentMasked ? 'blur(8px)' : 'none',
-                    transition: 'all 0.3s ease-in-out',
-                    userSelect: isContentMasked ? 'none' : 'text'
+                    textOverflow: 'ellipsis'
                   } 
                 }}
               >
-                {isContentMasked ? 
-                  'Contenu masqué pour des raisons de confidentialité. Cliquez sur l\'icône pour afficher.' : 
-                  `${currentEmail.body.substring(0, 300)}${currentEmail.body.length > 300 ? '...' : ''}`
-                }
+                {currentEmail.body.substring(0, 300)}
+                {currentEmail.body.length > 300 ? '...' : ''}
               </Text>
             </Stack>
           )}
-        </Stack>
-      ) : (
-        <Stack horizontalAlign="center" tokens={{ childrenGap: 16 }} styles={emptyStateStyles}>
+          </Stack>
+        ) : (
+          <Stack horizontalAlign="center" tokens={{ childrenGap: 16 }} styles={emptyStateStyles}>
           <Mail24Regular style={{ fontSize: '48px', color: theme.palette.neutralTertiary }} />
           <Text 
             styles={{ 
@@ -345,8 +359,9 @@ const EmailContext: React.FC<EmailContextProps> = ({ isContentMasked = false, on
             <ArrowClockwise24Regular style={{ marginRight: '8px' }} />
             Actualiser le contexte
           </Text>
-        </Stack>
-      )}
+          </Stack>
+        )}
+      </Stack>
 
       <Sidebar 
         isOpen={isSidebarOpen} 
