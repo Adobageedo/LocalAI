@@ -1,12 +1,17 @@
 import React, { useState } from 'react';
 import { Stack, Text, Separator, IconButton, Spinner, SpinnerSize, getTheme, FontWeights, mergeStyles, IStackStyles } from '@fluentui/react';
-import { Mail24Regular, Person24Regular, Settings24Regular, ArrowClockwise24Regular } from '@fluentui/react-icons';
+import { Mail24Regular, Person24Regular, Settings24Regular, ArrowClockwise24Regular, Eye24Regular, EyeOff24Regular } from '@fluentui/react-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useOffice } from '../contexts/OfficeContext';
 import { useTranslations } from '../utils/i18n';
 import Sidebar from './sidebar/Sidebar';
 
-const EmailContext: React.FC = () => {
+interface EmailContextProps {
+  isContentMasked?: boolean;
+  onToggleMask?: () => void;
+}
+
+const EmailContext: React.FC<EmailContextProps> = ({ isContentMasked = false, onToggleMask }) => {
   const { user } = useAuth();
   const { currentEmail, isLoadingEmail, loadEmailContext } = useOffice();
   const t = useTranslations();
@@ -237,19 +242,43 @@ const EmailContext: React.FC = () => {
 
           {currentEmail.body && (
             <Stack tokens={{ childrenGap: 12 }}>
-              <Text 
-                styles={{ 
-                  root: { 
-                    fontSize: '14px',
-                    fontWeight: FontWeights.semibold,
-                    color: theme.palette.neutralPrimary,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px'
-                  } 
-                }}
-              >
-                Aperçu du Contenu
-              </Text>
+              <Stack horizontal verticalAlign="center" horizontalAlign="space-between">
+                <Text 
+                  styles={{ 
+                    root: { 
+                      fontSize: '14px',
+                      fontWeight: FontWeights.semibold,
+                      color: theme.palette.neutralPrimary,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px'
+                    } 
+                  }}
+                >
+                  Aperçu du Contenu
+                </Text>
+                {onToggleMask && (
+                  <IconButton
+                    iconProps={{ iconName: isContentMasked ? 'RedEye' : 'Hide' }}
+                    title={isContentMasked ? 'Afficher le contenu' : 'Masquer le contenu'}
+                    ariaLabel={isContentMasked ? 'Afficher le contenu' : 'Masquer le contenu'}
+                    onClick={onToggleMask}
+                    styles={{
+                      root: {
+                        color: theme.palette.themePrimary,
+                        backgroundColor: 'transparent',
+                        borderRadius: '6px',
+                        width: '32px',
+                        height: '32px',
+                        '&:hover': {
+                          backgroundColor: theme.palette.themeLighterAlt
+                        }
+                      }
+                    }}
+                  >
+                    {isContentMasked ? <Eye24Regular /> : <EyeOff24Regular />}
+                  </IconButton>
+                )}
+              </Stack>
               <Text 
                 styles={{ 
                   root: { 
@@ -258,17 +287,22 @@ const EmailContext: React.FC = () => {
                     color: theme.palette.neutralSecondary,
                     lineHeight: '1.6',
                     padding: '16px',
-                    backgroundColor: theme.palette.neutralLighterAlt,
+                    backgroundColor: isContentMasked ? theme.palette.neutralLighter : theme.palette.neutralLighterAlt,
                     borderRadius: '12px',
                     border: `1px solid ${theme.palette.neutralLight}`,
                     maxHeight: '120px',
                     overflow: 'hidden',
-                    textOverflow: 'ellipsis'
+                    textOverflow: 'ellipsis',
+                    filter: isContentMasked ? 'blur(8px)' : 'none',
+                    transition: 'all 0.3s ease-in-out',
+                    userSelect: isContentMasked ? 'none' : 'text'
                   } 
                 }}
               >
-                {currentEmail.body.substring(0, 300)}
-                {currentEmail.body.length > 300 ? '...' : ''}
+                {isContentMasked ? 
+                  'Contenu masqué pour des raisons de confidentialité. Cliquez sur l\'icône pour afficher.' : 
+                  `${currentEmail.body.substring(0, 300)}${currentEmail.body.length > 300 ? '...' : ''}`
+                }
               </Text>
             </Stack>
           )}
