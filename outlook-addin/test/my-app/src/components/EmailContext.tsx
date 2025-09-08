@@ -285,39 +285,58 @@ const EmailContext: React.FC = () => {
 
           {currentEmail.body && (
             <Stack tokens={{ childrenGap: 12 }}>
-              <Text 
-                styles={{ 
-                  root: { 
-                    fontSize: '14px',
-                    fontWeight: FontWeights.semibold,
-                    color: theme.palette.neutralPrimary,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px'
-                  } 
+              <Stack horizontal horizontalAlign="space-between" verticalAlign="center">
+                <Text 
+                  styles={{ 
+                    root: { 
+                      fontSize: '14px',
+                      fontWeight: FontWeights.semibold,
+                      color: theme.palette.neutralPrimary,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px'
+                    } 
+                  }}
+                >
+                  Aperçu du Contenu
+                </Text>
+                <IconButton
+                  iconProps={{ iconName: 'ChevronDown' }}
+                  title="Voir plus"
+                  ariaLabel="Voir plus de contenu"
+                  onClick={() => {
+                    const element = document.getElementById('email-content-preview');
+                    if (element) {
+                      element.scrollTop += 100; // Scroll down by 100px
+                    }
+                  }}
+                  styles={{
+                    root: {
+                      color: theme.palette.neutralSecondary,
+                      height: '24px',
+                      width: '24px'
+                    }
+                  }}
+                />
+              </Stack>
+              <div
+                id="email-content-preview"
+                style={{
+                  fontSize: '14px',
+                  fontWeight: FontWeights.regular as any,
+                  color: theme.palette.neutralSecondary,
+                  lineHeight: '1.6',
+                  padding: '16px',
+                  backgroundColor: theme.palette.neutralLighterAlt,
+                  borderRadius: '12px',
+                  border: `1px solid ${theme.palette.neutralLight}`,
+                  height: '200px',
+                  maxHeight: '200px',
+                  overflowY: 'auto',
+                  scrollBehavior: 'smooth'
                 }}
               >
-                Aperçu du Contenu
-              </Text>
-              <Text 
-                styles={{ 
-                  root: { 
-                    fontSize: '14px',
-                    fontWeight: FontWeights.regular,
-                    color: theme.palette.neutralSecondary,
-                    lineHeight: '1.6',
-                    padding: '16px',
-                    backgroundColor: theme.palette.neutralLighterAlt,
-                    borderRadius: '12px',
-                    border: `1px solid ${theme.palette.neutralLight}`,
-                    maxHeight: '120px',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis'
-                  } 
-                }}
-              >
-                {currentEmail.body.substring(0, 300)}
-                {currentEmail.body.length > 300 ? '...' : ''}
-              </Text>
+                {currentEmail.body}
+              </div>
             </Stack>
           )}
           </Stack>
