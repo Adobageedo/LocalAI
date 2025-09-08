@@ -289,8 +289,8 @@ function insertFormattedContent(
   // Add conversation history if requested and available
   if (includeHistory && conversationHistory) {
     emailContent += `
-    <div style="color: #5A5A5A; border-left: 1px solid #CCCCCC; padding-left: 10px; margin-left: 5px; margin-top: 20px;">
-      ${convertTextToHtml(conversationHistory)}
+    <div style="color: #5A5A5A; border-left: 1px solid #CCCCCC; padding-left: 10px; margin-left: 5px;">
+      <p>${conversationHistory.replace(/\n/g, '</p><p>')}</p>
     </div>
     `;
   }

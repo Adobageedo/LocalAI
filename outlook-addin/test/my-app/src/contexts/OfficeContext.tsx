@@ -342,45 +342,23 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
 
     try {
       const item = Office.context.mailbox.item;
-      if (!item) {
-        throw new Error('No email item available');
-      }
-
-      // Format the template with proper HTML
-      const formattedTemplate = `<p>${template.replace(/\n/g, '</p><p>')}</p>`;
-      
-      // Prepare email content with optional conversation history
-      let emailContent = formattedTemplate;
-      
-      // Add conversation history if requested and available
-      if (includeHistory && currentEmail?.fullConversation) {
-        // Add a separator between the new content and conversation history
-        emailContent += `
-        <div style="color: #5A5A5A; border-left: 1px solid #CCCCCC; padding-left: 10px; margin-left: 5px;">
-          <p>${currentEmail.fullConversation.replace(/\n/g, '</p><p>')}</p>
-        </div>
-        `;
-      }
-      
-      // Detect if we're in compose mode or read mode
-      const isComposeMode = item.itemType === Office.MailboxEnums.ItemType.Message && 
-                          typeof item.body !== 'undefined' && 
-                          typeof item.body.setAsync === 'function';
-      
-      if (isComposeMode) {
-        // In compose mode, we can directly set the body content
-        console.log('In compose mode, setting body content directly');
-        item.body.setAsync(
-          emailContent,
-          { coercionType: Office.CoercionType.Html },
-          (result) => {
-            if (result.status !== Office.AsyncResultStatus.Succeeded) {
-              console.error('Failed to set body content:', result.error);
-            }
-          }
-        );
-      } else {
-        // In read mode, we need to create a new message or reply
+      if (item) {
+        // Format the template with proper HTML
+        const formattedTemplate = `<p>${template.replace(/\n/g, '</p><p>')}</p>`;
+        
+        // Prepare email content with optional conversation history
+        let emailContent = formattedTemplate;
+        
+        // Add conversation history if requested and available
+        if (includeHistory && currentEmail?.fullConversation) {
+          // Add a separator between the new content and conversation history
+          emailContent += `
+          <div style="color: #5A5A5A; border-left: 1px solid #CCCCCC; padding-left: 10px; margin-left: 5px;">
+            <p>${currentEmail.fullConversation.replace(/\n/g, '</p><p>')}</p>
+          </div>
+          `;
+        }
+        
         // Try to create a reply-all draft (preferred method)
         if (typeof item.displayReplyAllForm === 'function') {
           console.log('Using displayReplyAllForm to reply to all recipients');
@@ -395,8 +373,8 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
             htmlBody: emailContent
           });
         } 
-        // Last resort fallback: try to create new message with reply context
-        else if (typeof Office.context.mailbox.displayNewMessageForm === 'function') {
+        // Last resort fallback: create new message with reply context
+        else {
           console.log('Falling back to displayNewMessageForm');
           const replySubject = currentEmail?.subject?.startsWith('Re:') 
             ? currentEmail.subject 
@@ -407,9 +385,10 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
             subject: replySubject,
             htmlBody: emailContent
           });
-        } else {
-          throw new Error('No suitable method available to insert template');
         }
+      } else {
+        console.error('No email item available for reply');
+        throw new Error('No email item available');
       }
     } catch (error) {
       console.error('Error inserting template:', error);
