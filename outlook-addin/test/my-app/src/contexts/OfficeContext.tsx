@@ -77,70 +77,14 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
     }
     return body.trim();
   }
+  
   const loadEmailContext = () => {
     if (typeof Office === 'undefined') {
-      return;
-    }
-  
-    setError(null);
-    setIsLoadingEmail(true);
-  
-    const mailboxItem = Office.context.mailbox.item;
-    if (!mailboxItem) {
-      setError('No email item available');
-      setIsLoadingEmail(false);
-      return;
-    }
-  
-    let emailSubject = '';
-    let emailFrom = '';
-  
-    // Subject
-    if (typeof mailboxItem.subject === 'string') {
-      emailSubject = mailboxItem.subject || '(No subject)';
-    } else if (mailboxItem.subject && typeof (mailboxItem.subject as any).getAsync === 'function') {
-      (mailboxItem.subject as any).getAsync((asyncResult: any) => {
-        if (asyncResult.status === Office.AsyncResultStatus.Succeeded) {
-          emailSubject = asyncResult.value || '(No subject)';
-        }
-      });
-    }
-  
-    // From (read mode only)
-    if (mailboxItem.from) {
-      emailFrom = mailboxItem.from.emailAddress || mailboxItem.from.displayName || 'Unknown';
-    }
-  
-    const conversationId = mailboxItem.conversationId || '';
-    const internetMessageId = mailboxItem.internetMessageId || '';
-  
-    // --- Try uniqueBody first ---
-    if (typeof (mailboxItem as any).getAsync === 'function') {
-      (mailboxItem as any).getAsync("uniqueBody", { coercionType: "text" }, (result: any) => {
-        if (result.status === Office.AsyncResultStatus.Succeeded && result.value) {
-          updateEmailData(emailSubject, emailFrom, result.value, conversationId, internetMessageId);
-        } else {
-          // Fallback: normal body
-          if (mailboxItem.body && typeof (mailboxItem.body as any).getAsync === 'function') {
-            (mailboxItem.body as any).getAsync('text', (bodyResult: any) => {
-              if (bodyResult.status === Office.AsyncResultStatus.Succeeded) {
-                const cleanBody = extractLatestReply(bodyResult.value || '');
-                updateEmailData(emailSubject, emailFrom, cleanBody, conversationId, internetMessageId);
-              } else {
-                updateEmailData(emailSubject, emailFrom, '(Body unavailable)', conversationId, internetMessageId);
-              }
-            });
-          }
-        }
-      });
-    }
-  };
-  
-  const loadEmailContextOld = () => {
-    if (typeof Office === 'undefined') {
+      console.log('Office.js not available, skipping email context loading');
       return;
     }
 
+    console.log('Starting to load email context...');
     // Clear any previous errors and set loading state
     setError(null);
     setIsLoadingEmail(true);
@@ -184,11 +128,18 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
           // Get body if available
           if (mailboxItem.body && typeof (mailboxItem.body as any).getAsync === 'function') {
             (mailboxItem.body as any).getAsync('text', function(bodyResult: any) {
-              const emailBody = bodyResult.status === Office.AsyncResultStatus.Succeeded ? bodyResult.value : '';
+              console.log('Email body retrieved, processing content...');
+              // Get raw email body and apply extractLatestReply to clean it
+              const rawEmailBody = bodyResult.status === Office.AsyncResultStatus.Succeeded ? bodyResult.value : '';
+              console.log(`Raw email body length: ${rawEmailBody.length} characters`);
+              
+              const cleanedEmailBody = extractLatestReply(rawEmailBody);
+              console.log(`Cleaned email body length: ${cleanedEmailBody.length} characters (${Math.round((cleanedEmailBody.length / Math.max(rawEmailBody.length, 1)) * 100)}% of original)`);
               
               // Try to get full conversation using REST API
+              console.log('Retrieving full conversation history...');
               getFullConversation(conversationId, internetMessageId, function(fullConversation: string) {
-                updateEmailData(emailSubject, emailFrom, emailBody, conversationId, fullConversation, internetMessageId);
+                updateEmailData(emailSubject, emailFrom, cleanedEmailBody, conversationId, fullConversation, internetMessageId);
               });
             });
           } else {
@@ -257,8 +208,10 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
         if (mailboxItem.body && typeof (mailboxItem.body as any).getAsync === 'function') {
           (mailboxItem.body as any).getAsync('text', function(result: any) {
             if (result.status === Office.AsyncResultStatus.Succeeded) {
-              const emailBody = result.value || '';
-              updateEmailData(emailSubject, emailFrom, emailBody);
+              const rawEmailBody = result.value || '';
+              // Apply extractLatestReply to clean the email body
+              const cleanedEmailBody = extractLatestReply(rawEmailBody);
+              updateEmailData(emailSubject, emailFrom, cleanedEmailBody);
             } else {
               // If body fails, still update with available data
               updateEmailData(emailSubject, emailFrom, 'Email body unavailable in corporate environment');
