@@ -241,18 +241,22 @@ const TemplateGenerator: React.FC = () => {
     }
   };
 
-  const handleInsertTemplate = async () => {
+  const handleInsertTemplate = async (includeHistory: boolean = false) => {
     if (!generatedTemplate) {
-      setError('No template to insert');
+      setError('No template to copy');
       return;
     }
 
     try {
-      await insertTemplate(generatedTemplate);
+      await insertTemplate(generatedTemplate, includeHistory);
       setSuccess('Template inserted into new email!');
     } catch (error: any) {
       setError('Failed to insert template: ' + error.message);
     }
+  };
+
+  const handleInsertWithHistory = async () => {
+    await handleInsertTemplate(true);
   };
 
   const handleCopyTemplate = () => {
@@ -452,10 +456,10 @@ const TemplateGenerator: React.FC = () => {
               iconProps={{ iconName: 'Add' }}
               styles={secondaryButtonStyles}
             />
-            <Stack horizontal tokens={{ childrenGap: 12 }}>
+            <Stack horizontal tokens={{ childrenGap: 12 }} wrap>
               <PrimaryButton
                 text={t.insertTemplate}
-                onClick={handleInsertTemplate}
+                onClick={() => handleInsertTemplate(true)}
                 iconProps={{ iconName: 'Mail' }}
                 styles={modernButtonStyles}
               />
