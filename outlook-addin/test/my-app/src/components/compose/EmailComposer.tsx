@@ -34,12 +34,12 @@ import {
   Code24Regular
 } from '@fluentui/react-icons';
 import { useAuth } from '../../contexts/AuthContext';
-import { useOffice } from '../../contexts/OfficeContext';
 import { 
   generateEmail, 
   correctEmail, 
   reformulateEmail,
   getCurrentEmailContent,
+  insertContentIntoOutlook,
   getUserEmailFromOutlook,
   processEscapeSequences
 } from '../../services/composeService';
@@ -48,7 +48,6 @@ import TemplateChatInterface from '../TemplateChatInterface';
 
 const EmailComposer: React.FC = () => {
   const { user } = useAuth();
-  const { insertTemplate } = useOffice();
   
   // State management
   const [activeTab, setActiveTab] = useState<string>('generate');
@@ -314,7 +313,7 @@ const EmailComposer: React.FC = () => {
 
   const insertIntoOutlookWithStatus = async (text: string, includeHistory: boolean = true) => {
     try {
-      await insertTemplate(text, includeHistory);
+      await insertContentIntoOutlook(text, includeHistory);
     } catch (error) {
       console.error('Failed to insert into Outlook:', error);
       setStatusMessage({
