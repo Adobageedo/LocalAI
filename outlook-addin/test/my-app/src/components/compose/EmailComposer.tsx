@@ -112,7 +112,7 @@ const EmailComposer: React.FC = () => {
   };
 
   useEffect(() => {
-    if (activeTab === 'correct' || activeTab === 'reformulate') {
+    if (activeTab === 'correct' || activeTab === 'reformulate' || activeTab === 'generate') {
       refreshEmailContent();
     }
   }, [activeTab]);
@@ -311,9 +311,9 @@ const EmailComposer: React.FC = () => {
     }
   };
 
-  const insertIntoOutlookWithStatus = async (text: string) => {
+  const insertIntoOutlookWithStatus = async (text: string, includeHistory: boolean = true) => {
     try {
-      await insertContentIntoOutlook(text);
+      await insertContentIntoOutlook(text, includeHistory);
     } catch (error) {
       console.error('Failed to insert into Outlook:', error);
       setStatusMessage({
@@ -360,9 +360,10 @@ const EmailComposer: React.FC = () => {
   };
 
   const handleGenerateEmail = async () => {
-    if (!description.trim()) {
+    // Check if we have a description or current email body
+    if (!description.trim() && !currentEmailBody.trim()) {
       setStatusMessage({
-        message: 'Veuillez décrire l\'email que vous souhaitez générer',
+        message: 'Veuillez décrire l\'email que vous souhaitez générer ou améliorer',
         type: MessageBarType.error
       });
       return;
@@ -372,12 +373,15 @@ const EmailComposer: React.FC = () => {
     setStatusMessage(null);
 
     try {
+      // If there's no current email body, generate from scratch
+      // Otherwise, improve the existing content
       const response = await generateEmail({
         additionalInfo: description,
         tone: selectedTone,
         language: detectedLanguage,
         userId: user?.uid || 'compose-user',
-        from: getUserEmailFromOutlook() || user?.email || ''
+        from: getUserEmailFromOutlook() || user?.email || '',
+        body: currentEmailBody // Include current body for improvement if available
       });
 
       const generatedText = response.generated_text;
@@ -481,20 +485,20 @@ const EmailComposer: React.FC = () => {
       {!hasGenerated.generate && (
         <Stack tokens={{ childrenGap: 20 }} styles={cardStyles}>
           <Text className={headerStyles}>
-            <Sparkle24Regular /> Générer un Email
+            <Sparkle24Regular /> Améliorer ou Générer un Email
           </Text>
           <Text className={subHeaderStyles}>
-            Décrivez le type d'email que vous souhaitez créer et choisissez le ton approprié.
+            Améliorez le contenu existant ou décrivez un nouvel email à générer.
           </Text>
           
           <TextField
             label="Description de l'email *"
             value={description}
             onChange={(_, newValue) => setDescription(newValue || '')}
-            placeholder="Décrivez l'email que vous souhaitez générer..."
+            placeholder={currentEmailBody ? "Comment souhaitez-vous améliorer ce contenu?" : "Décrivez l'email que vous souhaitez générer..."}
             multiline
-            rows={4}
-            required
+            rows={3}
+            required={!currentEmailBody}
             styles={textFieldStyles}
           />
           
@@ -510,10 +514,10 @@ const EmailComposer: React.FC = () => {
           />
           
           <PrimaryButton
-            text="Générer Email"
+            text={currentEmailBody ? "Améliorer le Contenu" : "Générer Email"}
             onClick={handleGenerateEmail}
-            disabled={isLoading || !description.trim()}
-            iconProps={{ iconName: 'Sparkle' }}
+            disabled={isLoading || (!currentEmailBody && !description.trim())}
+            iconProps={{ iconName: currentEmailBody ? 'Edit' : 'Sparkle' }}
             styles={modernButtonStyles}
           />
         </Stack>
@@ -542,7 +546,7 @@ const EmailComposer: React.FC = () => {
                 />
                 <PrimaryButton
                   text="Insérer dans Outlook"
-                  onClick={() => insertIntoOutlookWithStatus(lastGeneratedText)}
+                  onClick={() => insertIntoOutlookWithStatus(lastGeneratedText, true)}
                   disabled={isLoading || !lastGeneratedText}
                   iconProps={{ iconName: 'Mail' }}
                   styles={modernButtonStyles}
@@ -713,7 +717,7 @@ const EmailComposer: React.FC = () => {
                 />
                 <PrimaryButton
                   text="Insérer dans Outlook"
-                  onClick={() => insertIntoOutlookWithStatus(lastGeneratedText)}
+                  onClick={() => insertIntoOutlookWithStatus(lastGeneratedText, true)}
                   disabled={isLoading || !lastGeneratedText}
                   iconProps={{ iconName: 'Mail' }}
                   styles={modernButtonStyles}
@@ -842,7 +846,7 @@ const EmailComposer: React.FC = () => {
                 />
                 <PrimaryButton
                   text="Insérer dans Outlook"
-                  onClick={() => insertIntoOutlookWithStatus(lastGeneratedText)}
+                  onClick={() => insertIntoOutlookWithStatus(lastGeneratedText, true)}
                   disabled={isLoading || !lastGeneratedText}
                   iconProps={{ iconName: 'Mail' }}
                   styles={modernButtonStyles}
