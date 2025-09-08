@@ -60,8 +60,12 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
       });
     }
   }, []);
-  function extractLatestReply(body: string): string {
-    console.log(body);
+  interface EmailParts {
+    mainBody: string;
+    conversationHistory: string;
+  }
+
+  function extractLatestReply(body: string): EmailParts {
     const patterns = [
       /^From:/mi,
       /^De\s?:/mi,
@@ -72,13 +76,22 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
   
     for (const pattern of patterns) {
       const match = body.match(pattern);
-      if (match) {
-        console.log(body.substring(0, match.index).trim());
-        return body.substring(0, match.index).trim();
+      if (match && match.index !== undefined) {
+        const mainBody = body.substring(0, match.index).trim();
+        const conversationHistory = body.substring(match.index).trim();
+        
+        return {
+          mainBody,
+          conversationHistory
+        };
       }
     }
-    console.log(body.trim());
-    return body.trim();
+    
+    // If no pattern is found, return the entire body as mainBody
+    return {
+      mainBody: body.trim(),
+      conversationHistory: ''
+    };
   }
   
   const loadEmailContext = () => {
@@ -131,11 +144,19 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
             (mailboxItem.body as any).getAsync('text', function(bodyResult: any) {
               // Get raw email body and apply extractLatestReply to clean it
               const rawEmailBody = bodyResult.status === Office.AsyncResultStatus.Succeeded ? bodyResult.value : '';
-              const cleanedEmailBody = extractLatestReply(rawEmailBody);
+              const emailParts = extractLatestReply(rawEmailBody);
               
               // Try to get full conversation using REST API
               getFullConversation(conversationId, internetMessageId, function(fullConversation: string) {
-                updateEmailData(emailSubject, emailFrom, cleanedEmailBody, conversationId, fullConversation, internetMessageId);
+                // Include both main body and conversation history from the email
+                updateEmailData(
+                  emailSubject, 
+                  emailFrom, 
+                  emailParts.mainBody, 
+                  conversationId, 
+                  emailParts.conversationHistory || fullConversation, 
+                  internetMessageId
+                );
               });
             });
           } else {
@@ -206,8 +227,8 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
             if (result.status === Office.AsyncResultStatus.Succeeded) {
               const rawEmailBody = result.value || '';
               // Apply extractLatestReply to clean the email body
-              const cleanedEmailBody = extractLatestReply(rawEmailBody);
-              updateEmailData(emailSubject, emailFrom, cleanedEmailBody);
+              const emailParts = extractLatestReply(rawEmailBody);
+              updateEmailData(emailSubject, emailFrom, emailParts.mainBody, undefined, emailParts.conversationHistory);
             } else {
               // If body fails, still update with available data
               updateEmailData(emailSubject, emailFrom, 'Email body unavailable in corporate environment');

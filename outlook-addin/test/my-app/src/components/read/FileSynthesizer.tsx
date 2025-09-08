@@ -552,10 +552,11 @@ const FileSynthesizer: React.FC = () => {
       const emailBody = currentEmail.body || '';
       const emailSubject = currentEmail.subject || '';
       const emailFrom = currentEmail.from || '';
+      const conversationHistory = currentEmail.fullConversation || '';
       
       // Add performance monitoring
       const startTime = performance.now();
-      const contentSize = emailBody.length + emailSubject.length;
+      const contentSize = emailBody.length + emailSubject.length + conversationHistory.length;
             
       // Prepare request data following the API structure from memory
       const requestData = {
@@ -564,6 +565,7 @@ const FileSynthesizer: React.FC = () => {
         subject: emailSubject,
         from: emailFrom,
         body: emailBody,
+        conversationHistory: conversationHistory,
         language: getOutlookLanguage(),
         summary_type: apiSummaryType,
         use_rag: false

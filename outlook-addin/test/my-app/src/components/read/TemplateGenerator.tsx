@@ -184,6 +184,10 @@ const TemplateGenerator: React.FC = () => {
     setSuccess('');
 
     try {
+      // Extract main body and conversation history from the email body
+      let mainBody = currentEmail?.body || null;
+      let conversationHistory = currentEmail?.fullConversation || null;
+      
       const requestData = {
         // User Input
         additionalInfo: additionalInfo.trim() || null,
@@ -194,24 +198,10 @@ const TemplateGenerator: React.FC = () => {
         // Email Context
         subject: currentEmail?.subject || null,
         from: currentEmail?.from || null,
-        body: currentEmail?.body || null,
+        body: mainBody,
+        conversationHistory: conversationHistory,
         conversationId: currentEmail?.conversationId || null
       };
-
-      // Log the data being sent to API
-      console.log('=== API REQUEST DATA ===');
-      console.log('Additional Info:', requestData.additionalInfo);
-      console.log('Tone:', requestData.tone);
-      console.log('Language:', requestData.language);
-      console.log('Use RAG:', requestData.use_rag);
-      console.log('Subject:', requestData.subject);
-      console.log('From:', requestData.from);
-      console.log('Body Length:', requestData.body?.length || 0);
-      console.log('Body Preview:', requestData.body?.substring(0, 200) + '...');
-      console.log('Conversation ID:', requestData.conversationId);
-      
-      console.log('Full Request Data:', JSON.stringify(requestData, null, 2));
-      console.log('=== END API REQUEST DATA ===');
 
       const response = await authFetch(API_ENDPOINTS.OUTLOOK_PROMPT, {
         method: 'POST',

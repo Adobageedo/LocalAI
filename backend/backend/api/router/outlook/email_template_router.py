@@ -43,6 +43,7 @@ class EmailTemplateRequest(BaseModel):
     stream: Optional[bool] = False
     body: Optional[str] = None
     conversationId: Optional[str] = None
+    conversationHistory: Optional[str] = None
 
 class ChatMessage(BaseModel):
     role: str
@@ -89,7 +90,8 @@ async def generate_email_template(data: EmailTemplateRequest, user = Depends(get
     email_context = EmailPromptBuilder.build_email_context(
         subject=data.subject,
         from_email=data.from_email,
-        body=data.body
+        body=data.body,
+        conversation_history=data.conversationHistory
     )
     
     # Get configuration settings
