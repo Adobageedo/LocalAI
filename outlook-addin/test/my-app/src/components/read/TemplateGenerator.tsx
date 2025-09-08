@@ -255,10 +255,6 @@ const TemplateGenerator: React.FC = () => {
     }
   };
 
-  const handleInsertWithHistory = async () => {
-    await handleInsertTemplate(true);
-  };
-
   const handleCopyTemplate = () => {
     if (!generatedTemplate) {
       setError('No template to copy');
