@@ -40,18 +40,32 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
   const [test, setTest] = useState(false);
 
   useEffect(() => {
+    // Set loading state immediately
+    setIsLoadingEmail(true);
+    
     if (typeof Office !== 'undefined') {
-      Office.onReady((info) => {
-        if (info.host === Office.HostType.Outlook) {
-          console.log('Office.js initialized successfully');
-          setIsOfficeReady(true);
-          loadEmailContext();
-        }
-      });
+      try {
+        Office.onReady((info) => {
+          if (info.host === Office.HostType.Outlook) {
+            console.log('Office.js initialized successfully');
+            setIsOfficeReady(true);
+            // We'll load email context in a separate effect
+          } else {
+            console.warn('Not running in Outlook');
+            setError('This add-in is designed for Outlook');
+            setIsLoadingEmail(false);
+          }
+        });
+      } catch (err) {
+        console.error('Office initialization failed:', err);
+        setError('Failed to initialize Office.js');
+        setIsLoadingEmail(false);
+      }
     } else {
       // Development mode without Office.js
       console.log('Office.js not available - running in development mode');
       setIsOfficeReady(true);
+      setIsLoadingEmail(false);
       // Mock email data for development
       setCurrentEmail({
         subject: 'Sample Email Subject',
@@ -60,6 +74,13 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
       });
     }
   }, []);
+  
+  // Separate effect for loading email context after Office is ready
+  useEffect(() => {
+    if (isOfficeReady && typeof Office !== 'undefined') {
+      loadEmailContext();
+    }
+  }, [isOfficeReady]);
   interface EmailParts {
     mainBody: string;
     conversationHistory: string;
@@ -94,14 +115,39 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
     };
   }
   
+  // Create a class to manage loading state with proper scope handling
+  class LoadingManager {
+    private timeoutId: NodeJS.Timeout;
+    
+    constructor(private timeoutMs: number = 15000) {
+      // Clear any previous errors and set loading state
+      setError(null);
+      setIsLoadingEmail(true);
+      
+      // Set a timeout to prevent infinite loading
+      this.timeoutId = setTimeout(() => {
+        if (isLoadingEmail) {
+          console.warn('Email loading timed out');
+          setIsLoadingEmail(false);
+          setError('Loading email timed out. Please try again.');
+        }
+      }, this.timeoutMs);
+    }
+    
+    // Method to complete loading and clear timeout
+    complete() {
+      clearTimeout(this.timeoutId);
+      setIsLoadingEmail(false);
+    }
+  }
+  
   const loadEmailContext = () => {
     if (typeof Office === 'undefined') {
       return;
     }
-
-    // Clear any previous errors and set loading state
-    setError(null);
-    setIsLoadingEmail(true);
+    
+    // Create loading manager to handle timeout and loading state
+    activeLoadingManager = new LoadingManager();
     // Use the same approach as the working taskpane.js
     Office.context.mailbox.getCallbackTokenAsync(function(result) {
       if (result.status === Office.AsyncResultStatus.Succeeded) {
@@ -182,7 +228,7 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
           loadBasicEmailContext();
         } else {
           setError(`Authentication error: ${result.error?.message || 'Unknown error'}`);
-          setIsLoadingEmail(false);
+          activeLoadingManager?.complete();
         }
       }
     });
@@ -241,25 +287,35 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
       } else {
         console.log('No email item available in basic context');
         setError('No email selected or email context unavailable');
-        setIsLoadingEmail(false);
+        activeLoadingManager?.complete();
       }
     } catch (error) {
       console.error('Error in loadBasicEmailContext:', error);
       setError('Unable to load email context in corporate environment');
-      setIsLoadingEmail(false);
+      activeLoadingManager?.complete();
     }
   };
 
+  // Create a shared loading manager that can be accessed outside of loadEmailContext
+  let activeLoadingManager: LoadingManager | null = null;
+  
   const updateEmailData = (subject: string, from: string, body: string, conversationId?: string, fullConversation?: string, internetMessageId?: string) => {
     setCurrentEmail({ 
       subject, 
       from, 
-      body, 
-      conversationId, 
-      fullConversation, 
-      internetMessageId 
+      body,
+      conversationId,
+      fullConversation,
+      internetMessageId
     });
-    setIsLoadingEmail(false);
+    
+    // Complete loading if we have an active loading manager
+    if (activeLoadingManager) {
+      activeLoadingManager.complete();
+      activeLoadingManager = null;
+    } else {
+      setIsLoadingEmail(false);
+    }
     console.log('Email context loaded:', { 
       subject, 
       from, 
