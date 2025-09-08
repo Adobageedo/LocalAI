@@ -14,7 +14,7 @@ interface OfficeContextType {
   currentEmail: EmailData | null;
   isLoadingEmail: boolean;
   loadEmailContext: () => void;
-  insertTemplate: (template: string) => Promise<void>;
+  insertTemplate: (template: string, includeHistory?: boolean) => Promise<void>;
   error: string | null;
 }
 
@@ -334,7 +334,7 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
     }
   };
 
-  const insertTemplate = async (template: string) => {
+  const insertTemplate = async (template: string, includeHistory: boolean = true) => {
     if (typeof Office === 'undefined') {
       console.log('Would insert template:', template);
       return;
@@ -346,18 +346,31 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
         // Format the template with proper HTML
         const formattedTemplate = `<p>${template.replace(/\n/g, '</p><p>')}</p>`;
         
+        // Prepare email content with optional conversation history
+        let emailContent = formattedTemplate;
+        
+        // Add conversation history if requested and available
+        if (includeHistory && currentEmail?.fullConversation) {
+          // Add a separator between the new content and conversation history
+          emailContent += `
+          <div style="color: #5A5A5A; border-left: 1px solid #CCCCCC; padding-left: 10px; margin-left: 5px;">
+            <p>${currentEmail.fullConversation.replace(/\n/g, '</p><p>')}</p>
+          </div>
+          `;
+        }
+        
         // Try to create a reply-all draft (preferred method)
         if (typeof item.displayReplyAllForm === 'function') {
           console.log('Using displayReplyAllForm to reply to all recipients');
           item.displayReplyAllForm({
-            htmlBody: formattedTemplate
+            htmlBody: emailContent
           });
         } 
         // Fallback to regular reply if reply-all is not available
         else if (typeof item.displayReplyForm === 'function') {
           console.log('Falling back to displayReplyForm (reply to sender only)');
           item.displayReplyForm({
-            htmlBody: formattedTemplate
+            htmlBody: emailContent
           });
         } 
         // Last resort fallback: create new message with reply context
@@ -370,7 +383,7 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
           Office.context.mailbox.displayNewMessageForm({
             toRecipients: currentEmail?.from ? [{ displayName: currentEmail.from, emailAddress: currentEmail.from }] : [],
             subject: replySubject,
-            htmlBody: formattedTemplate
+            htmlBody: emailContent
           });
         }
       } else {
