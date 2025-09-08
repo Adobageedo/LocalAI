@@ -243,29 +243,69 @@ function convertTextToHtml(text: string): string {
 
 /**
  * Utility function to insert content into Outlook email
+ * @param content The email content to insert
+ * @param includeHistory Whether to include conversation history
+ * @param conversationHistory Optional conversation history to include
  */
-export function insertContentIntoOutlook(content: string): Promise<void> {
+export function insertContentIntoOutlook(content: string, includeHistory: boolean = true, conversationHistory?: string): Promise<void> {
   return new Promise((resolve, reject) => {
     if (!(window as any).Office?.context?.mailbox?.item) {
       reject(new Error('Outlook context not available'));
       return;
     }
 
-    // Convert the content to properly formatted HTML
-    const htmlContent = convertTextToHtml(content);
-
-    (window as any).Office.context.mailbox.item.body.setAsync(
-      htmlContent,
-      { coercionType: (window as any).Office.CoercionType.Html },
-      (result: any) => {
-        if (result.status === (window as any).Office.AsyncResultStatus.Succeeded) {
-          resolve();
-        } else {
-          reject(new Error('Failed to insert content into Outlook'));
-        }
-      }
-    );
+    // Get the current email body if we need conversation history
+    if (includeHistory && !conversationHistory) {
+      getCurrentEmailContent()
+        .then(emailBody => {
+          // Use the email body as conversation history
+          insertFormattedContent(content, includeHistory, emailBody, resolve, reject);
+        })
+        .catch(error => {
+          // If we can't get the conversation history, just insert the content
+          console.warn('Could not get conversation history:', error);
+          insertFormattedContent(content, false, '', resolve, reject);
+        });
+    } else {
+      // Insert content with optional provided conversation history
+      insertFormattedContent(content, includeHistory, conversationHistory || '', resolve, reject);
+    }
   });
+}
+
+/**
+ * Helper function to insert formatted content into Outlook
+ */
+function insertFormattedContent(
+  content: string, 
+  includeHistory: boolean, 
+  conversationHistory: string, 
+  resolve: () => void, 
+  reject: (error: Error) => void
+): void {
+  // Prepare email content with optional conversation history
+  let emailContent = convertTextToHtml(content);
+  
+  // Add conversation history if requested and available
+  if (includeHistory && conversationHistory) {
+    emailContent += `
+    <div style="color: #5A5A5A; border-left: 1px solid #CCCCCC; padding-left: 10px; margin-left: 5px; margin-top: 20px;">
+      ${convertTextToHtml(conversationHistory)}
+    </div>
+    `;
+  }
+
+  (window as any).Office.context.mailbox.item.body.setAsync(
+    emailContent,
+    { coercionType: (window as any).Office.CoercionType.Html },
+    (result: any) => {
+      if (result.status === (window as any).Office.AsyncResultStatus.Succeeded) {
+        resolve();
+      } else {
+        reject(new Error('Failed to insert content into Outlook'));
+      }
+    }
+  );
 }
 
 /**
