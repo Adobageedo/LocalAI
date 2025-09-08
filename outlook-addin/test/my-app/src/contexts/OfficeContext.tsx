@@ -60,8 +60,83 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
       });
     }
   }, []);
-
+  function extractLatestReply(body: string): string {
+    const patterns = [
+      /^From:/mi,
+      /^De\s?:/mi,
+      /^-----Original Message-----/mi,
+      /^Sent:/mi,
+      /^Envoyé\s?:/mi,
+    ];
+  
+    for (const pattern of patterns) {
+      const match = body.match(pattern);
+      if (match) {
+        return body.substring(0, match.index).trim();
+      }
+    }
+    return body.trim();
+  }
   const loadEmailContext = () => {
+    if (typeof Office === 'undefined') {
+      return;
+    }
+  
+    setError(null);
+    setIsLoadingEmail(true);
+  
+    const mailboxItem = Office.context.mailbox.item;
+    if (!mailboxItem) {
+      setError('No email item available');
+      setIsLoadingEmail(false);
+      return;
+    }
+  
+    let emailSubject = '';
+    let emailFrom = '';
+  
+    // Subject
+    if (typeof mailboxItem.subject === 'string') {
+      emailSubject = mailboxItem.subject || '(No subject)';
+    } else if (mailboxItem.subject && typeof (mailboxItem.subject as any).getAsync === 'function') {
+      (mailboxItem.subject as any).getAsync((asyncResult: any) => {
+        if (asyncResult.status === Office.AsyncResultStatus.Succeeded) {
+          emailSubject = asyncResult.value || '(No subject)';
+        }
+      });
+    }
+  
+    // From (read mode only)
+    if (mailboxItem.from) {
+      emailFrom = mailboxItem.from.emailAddress || mailboxItem.from.displayName || 'Unknown';
+    }
+  
+    const conversationId = mailboxItem.conversationId || '';
+    const internetMessageId = mailboxItem.internetMessageId || '';
+  
+    // --- Try uniqueBody first ---
+    if (typeof (mailboxItem as any).getAsync === 'function') {
+      (mailboxItem as any).getAsync("uniqueBody", { coercionType: "text" }, (result: any) => {
+        if (result.status === Office.AsyncResultStatus.Succeeded && result.value) {
+          updateEmailData(emailSubject, emailFrom, result.value, conversationId, internetMessageId);
+        } else {
+          // Fallback: normal body
+          if (mailboxItem.body && typeof (mailboxItem.body as any).getAsync === 'function') {
+            (mailboxItem.body as any).getAsync('text', (bodyResult: any) => {
+              if (bodyResult.status === Office.AsyncResultStatus.Succeeded) {
+                const cleanBody = extractLatestReply(bodyResult.value || '');
+                updateEmailData(emailSubject, emailFrom, cleanBody, conversationId, internetMessageId);
+              } else {
+                updateEmailData(emailSubject, emailFrom, '(Body unavailable)', conversationId, internetMessageId);
+              }
+            });
+          }
+        }
+      });
+    }
+  };
+  
+  const loadEmailContextOld = () => {
     if (typeof Office === 'undefined') {
       return;
     }
