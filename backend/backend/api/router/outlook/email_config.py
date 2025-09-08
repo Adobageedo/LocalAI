@@ -315,7 +315,7 @@ class EmailPromptBuilder:
     """Builder class for constructing email generation prompts"""
     
     @staticmethod
-    def build_email_context(subject: str = None, from_email: str = None, body: str = None) -> str:
+    def build_email_context(subject: str = None, from_email: str = None, body: str = None, conversation_history: str = None) -> str:
         """
         Build the email context section of the prompt.
         
@@ -323,6 +323,7 @@ class EmailPromptBuilder:
             subject: Email subject
             from_email: Sender email
             body: Email body content
+            conversation_history: Previous conversation thread
             
         Returns:
             Formatted email context string
@@ -335,6 +336,8 @@ class EmailPromptBuilder:
             context_parts.append(f"From: {from_email}")
         if body:
             context_parts.append(f"Original Email Body:\n{body}")
+        if conversation_history:
+            context_parts.append(f"\nConversation History:\n{conversation_history}")
         
         return "\n".join(context_parts) + "\n\n" if context_parts else ""
     
