@@ -213,7 +213,7 @@ api_routes:
     # Route de composition d'emails
     compose:
       # Modèle LLM par défaut
-      default_model: "gpt-4"
+      default_model: "gpt-5-mini-2025-08-07"
       # Température par défaut pour la génération
       default_temperature: 0.7
       # Température pour la correction
@@ -232,7 +232,7 @@ api_routes:
     # Route des templates d'emails
     email_template:
       # Modèle LLM par défaut
-      default_model: "gpt-4"
+      default_model: "gpt-5-mini-2025-08-07"
       # Température par défaut
       default_temperature: 0.7
       # Utilisation du RAG par défaut
@@ -249,7 +249,7 @@ api_routes:
     # Route de résumé
     summarize:
       # Modèle LLM par défaut
-      default_model: "gpt-4"
+      default_model: "gpt-5-mini-2025-08-07"
       # Température pour les résumés (plus basse pour plus de précision)
       default_temperature: 0.3
       # Types de résumés supportés

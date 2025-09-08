@@ -191,7 +191,7 @@ async def refine_email_template(data: TemplateRefineRequest, user = Depends(get_
 Please return only the email body.{style_context}"""
     
     # Use LLM for conversational refinement
-    llm = LLM(temperature=0.7, model="gpt-4.1-mini")
+    llm = LLM(temperature=0.7, model="gpt-5-mini-2025-08-07")
     
     # Handle streaming response
     if data.stream:
