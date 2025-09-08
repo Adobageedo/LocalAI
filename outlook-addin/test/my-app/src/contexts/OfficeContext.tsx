@@ -61,6 +61,7 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
     }
   }, []);
   function extractLatestReply(body: string): string {
+    console.log(body);
     const patterns = [
       /^From:/mi,
       /^De\s?:/mi,
@@ -72,19 +73,19 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
     for (const pattern of patterns) {
       const match = body.match(pattern);
       if (match) {
+        console.log(body.substring(0, match.index).trim());
         return body.substring(0, match.index).trim();
       }
     }
+    console.log(body.trim());
     return body.trim();
   }
   
   const loadEmailContext = () => {
     if (typeof Office === 'undefined') {
-      console.log('Office.js not available, skipping email context loading');
       return;
     }
 
-    console.log('Starting to load email context...');
     // Clear any previous errors and set loading state
     setError(null);
     setIsLoadingEmail(true);
@@ -128,16 +129,11 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
           // Get body if available
           if (mailboxItem.body && typeof (mailboxItem.body as any).getAsync === 'function') {
             (mailboxItem.body as any).getAsync('text', function(bodyResult: any) {
-              console.log('Email body retrieved, processing content...');
               // Get raw email body and apply extractLatestReply to clean it
               const rawEmailBody = bodyResult.status === Office.AsyncResultStatus.Succeeded ? bodyResult.value : '';
-              console.log(`Raw email body length: ${rawEmailBody.length} characters`);
-              
               const cleanedEmailBody = extractLatestReply(rawEmailBody);
-              console.log(`Cleaned email body length: ${cleanedEmailBody.length} characters (${Math.round((cleanedEmailBody.length / Math.max(rawEmailBody.length, 1)) * 100)}% of original)`);
               
               // Try to get full conversation using REST API
-              console.log('Retrieving full conversation history...');
               getFullConversation(conversationId, internetMessageId, function(fullConversation: string) {
                 updateEmailData(emailSubject, emailFrom, cleanedEmailBody, conversationId, fullConversation, internetMessageId);
               });
