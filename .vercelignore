@@ -1,0 +1,19 @@
+# Ignore everything except frontend
+backend/
+docs/
+tests/
+*.md
+!frontend/
+
+# Ignore common files
+.git/
+.gitignore
+.env.local
+.env*.local
+*.log
+node_modules/
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
