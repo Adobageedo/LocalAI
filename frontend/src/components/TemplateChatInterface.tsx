@@ -4,20 +4,15 @@ import {
   Text,
   TextField,
   PrimaryButton,
-  DefaultButton,
   MessageBar,
   MessageBarType,
   Spinner,
   SpinnerSize,
-  ScrollablePane,
   IStackTokens,
   getTheme,
   FontWeights,
-  mergeStyles
 } from '@fluentui/react';
-import { Send20Regular, Bot20Regular, Person20Regular, Sparkle20Regular } from '@fluentui/react-icons';
-import { useAuth } from '../contexts/AuthContext';
-import { useTranslations } from '../utils/i18n';
+import { Bot20Regular, Person20Regular, Sparkle20Regular } from '@fluentui/react-icons';
 import { authFetch } from '../utils/authFetch';
 import { API_ENDPOINTS } from '../config/api';
 
@@ -50,8 +45,6 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
   userRequest,
   emailContext
 }) => {
-  const { user } = useAuth();
-  const t = useTranslations();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [currentMessage, setCurrentMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);

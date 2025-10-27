@@ -46,6 +46,19 @@ export interface ComposeError {
   details?: any;
 }
 
+export interface StreamChunk {
+  type: 'chunk' | 'done' | 'error';
+  chunkNumber?: number;
+  delta?: string;
+  done?: boolean;
+  fullText?: string;
+  metadata?: any;
+  error?: string;
+  message?: string;
+}
+
+export type StreamCallback = (chunk: StreamChunk) => void;
+
 /**
  * Validate and normalize language code
  */
@@ -82,10 +95,11 @@ export async function generateEmail(request: ComposeRequest): Promise<ComposeRes
     // Normalize language code
     const mappedRequest = {
       ...request,
-      language: normalizeLanguageCode(request.language || 'fr')
+      language: normalizeLanguageCode(request.language || 'fr'),
+      operation: 'generate'
     };
     
-    const response = await authFetch(API_ENDPOINTS.COMPOSE_GENERATE, {
+    const response = await authFetch(API_ENDPOINTS.COMPOSE, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -111,13 +125,14 @@ export async function generateEmail(request: ComposeRequest): Promise<ComposeRes
  */
 export async function correctEmail(request: ComposeRequest): Promise<ComposeResponse> {
   try {
-    // Normalize language code
+    // Normalize language code and add operation
     const mappedRequest = {
       ...request,
-      language: normalizeLanguageCode(request.language || 'fr')
+      language: normalizeLanguageCode(request.language || 'fr'),
+      operation: 'correct'
     };
     
-    const response = await authFetch(API_ENDPOINTS.COMPOSE_CORRECT, {
+    const response = await authFetch(API_ENDPOINTS.COMPOSE, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -143,13 +158,14 @@ export async function correctEmail(request: ComposeRequest): Promise<ComposeResp
  */
 export async function reformulateEmail(request: ComposeRequest): Promise<ComposeResponse> {
   try {
-    // Normalize language code
+    // Normalize language code and add operation
     const mappedRequest = {
       ...request,
-      language: normalizeLanguageCode(request.language || 'fr')
+      language: normalizeLanguageCode(request.language || 'fr'),
+      operation: 'reformulate'
     };
     
-    const response = await authFetch(API_ENDPOINTS.COMPOSE_REFORMULATE, {
+    const response = await authFetch(API_ENDPOINTS.COMPOSE, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -167,24 +183,6 @@ export async function reformulateEmail(request: ComposeRequest): Promise<Compose
   } catch (error) {
     console.error('Reformulate email failed:', error);
     throw new Error(`Erreur lors de la reformulation: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
-  }
-}
-
-/**
- * Check health of compose service
- */
-export async function checkComposeHealth(): Promise<any> {
-  try {
-    const response = await fetch(API_ENDPOINTS.COMPOSE_HEALTH);
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-    }
-
-    return await response.json();
-  } catch (error) {
-    console.error('Compose health check failed:', error);
-    throw error;
   }
 }
 
@@ -378,4 +376,209 @@ export function getOutlookLanguage(): string {
     console.warn('Could not detect language, defaulting to French:', error);
     return 'french';
   }
+}
+
+/**
+ * Helper function to handle streaming responses
+ */
+async function handleStreamingResponse(
+  endpoint: string,
+  request: ComposeRequest,
+  onChunk: StreamCallback
+): Promise<ComposeResponse> {
+  try {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(request),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    }
+
+    if (!response.body) {
+      throw new Error('Response body is null');
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder('utf-8');
+    let buffer = '';
+    let fullText = '';
+    let lastMetadata: any = null;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      
+      if (done) break;
+
+      // Decode the chunk
+      buffer += decoder.decode(value, { stream: true });
+      
+      // Process complete lines
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || ''; // Keep incomplete line in buffer
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || !trimmed.startsWith('data: ')) continue;
+        
+        try {
+          const jsonStr = trimmed.slice(6); // Remove 'data: ' prefix
+          const chunk: StreamChunk = JSON.parse(jsonStr);
+          
+          // Accumulate text
+          if (chunk.delta) {
+            fullText += chunk.delta;
+          }
+          
+          // Store metadata
+          if (chunk.metadata) {
+            lastMetadata = chunk.metadata;
+          }
+          
+          // Call the callback
+          onChunk(chunk);
+          
+          // If done, return the final response
+          if (chunk.type === 'done') {
+            return {
+              generated_text: chunk.fullText || fullText,
+              success: true,
+              message: `Email ${lastMetadata?.operation || 'processed'} successfully`,
+              metadata: lastMetadata
+            };
+          }
+          
+          // Handle errors
+          if (chunk.type === 'error') {
+            throw new Error(chunk.message || 'Stream error');
+          }
+        } catch (parseError) {
+          console.error('Failed to parse SSE data:', parseError);
+        }
+      }
+    }
+
+    // Fallback if no 'done' event was received
+    return {
+      generated_text: fullText,
+      success: true,
+      message: 'Email processed successfully',
+      metadata: lastMetadata
+    };
+  } catch (error) {
+    console.error('Streaming failed:', error);
+    throw new Error(`Erreur lors du streaming: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
+  }
+}
+
+/**
+ * Generate email with streaming (faster perceived response)
+ * @param request The generation request
+ * @param onChunk Callback function called for each chunk received
+ * @returns Promise that resolves with the complete response
+ */
+export async function generateEmailStream(
+  request: ComposeRequest,
+  onChunk: StreamCallback
+): Promise<ComposeResponse> {
+  const mappedRequest = {
+    ...request,
+    language: normalizeLanguageCode(request.language || 'fr'),
+    operation: 'generate'
+  };
+  
+  return handleStreamingResponse(
+    `${API_ENDPOINTS.COMPOSE}-stream`,
+    mappedRequest,
+    onChunk
+  );
+}
+
+/**
+ * Correct email with streaming
+ * @param request The correction request
+ * @param onChunk Callback function called for each chunk received
+ * @returns Promise that resolves with the complete response
+ */
+export async function correctEmailStream(
+  request: ComposeRequest,
+  onChunk: StreamCallback
+): Promise<ComposeResponse> {
+  const mappedRequest = {
+    ...request,
+    language: normalizeLanguageCode(request.language || 'fr'),
+    operation: 'correct'
+  };
+  
+  return handleStreamingResponse(
+    `${API_ENDPOINTS.COMPOSE}-stream`,
+    mappedRequest,
+    onChunk
+  );
+}
+
+/**
+ * Reformulate email with streaming
+ * @param request The reformulation request
+ * @param onChunk Callback function called for each chunk received
+ * @returns Promise that resolves with the complete response
+ */
+export async function reformulateEmailStream(
+  request: ComposeRequest,
+  onChunk: StreamCallback
+): Promise<ComposeResponse> {
+  const mappedRequest = {
+    ...request,
+    language: normalizeLanguageCode(request.language || 'fr'),
+    operation: 'reformulate'
+  };
+  
+  return handleStreamingResponse(
+    `${API_ENDPOINTS.COMPOSE}-stream`,
+    mappedRequest,
+    onChunk
+  );
+}
+
+/**
+ * Generate Outlook template/response with streaming
+ * @param request The template generation request
+ * @param onChunk Callback function called for each chunk received
+ * @returns Promise that resolves with the complete response
+ */
+export async function generateOutlookTemplateStream(
+  request: ComposeRequest,
+  onChunk: StreamCallback
+): Promise<ComposeResponse> {
+  const mappedRequest = {
+    ...request,
+    language: normalizeLanguageCode(request.language || 'fr')
+  };
+  
+  return handleStreamingResponse(
+    `${API_ENDPOINTS.OUTLOOK_PROMPT}-stream`,
+    mappedRequest,
+    onChunk
+  );
+}
+
+/**
+ * Summarize file with streaming
+ * @param request The summarization request
+ * @param onChunk Callback function called for each chunk received
+ * @returns Promise that resolves with the complete response
+ */
+export async function summarizeFileStream(
+  request: any,
+  onChunk: StreamCallback
+): Promise<any> {
+  return handleStreamingResponse(
+    `${API_ENDPOINTS.OUTLOOK_SUMMARIZE}-stream`,
+    request,
+    onChunk
+  );
 }

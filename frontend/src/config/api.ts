@@ -5,7 +5,8 @@
 
 // Base API URL - can be overridden by environment variable
 // HTTPS required for Outlook add-ins
-export const API_BASE_URL = 'https://chardouin.fr/api';
+// For Vercel deployment: will be https://your-app.vercel.app/api
+export const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || '/api';
 
 // API Endpoints
 export const API_ENDPOINTS = {
@@ -20,11 +21,8 @@ export const API_ENDPOINTS = {
   OUTLOOK_PROMPT: `${API_BASE_URL}/outlook/prompt`,
   OUTLOOK_SUMMARIZE: `${API_BASE_URL}/outlook/summarize`,
   
-  // Compose endpoints (new dedicated endpoints)
-  COMPOSE_GENERATE: `${API_BASE_URL}/compose/generate`,
-  COMPOSE_CORRECT: `${API_BASE_URL}/compose/correct`,
-  COMPOSE_REFORMULATE: `${API_BASE_URL}/compose/reformulate`,
-  COMPOSE_HEALTH: `${API_BASE_URL}/compose/health`,
+  // Compose endpoints (unified endpoint)
+  COMPOSE: `${API_BASE_URL}/compose`,
   
   OUTLOOK_AUTH: `${API_BASE_URL}/outlook/auth/login`,
   OUTLOOK_REVOKE_ACCESS: `${API_BASE_URL}/outlook/auth/revoke_access`,

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Stack, Text, Separator, IconButton, Spinner, SpinnerSize, getTheme, FontWeights, mergeStyles, IStackStyles } from '@fluentui/react';
-import { Mail24Regular, Person24Regular, Settings24Regular, ArrowClockwise24Regular, Eye24Regular, EyeOff24Regular } from '@fluentui/react-icons';
+import { Stack, Text, IconButton, Spinner, SpinnerSize, getTheme, FontWeights, mergeStyles, IStackStyles } from '@fluentui/react';
+import { Mail24Regular, Person24Regular, ArrowClockwise24Regular, Eye24Regular, EyeOff24Regular } from '@fluentui/react-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useOffice } from '../contexts/OfficeContext';
 import { useTranslations } from '../utils/i18n';

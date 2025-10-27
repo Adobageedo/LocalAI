@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "name": "localai-frontend",
+  "buildCommand": "cd frontend && npm run build",
+  "outputDirectory": "frontend/build",
+  "devCommand": "cd frontend && npm start",
+  "installCommand": "cd frontend && npm install",
+  "framework": null,
+  "env": {
+    "REACT_APP_API_BASE_URL": "/api"
+  },
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "/api/:path*"
+    }
+  ]
+}

@@ -26,7 +26,7 @@ import {
 import { DocumentText24Regular, Mail24Regular, DocumentSearch24Regular } from '@fluentui/react-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOffice } from '../../contexts/OfficeContext';
-import { authFetch } from '../../utils/authFetch';
+import { summarizeFileStream, StreamChunk } from '../../services/composeService';
 import { useTranslations, getOutlookLanguage } from '../../utils/i18n';
 import { API_ENDPOINTS } from '../../config/api';
 
@@ -297,7 +297,7 @@ const FileSynthesizer: React.FC = () => {
             // Update processing mode
             setAttachments(prev => 
               prev.map(att => 
-                att.id === attachment.id ? { ...att, processingMode } : att
+                att.id === attachment.id ? { ...att, processingMode, summary: '' } : att
               )
             );
                         
@@ -305,57 +305,52 @@ const FileSynthesizer: React.FC = () => {
             const startTime = performance.now();
             const fileSize = attachment.size;
             
-            // Send raw file content to server
-            const response = await authFetch(API_ENDPOINTS.OUTLOOK_SUMMARIZE, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${authToken}`
-              },
-              body: JSON.stringify({
+            // Use streaming for real-time summary
+            await summarizeFileStream(
+              {
                 authToken: authToken,
                 userId: user.uid,
                 file_name: attachment.name,
                 file_type: attachment.contentType,
-                file_content: content, // Send base64 content directly
+                file_content: content,
                 language: getOutlookLanguage(),
                 summary_type: apiSummaryType,
                 use_rag: false
-              })
-            });
-            
-            // Calculate processing time
-            const endTime = performance.now();
-            const processingTimeMs = endTime - startTime;
-            
-            // Log performance metrics
-            console.log(`Performance metrics for ${attachment.name}:`);
-            console.log(`- File size: ${fileSize} bytes`);
-            console.log(`- Processing time: ${processingTimeMs.toFixed(2)} ms`);
-            console.log(`- Processing speed: ${((fileSize / 1024) / (processingTimeMs / 1000)).toFixed(2)} KB/s`);
-            
-            if (!response.ok) {
-              throw new Error(`API error: ${response.status} ${response.statusText}`);
-            }
-            
-            const data = await response.json();
-            
-            if (data && data.summary) {
-              let finalSummary = data.summary;
-              if (finalSummary == "Impossible to summarize this file") {
-                finalSummary = t.emptySummary;
+              },
+              (chunk: StreamChunk) => {
+                if (chunk.type === 'chunk' && chunk.delta) {
+                  // Update summary incrementally
+                  setAttachments(prev => 
+                    prev.map(att => 
+                      att.id === attachment.id 
+                        ? { ...att, summary: (att.summary || '') + chunk.delta } 
+                        : att
+                    )
+                  );
+                } else if (chunk.type === 'done') {
+                  // Calculate processing time
+                  const endTime = performance.now();
+                  const processingTimeMs = endTime - startTime;
+                  
+                  // Log performance metrics
+                  console.log(`✅ Performance metrics for ${attachment.name}:`);
+                  console.log(`- File size: ${fileSize} bytes`);
+                  console.log(`- Processing time: ${processingTimeMs.toFixed(2)} ms`);
+                  console.log(`- Processing speed: ${((fileSize / 1024) / (processingTimeMs / 1000)).toFixed(2)} KB/s`);
+                  
+                  // Mark as complete
+                  setAttachments(prev => 
+                    prev.map(att => 
+                      att.id === attachment.id 
+                        ? { ...att, isProcessing: false, processingMode, errorMessage: undefined } 
+                        : att
+                    )
+                  );
+                } else if (chunk.type === 'error') {
+                  throw new Error(chunk.message || 'Stream error');
+                }
               }
-              // Update the attachment with the summary
-              setAttachments(prev => 
-                prev.map(att => 
-                  att.id === attachment.id 
-                    ? { ...att, summary: finalSummary, isProcessing: false, processingMode, errorMessage: undefined } 
-                    : att
-                )
-              );
-            } else {
-              throw new Error('Invalid response from API');
-            }
+            );
           } catch (error: any) {
             console.error(`Error processing attachment ${attachment.name}:`, error);
             
@@ -558,51 +553,39 @@ const FileSynthesizer: React.FC = () => {
       const startTime = performance.now();
       const contentSize = emailBody.length + emailSubject.length + conversationHistory.length;
             
-      // Prepare request data following the API structure from memory
-      const requestData = {
-        authToken: authToken,
-        userId: user.uid,
-        subject: emailSubject,
-        from: emailFrom,
-        body: emailBody,
-        conversationHistory: conversationHistory,
-        language: getOutlookLanguage(),
-        summary_type: apiSummaryType,
-        use_rag: false
-      };
-      
-      // Make API request
-      const response = await authFetch(API_ENDPOINTS.OUTLOOK_SUMMARIZE, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`
+      // Use streaming for real-time email summary
+      await summarizeFileStream(
+        {
+          authToken: authToken,
+          userId: user.uid,
+          file_name: `Email: ${emailSubject}`,
+          file_type: 'text/plain',
+          file_content: Buffer.from(`Subject: ${emailSubject}\nFrom: ${emailFrom}\n\n${emailBody}\n\nConversation History:\n${conversationHistory}`).toString('base64'),
+          language: getOutlookLanguage(),
+          summary_type: apiSummaryType,
+          use_rag: false
         },
-        body: JSON.stringify(requestData)
-      });
-
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status} ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      
-      // Calculate processing time
-      const endTime = performance.now();
-      const processingTimeMs = endTime - startTime;
-      
-      // Log performance metrics
-      console.log('Email summarization performance metrics:');
-      console.log(`- Content size: ${contentSize} characters`);
-      console.log(`- Processing time: ${processingTimeMs.toFixed(2)} ms`);
-      console.log(`- Processing speed: ${(contentSize / (processingTimeMs / 1000)).toFixed(2)} chars/s`);
-      
-      if (data && data.summary) {
-        setEmailSummary(data.summary);
-        setSuccess('Email summarized successfully');
-      } else {
-        throw new Error('Invalid response from API');
-      }
+        (chunk: StreamChunk) => {
+          if (chunk.type === 'chunk' && chunk.delta) {
+            // Update summary incrementally
+            setEmailSummary(prev => prev + chunk.delta);
+          } else if (chunk.type === 'done') {
+            // Calculate processing time
+            const endTime = performance.now();
+            const processingTimeMs = endTime - startTime;
+            
+            // Log performance metrics
+            console.log('✅ Email summarization performance metrics:');
+            console.log(`- Content size: ${contentSize} characters`);
+            console.log(`- Processing time: ${processingTimeMs.toFixed(2)} ms`);
+            console.log(`- Processing speed: ${(contentSize / (processingTimeMs / 1000)).toFixed(2)} chars/s`);
+            
+            setSuccess('Email summarized successfully');
+          } else if (chunk.type === 'error') {
+            throw new Error(chunk.message || 'Stream error');
+          }
+        }
+      );
     } catch (error: any) {
       console.error('Email summarization error:', error);
       setError(`Failed to summarize email: ${error.message}`);

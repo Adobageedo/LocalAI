@@ -20,7 +20,7 @@ import { Sparkle24Regular, Mail24Regular, Copy24Regular, Add24Regular } from '@f
 import { useAuth } from '../../contexts/AuthContext';
 import { useOffice } from '../../contexts/OfficeContext';
 import { useTranslations, getOutlookLanguage } from '../../utils/i18n';
-import { authFetch } from '../../utils/authFetch';
+import { generateOutlookTemplateStream, StreamChunk } from '../../services/composeService';
 import { API_ENDPOINTS } from '../../config/api';
 import TemplateChatInterface from '../TemplateChatInterface';
 import EmailContext from '../EmailContext';
@@ -35,6 +35,7 @@ const TemplateGenerator: React.FC = () => {
   const [useRag, setUseRag] = useState<boolean>(false);
   const [generatedTemplate, setGeneratedTemplate] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [showChat, setShowChat] = useState(false);
@@ -180,8 +181,10 @@ const TemplateGenerator: React.FC = () => {
 
   const handleGenerateTemplate = async () => {
     setIsGenerating(true);
+    setIsStreaming(true);
     setError('');
     setSuccess('');
+    setGeneratedTemplate(''); // Clear for streaming
 
     try {
       // Extract main body and conversation history from the email body
@@ -190,41 +193,37 @@ const TemplateGenerator: React.FC = () => {
       
       const requestData = {
         // User Input
-        additionalInfo: additionalInfo.trim() || null,
+        additionalInfo: additionalInfo.trim() || undefined,
         tone: tone,
         language: language,
         use_rag: useRag,
         
         // Email Context
-        subject: currentEmail?.subject || null,
-        from: currentEmail?.from || null,
-        body: mainBody,
-        conversationHistory: conversationHistory,
-        conversationId: currentEmail?.conversationId || null
+        subject: currentEmail?.subject || undefined,
+        from: currentEmail?.from || undefined,
+        body: mainBody || undefined,
+        conversationHistory: conversationHistory || undefined,
+        conversationId: currentEmail?.conversationId || undefined,
+        userId: user?.uid
       };
 
-      const response = await authFetch(API_ENDPOINTS.OUTLOOK_PROMPT, {
-        method: 'POST',
-        body: JSON.stringify(requestData)
-      });
-
-      if (!response.ok) {
-        throw new Error(`API request failed: ${response.status} ${response.statusText}`);
-      }
-
-      const data = await response.json();
-
-      if (data && data.generated_text) {
-        console.log('=== API RESPONSE DATA ===');
-        console.log('Generated Text:', data.generated_text);
-        console.log('=== END API RESPONSE DATA ===');
-        setGeneratedTemplate(data.generated_text);
-        setSuccess('Template generated successfully!');
-        // Create new conversation for this template
-        setConversationId(Date.now().toString());
-      } else {
-        throw new Error('Invalid response from API');
-      }
+      await generateOutlookTemplateStream(
+        requestData,
+        (chunk: StreamChunk) => {
+          if (chunk.type === 'chunk' && chunk.delta) {
+            // Update text incrementally as chunks arrive
+            setGeneratedTemplate(prev => prev + chunk.delta);
+          } else if (chunk.type === 'done') {
+            // Stream complete
+            console.log('✅ Template generation complete', chunk.metadata);
+            setSuccess('Template generated successfully!');
+            // Create new conversation for this template
+            setConversationId(Date.now().toString());
+          } else if (chunk.type === 'error') {
+            setError(chunk.message || 'Failed to generate template');
+          }
+        }
+      );
     } catch (error: any) {
       console.error('Template generation error:', error);
       if (error.name === 'TypeError' && error.message.includes('fetch')) {
@@ -238,6 +237,7 @@ const TemplateGenerator: React.FC = () => {
       }
     } finally {
       setIsGenerating(false);
+      setIsStreaming(false);
     }
   };
 
@@ -400,10 +400,18 @@ const TemplateGenerator: React.FC = () => {
         </Stack>
       )}
 
-      {generatedTemplate && (
-        <Stack tokens={{ childrenGap: 12 }}>          
+      {(generatedTemplate || isStreaming) && (
+        <Stack tokens={{ childrenGap: 12 }}>
+          {isStreaming && (
+            <Stack horizontal tokens={{ childrenGap: 8 }} verticalAlign="center" styles={{ root: { padding: '12px', backgroundColor: theme.palette.themeLighterAlt, borderRadius: '8px' } }}>
+              <Spinner size={SpinnerSize.small} />
+              <Text styles={{ root: { color: theme.palette.themePrimary, fontWeight: FontWeights.semibold } }}>
+                Génération en cours...
+              </Text>
+            </Stack>
+          )}
           <TemplateChatInterface
-            initialTemplate={generatedTemplate}
+            initialTemplate={generatedTemplate + (isStreaming ? ' ▌' : '')}
             conversationId={conversationId || Date.now().toString()}
             onTemplateUpdate={(newTemplate) => {
               setGeneratedTemplate(newTemplate);
