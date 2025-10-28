@@ -24,8 +24,7 @@ import { getAttachmentsWithContent, AttachmentInfo } from '../../utils/attachmen
 
 const TemplateGenerator: React.FC = () => {
   const { user } = useAuth();
-  const { currentEmail, insertTemplate } = useOffice();
-  const [attachments, setAttachments] = useState<AttachmentInfo[]>([]);
+  const { isOfficeReady, isLoadingEmail, currentEmail, insertTemplate } = useOffice();  const [attachments, setAttachments] = useState<AttachmentInfo[]>([]);
   const t = useTranslations();
   const [additionalInfo, setAdditionalInfo] = useState('');
   const [tone, setTone] = useState<string>('professional');
@@ -37,98 +36,53 @@ const TemplateGenerator: React.FC = () => {
 
   const theme = getTheme();
   
-  // Generate conversationId based on current email
+  // Wait until Office is ready and the email is loaded
   useEffect(() => {
+    if (!isOfficeReady) {
+      console.log('⏳ Office not ready yet...');
+      return;
+    }
+
+    if (isLoadingEmail) {
+      console.log('📨 Waiting for email to finish loading...');
+      return;
+    }
+
     if (currentEmail) {
-      console.log('Current email:', currentEmail);
-      // Create ID from email properties + current timestamp
-      const emailIdentifier = currentEmail.conversationId || 
-                            currentEmail.internetMessageId ||
-                            currentEmail.subject?.substring(0, 20).replace(/[^a-zA-Z0-9]/g, '_') || 
-                            'email';
+      console.log('✅ Current email available:', currentEmail);
+
+      // Create a deterministic conversation ID
+      const emailIdentifier =
+        currentEmail.conversationId ||
+        currentEmail.internetMessageId ||
+        currentEmail.subject?.substring(0, 20).replace(/[^a-zA-Z0-9]/g, '_') ||
+        'email';
+
       const dateHash = Date.now();
-      
       setConversationId(`${emailIdentifier}_${dateHash}`);
     } else {
-      console.log('No current email');
-      // No email - use random ID
+      console.log('⚠️ No current email found');
       setConversationId(`random_${Date.now()}_${Math.random().toString(36).substring(7)}`);
     }
-  }, [currentEmail?.conversationId, currentEmail?.subject, currentEmail?.internetMessageId]);
-  
-  // Load email attachments
+  }, [isOfficeReady, isLoadingEmail, currentEmail]);
+
+  // Load attachments only when the email is fully ready
   useEffect(() => {
     const loadAttachments = async () => {
       try {
         const attachmentsWithContent = await getAttachmentsWithContent();
         setAttachments(attachmentsWithContent);
-        console.log('Loaded attachments:', attachmentsWithContent);
+        console.log('📎 Attachments loaded:', attachmentsWithContent);
       } catch (error) {
-        console.error('Failed to load attachments:', error);
+        console.error('❌ Failed to load attachments:', error);
       }
     };
-    
-    if (currentEmail) {
+
+    if (isOfficeReady && !isLoadingEmail && currentEmail) {
       loadAttachments();
     }
-  }, [currentEmail]);
-  
-  const cardStyles: IStackStyles = {
-    root: {
-      backgroundColor: theme.palette.white,
-      border: `1px solid ${theme.palette.neutralLight}`,
-      borderRadius: '16px',
-      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-      padding: '24px 8px',
-      marginBottom: '20px',
-      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-      position: 'relative',
-      overflow: 'hidden',
-      width: '100%',
-      '@media (max-width: 768px)': {
-        padding: '20px 6px',
-        borderRadius: '12px'
-      },
-      '@media (max-width: 480px)': {
-        padding: '16px 4px',
-        margin: '0 0 16px 0'
-      },
-      '&:hover': {
-        boxShadow: '0 8px 24px rgba(0, 0, 0, 0.15)',
-        transform: 'translateY(-2px)',
-        borderColor: theme.palette.themePrimary
-      },
-      '&::before': {
-        content: '""',
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        height: '4px',
-        background: `linear-gradient(90deg, ${theme.palette.themePrimary}, ${theme.palette.themeSecondary})`,
-        borderRadius: '16px 16px 0 0'
-      }
-    }
-  };
-  
-  const headerStyles = mergeStyles({
-    fontSize: '20px',
-    fontWeight: FontWeights.bold,
-    color: theme.palette.neutralPrimary,
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    marginBottom: '8px',
-    paddingTop: '8px'
-  });
-  
-  const subHeaderStyles = mergeStyles({
-    fontSize: '14px',
-    fontWeight: FontWeights.regular,
-    color: theme.palette.neutralSecondary,
-    marginBottom: '24px',
-    lineHeight: '1.4'
-  });
+  }, [isOfficeReady, isLoadingEmail, currentEmail]);
+
   
   const modernButtonStyles = {
     root: {
