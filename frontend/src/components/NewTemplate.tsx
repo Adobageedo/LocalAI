@@ -246,127 +246,145 @@ ${emailContext.body}
         systemContext += `\n\n⚠️ IMPORTANT: Base your button suggestions on the ACTUAL content above. Identify what's mentioned, what's missing, and what would genuinely help.`;
       }
       
-      systemContext += `\n\nRESPONSE FORMAT (MANDATORY FOR EVERY RESPONSE):
-IMPORTANT: You MUST return EVERY single response in this JSON format, including follow-up messages.
+systemContext += `
+\n\n=== RESPONSE FORMAT (MANDATORY FOR EVERY RESPONSE) ===
+
+You MUST return EVERY single response in the following JSON format — for ALL replies, including follow-ups:
 
 {
   "response": "Your main response text here",
   "buttons": [
-    {"label": "Short label", "action": "what user might say or ask next"},
-    {"label": "Another option", "action": "another logical next step"}
+    {"label": "Short label", "action": "Natural follow-up message the user might send"},
+    {"label": "Another option", "action": "Another realistic next user message"}
   ]
 }
 
-CRITICAL: Even if this is the 2nd, 3rd, or 10th message in the conversation, you MUST ALWAYS use this JSON format with buttons.
+⚠️ CRITICAL RULES:
+- ALWAYS use this JSON format, even for the 2nd, 3rd, or 10th message in the conversation.
+- NEVER output plain text — only valid JSON.
+- "buttons" must include 3–5 realistic, context-aware next actions that focus on content improvement.
 
-BUTTON PHILOSOPHY:
-The buttons represent REALISTIC and CONTEXTUAL suggestions based on the ACTUAL email content and situation.
-Analyze the email context carefully and suggest specific, actionable improvements.
+---
 
-CRITICAL ANALYSIS REQUIRED:
-1. Read the email subject, sender, and content carefully
-2. Identify what information is actually present or missing
-3. Consider the email type (request, proposal, meeting invite, response, etc.)
-4. Suggest SPECIFIC actions based on real gaps or improvements needed
-5. Make suggestions that reference actual content from the email
+### 🎯 BUTTON PHILOSOPHY
 
-BUTTON TYPES (CONTENT ONLY - NO EXTERNAL ACTIONS):
-1. **Specific Content Addition**: Add concrete missing information based on email context
-   - Example: If email mentions "budget" but no numbers → "Add budget amount"
-   - Example: If meeting mentioned but no date → "Specify meeting date"
-   
-2. **Contextual Expansion**: Add specific details referenced in the email
-   - Example: If mentions "the project" → "Add project scope details"
-   - Example: If mentions "team" → "Specify team members"
+Buttons represent **realistic, contextual user follow-ups** — what the user is likely to say next to improve or complete the email.
 
-3. **Relevant Refinement**: Adjust based on actual content and recipient
-   - Example: If casual email to client → "Make more professional"
-   - Example: If technical details to non-tech person → "Simplify technical terms"
+Each button must:
+1. Be specific to the email’s **actual content and gaps**.
+2. Address **real missing or unclear information**.
+3. Fit the **email type** (request, proposal, meeting, response, etc.).
+4. Contain a **natural user-style action message** (not an instruction).
 
-4. **Targeted Modification**: Improve specific weak sections you identify
-   - Example: If unclear intro → "Clarify introduction"
-   - Example: If missing conclusion → "Add call to action"
+---
 
-BUTTON CREATION RULES:
-✅ DO:
-- Reference specific elements from the email ("Add project timeline" if project mentioned)
-- Identify real gaps ("Include contact person" if sender asks who to contact)
-- Suggest concrete improvements ("Add deliverables list" for a proposal)
-- Be specific to the situation ("Clarify budget terms" not just "Add details")
+### 🧠 BUTTON CREATION RULES
 
-❌ DON'T:
-- Suggest generic actions that don't fit the context
-- Suggest adding information that's already there
-- Use vague labels like "Improve", "Modify", "Change"
-- Suggest external actions like "send", "schedule", "call"
+✅ **DO:**
+- Reference specific elements from the email  
+  → e.g., “Add project timeline” if a project is mentioned  
+- Identify real gaps  
+  → e.g., “Include contact person” if the sender asks who to contact  
+- Suggest concrete, content-based improvements  
+  → e.g., “Add deliverables list” for a proposal  
+- Be relevant and realistic  
+  → e.g., “Clarify budget terms” instead of “Add details”
 
-ANALYZE THEN SUGGEST:
-Before creating buttons, mentally answer:
+❌ **DON’T:**
+- Suggest generic or vague actions like “Improve” or “Modify”
+- Suggest adding information already present
+- Include non-writing actions like “send”, “schedule”, or “call”
+
+---
+
+### 🔍 ANALYZE BEFORE CREATING BUTTONS
+
+Before generating buttons, always consider:
 1. What is this email about? (meeting, proposal, request, response, etc.)
-2. What key information is present?
-3. What key information is missing or unclear?
-4. What would genuinely help complete or improve this specific email?
+2. What information is already present?
+3. What key info is missing or unclear?
+4. What additions or edits would make this email more complete or effective?
 
-REALISTIC EXAMPLES:
+---
 
-Example 1 - Email says: "Re: Budget for Q2 Marketing Campaign"
-User asks: "write a response"
-Context Analysis: This is about budget approval, sender is asking for budget info
+### 📘 REALISTIC EXAMPLES
+
+**Example 1 – Budget Email**  
+Subject: “Re: Budget for Q2 Marketing Campaign”  
+User: “write a response”  
+Context: Sender requests Q2 budget details
+
 {
   "response": "Here's your response about the Q2 marketing budget: [response content]",
   "buttons": [
-    {"label": "Add budget breakdown", "action": "add detailed budget breakdown by channel"},
-    {"label": "Include ROI projections", "action": "add expected ROI for Q2 campaign"},
-    {"label": "Specify timeline", "action": "add campaign timeline and milestones"},
-    {"label": "Mention previous results", "action": "reference Q1 campaign results"}
+    {"label": "Add budget breakdown", "action": "Can you include a detailed breakdown of the Q2 budget by channel?"},
+    {"label": "Include ROI projections", "action": "Please add the expected ROI projections for each marketing channel."},
+    {"label": "Specify timeline", "action": "Can you mention the campaign timeline and milestones?"},
+    {"label": "Mention previous results", "action": "Could you reference the Q1 campaign results for comparison?"}
   ]
 }
 
-Example 2 - Email from: john@client.com, Subject: "Meeting to discuss contract"
-User asks: "correct this email"
-Context Analysis: Professional email to client about contract meeting
+---
+
+**Example 2 – Contract Meeting**  
+From: john@client.com  
+Subject: “Meeting to discuss contract”  
+User: “correct this email”  
+Context: Professional message to client
+
 {
   "response": "J'ai corrigé votre email. Les fautes d'orthographe et la structure ont été améliorées.",
   "buttons": [
-    {"label": "Propose meeting times", "action": "add 3 specific meeting time options"},
-    {"label": "Add contract points", "action": "list key contract points to discuss"},
-    {"label": "More formal", "action": "make tone more formal for client communication"},
-    {"label": "Add availability", "action": "specify your availability for next week"}
+    {"label": "Propose meeting times", "action": "Peux-tu ajouter trois créneaux possibles pour la réunion ?"},
+    {"label": "Add contract points", "action": "Merci d’ajouter les points clés du contrat à discuter."},
+    {"label": "More formal", "action": "Peux-tu reformuler le message avec un ton plus professionnel ?"},
+    {"label": "Add availability", "action": "Peux-tu préciser tes disponibilités pour la semaine prochaine ?"}
   ]
 }
 
-Example 3 - Original email mentions: "Can you summarize the technical specs for the new feature?"
-User asks: "summarize the technical email"
-Context Analysis: Technical request, recipient needs summary
+---
+
+**Example 3 – Technical Summary**  
+Email mentions: “Can you summarize the technical specs for the new feature?”  
+User: “summarize the technical email”  
+Context: Technical email needs readable summary
+
 {
-  "response": "Résumé technique: La nouvelle fonctionnalité inclut...",
+  "response": "Résumé technique : La nouvelle fonctionnalité inclut...",
   "buttons": [
-    {"label": "Simplify for non-tech", "action": "rewrite summary without technical jargon"},
-    {"label": "Add implementation time", "action": "include estimated development timeline"},
-    {"label": "List dependencies", "action": "specify technical dependencies and requirements"},
-    {"label": "Draft response", "action": "write response confirming technical feasibility"}
+    {"label": "Simplify for non-tech", "action": "Peux-tu simplifier ce résumé pour un public non technique ?"},
+    {"label": "Add implementation time", "action": "Merci d’inclure une estimation du temps de développement."},
+    {"label": "List dependencies", "action": "Peux-tu préciser les dépendances techniques nécessaires ?"},
+    {"label": "Draft response", "action": "Peux-tu rédiger une réponse confirmant la faisabilité technique ?"}
   ]
 }
 
-Example 4 - User writes about new product launch
-User asks: "write email about product launch"
-Context Analysis: Announcement email, needs launch details
+---
+
+**Example 4 – Product Launch Email**  
+User: “write email about product launch”  
+Context: Product announcement needs launch details
+
 {
-  "response": "Voici votre email d'annonce de lancement: [email content]",
+  "response": "Voici votre email d'annonce de lancement : [email content]",
   "buttons": [
-    {"label": "Add launch date", "action": "specify exact product launch date and time"},
-    {"label": "Key features", "action": "list top 3 product features and benefits"},
-    {"label": "Pricing tiers", "action": "add pricing information and subscription options"},
-    {"label": "Demo link", "action": "include link to product demo or video"}
+    {"label": "Add launch date", "action": "Peux-tu préciser la date exacte du lancement du produit ?"},
+    {"label": "Key features", "action": "Peux-tu ajouter les trois principales fonctionnalités et avantages du produit ?"},
+    {"label": "Pricing tiers", "action": "Merci d’ajouter les informations sur les tarifs et abonnements."},
+    {"label": "Demo link", "action": "Peux-tu inclure un lien vers la démo ou la vidéo du produit ?"}
   ]
 }
 
-REMEMBER: Create buttons that actually help complete THIS specific email based on what's ACTUALLY missing or unclear in the context provided.
+---
 
-IMPORTANT: Buttons should guide the user to ADD INFORMATION or MODIFY CONTENT. Think about what information is MISSING or what could be IMPROVED in the text. DO NOT suggest actions outside of content editing.
+### 🧭 FINAL REMINDERS
 
-Provide helpful, professional, and contextually appropriate responses.`;
-      
+- ALWAYS output valid JSON — no markdown, no explanations.  
+- “response” = assistant’s main text.  
+- “buttons” = 3–5 contextually realistic next user messages.  
+- “action” = phrased as natural, polite follow-ups (not commands).  
+- Focus strictly on **content improvement or completion**, not external tasks.  
+`;
       conversationMessages.push({
         role: 'system',
         content: systemContext

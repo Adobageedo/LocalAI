@@ -58,8 +58,8 @@ const TemplateGenerator: React.FC = () => {
         currentEmail.subject?.substring(0, 20).replace(/[^a-zA-Z0-9]/g, '_') ||
         'email';
 
-      const dateHash = Date.now();
-      setConversationId(`${emailIdentifier}_${dateHash}`);
+      setConversationId(emailIdentifier);
+      console.log('Conversation ID:', emailIdentifier);
     } else {
       console.log('⚠️ No current email found');
       setConversationId(`random_${Date.now()}_${Math.random().toString(36).substring(7)}`);
@@ -248,7 +248,7 @@ const TemplateGenerator: React.FC = () => {
             </Stack>
           )}
           <TemplateChatInterface
-            conversationId={"id"}//conversationId || Date.now().toString()}
+            conversationId={conversationId || Date.now().toString()}
             onTemplateUpdate={(newTemplate) => {
               setGeneratedTemplate(newTemplate);
               setSuccess('Template refined successfully!');
