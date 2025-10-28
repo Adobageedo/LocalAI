@@ -9,7 +9,6 @@ import {
   mergeStyles,
   IStackStyles
 } from '@fluentui/react';
-import EmailContext from '../EmailContext';
 import { Mail24Regular, DocumentText24Regular, Sparkle24Regular } from '@fluentui/react-icons';
 import TemplateGenerator from './TemplateGenerator';
 import FileSynthesizer from './FileSynthesizer';
@@ -29,51 +28,6 @@ const TabbedInterface: React.FC = () => {
     }
   };
   
-  const headerStyles = mergeStyles({
-    background: `linear-gradient(135deg, ${theme.palette.themePrimary}, ${theme.palette.themeSecondary})`,
-    color: theme.palette.white,
-    padding: '24px 8px',
-    borderRadius: '0 0 24px 24px',
-    marginBottom: '24px',
-    boxShadow: '0 4px 16px rgba(0, 120, 212, 0.2)',
-    '@media (max-width: 768px)': {
-      padding: '20px 6px',
-      borderRadius: '0 0 16px 16px'
-    },
-    '@media (max-width: 480px)': {
-      padding: '16px 4px',
-      borderRadius: '0 0 12px 12px'
-    }
-  });
-  
-  const titleStyles = mergeStyles({
-    fontSize: '24px',
-    fontWeight: FontWeights.bold,
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px',
-    '@media (max-width: 768px)': {
-      fontSize: '20px'
-    },
-    '@media (max-width: 480px)': {
-      fontSize: '18px',
-      gap: '8px'
-    }
-  });
-  
-  const subtitleStyles = mergeStyles({
-    fontSize: '14px',
-    fontWeight: FontWeights.regular,
-    opacity: 0.9,
-    marginTop: '8px',
-    '@media (max-width: 768px)': {
-      fontSize: '13px'
-    },
-    '@media (max-width: 480px)': {
-      fontSize: '12px'
-    }
-  });
-
   const handleTabChange = (item?: PivotItem) => {
     if (item) {
       setSelectedTab(item.props.itemKey as string);
@@ -82,7 +36,6 @@ const TabbedInterface: React.FC = () => {
 
   return (
     <Stack styles={containerStyles}>      
-      <EmailContext />
       <Stack styles={{ root: { padding: '0 4px', '@media (max-width: 768px)': { padding: '0 2px' }, '@media (max-width: 480px)': { padding: '0 1px' } } }}>
         <Pivot 
           selectedKey={selectedTab} 

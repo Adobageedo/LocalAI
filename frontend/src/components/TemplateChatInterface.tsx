@@ -23,6 +23,9 @@ interface ChatMessage {
   timestamp: Date;
 }
 
+//Ameliorer cette page pour avoir en entree le context du mail actuel et conversationid et une liste nom bouton et prompt associé. Tu afficheras alors le chat (recuperer conversation si present dans local storage de l'id donné) et et si nouvelle conversation, proposer les boutons qui seront donné par exemple repondre, corriger, reformuler etc, et il entrera automatiquement le prompt dans la boite d'ecriture de l'utilisateur, il l'enverra si souhaité. Enregistrer la conversation dans le local storage avec l'id donné.
+//Adapter stream comme compose et read
+
 interface TemplateChatInterfaceProps {
   initialTemplate: string;
   conversationId?: string | null;
