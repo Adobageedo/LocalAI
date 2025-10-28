@@ -22,7 +22,7 @@ import { useOffice } from '../../contexts/OfficeContext';
 import { useTranslations, getOutlookLanguage } from '../../utils/i18n';
 import { generateOutlookTemplateStream, StreamChunk } from '../../services/composeService';
 import { API_ENDPOINTS } from '../../config/api';
-import TemplateChatInterface from '../TemplateChatInterface';
+import TemplateChatInterface from '../NewTemplate';
 import EmailContext from '../EmailContext';
 
 const TemplateGenerator: React.FC = () => {
@@ -40,6 +40,7 @@ const TemplateGenerator: React.FC = () => {
   const [success, setSuccess] = useState('');
   const [showChat, setShowChat] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
+  console.log(currentEmail)
 
   const theme = getTheme();
   
@@ -206,6 +207,7 @@ const TemplateGenerator: React.FC = () => {
         conversationId: currentEmail?.conversationId || undefined,
         userId: user?.uid
       };
+      console.log(requestData.conversationId)
 
       await generateOutlookTemplateStream(
         requestData,
@@ -325,82 +327,7 @@ const TemplateGenerator: React.FC = () => {
         </MessageBar>
       )}
 
-      {!generatedTemplate && (
-        <Stack tokens={{ childrenGap: 20 }} styles={cardStyles}>
-          <Text className={headerStyles}>
-            <Sparkle24Regular /> Générer un Template d'Email
-          </Text>
-          <Text className={subHeaderStyles}>
-            Créez un template d'email personnalisé basé sur le contexte de l'email actuel.
-          </Text>
-          
-          <TextField
-            label={t.additionalInfo}
-            multiline
-            rows={3}
-            value={additionalInfo}
-            onChange={(_, newValue) => setAdditionalInfo(newValue || '')}
-            placeholder={t.additionalInfoPlaceholder}
-            disabled={isGenerating}
-            styles={textFieldStyles}
-          />
-
-          <Dropdown
-            label={t.tone}
-            selectedKey={tone}
-            onChange={(_, option) => setTone(option?.key as string)}
-            options={toneOptions}
-            disabled={isGenerating}
-            styles={{
-              dropdown: { borderRadius: '12px' },
-              title: { borderRadius: '12px', border: `2px solid ${theme.palette.neutralLight}` }
-            }}
-          />
-
-          <PrimaryButton
-            text={isGenerating ? t.generatingTemplate : t.generateTemplate}
-            onClick={handleGenerateTemplate}
-            disabled={isGenerating}
-            iconProps={{ iconName: 'Sparkle' }}
-            styles={modernButtonStyles}
-          />
-
-          {isGenerating && (
-            <Stack 
-              horizontal 
-              horizontalAlign="center" 
-              tokens={{ childrenGap: 12 }} 
-              styles={{ 
-                root: { 
-                  padding: '16px 24px',
-                  backgroundColor: theme.palette.themeLighterAlt,
-                  borderRadius: '12px',
-                  border: `1px solid ${theme.palette.themeLight}`,
-                  marginTop: '16px'
-                } 
-              }}
-            >
-              <Spinner 
-                size={SpinnerSize.medium} 
-                styles={{ circle: { borderTopColor: theme.palette.themePrimary } }} 
-              />
-              <Text 
-                styles={{ 
-                  root: { 
-                    fontSize: '16px', 
-                    fontWeight: FontWeights.semibold, 
-                    color: theme.palette.themePrimary 
-                  } 
-                }}
-              >
-                {t.generatingTemplate}
-              </Text>
-            </Stack>
-          )}
-        </Stack>
-      )}
-
-      {(generatedTemplate || isStreaming) && (
+      {(
         <Stack tokens={{ childrenGap: 12 }}>
           {isStreaming && (
             <Stack horizontal tokens={{ childrenGap: 8 }} verticalAlign="center" styles={{ root: { padding: '12px', backgroundColor: theme.palette.themeLighterAlt, borderRadius: '8px' } }}>
@@ -411,20 +338,27 @@ const TemplateGenerator: React.FC = () => {
             </Stack>
           )}
           <TemplateChatInterface
-            initialTemplate={generatedTemplate + (isStreaming ? ' ▌' : '')}
             conversationId={conversationId || Date.now().toString()}
             onTemplateUpdate={(newTemplate) => {
               setGeneratedTemplate(newTemplate);
               setSuccess('Template refined successfully!');
             }}
-            isInline={true}
-            userRequest={`Please create an email template based on the provided context`}
             emailContext={{
               subject: currentEmail?.subject,
               from: currentEmail?.from,
-              additionalInfo: additionalInfo,
-              tone: tone
+              additionalInfo,
+              tone
             }}
+            quickActions={[
+              { label: 'Répondre', prompt: 'Rédige une réponse professionnelle à cet email.' },
+              { label: 'Corriger', prompt: 'Corrige les fautes et améliore la formulation de ce message.' },
+              { label: 'Reformuler', prompt: 'Reformule ce texte avec un ton plus fluide et naturel.' },
+              { label: 'Synthétiser', prompt: 'Synthétiser le contenu de l’email principal.', email: true, attachment: [
+                  { name: 'Document 1.pdf', id: 'att1' },
+                  { name: 'Document 2.docx', id: 'att2' }
+                ]
+              }
+            ]}
           />
           <Stack 
             horizontal 
