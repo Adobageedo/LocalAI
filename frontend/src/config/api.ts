@@ -23,6 +23,7 @@ export const API_ENDPOINTS = {
   
   // Compose endpoints (unified endpoint)
   COMPOSE: `${API_BASE_URL}/compose`,
+  PROMPT_LLM: `${API_BASE_URL}/promptLLM`,
   
   OUTLOOK_AUTH: `${API_BASE_URL}/outlook/auth/login`,
   OUTLOOK_REVOKE_ACCESS: `${API_BASE_URL}/outlook/auth/revoke_access`,

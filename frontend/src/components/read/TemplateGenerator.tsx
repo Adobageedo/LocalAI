@@ -24,10 +24,12 @@ import { generateOutlookTemplateStream, StreamChunk } from '../../services/compo
 import { API_ENDPOINTS } from '../../config/api';
 import TemplateChatInterface from '../NewTemplate';
 import EmailContext from '../EmailContext';
+import { getAttachmentsWithContent, AttachmentInfo } from '../../utils/attachmentHelpers';
 
 const TemplateGenerator: React.FC = () => {
   const { user } = useAuth();
   const { currentEmail, insertTemplate } = useOffice();
+  const [attachments, setAttachments] = useState<AttachmentInfo[]>([]);
   const t = useTranslations();
   const [additionalInfo, setAdditionalInfo] = useState('');
   const [tone, setTone] = useState<string>('professional');
@@ -39,10 +41,43 @@ const TemplateGenerator: React.FC = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [showChat, setShowChat] = useState(false);
-  const [conversationId, setConversationId] = useState<string | null>(null);
-  console.log(currentEmail)
+  const [conversationId, setConversationId] = useState<string>('');
 
   const theme = getTheme();
+  
+  // Generate conversationId based on current email
+  useEffect(() => {
+    if (currentEmail) {
+      // Create ID from email properties + current timestamp
+      const emailIdentifier = currentEmail.conversationId || 
+                            currentEmail.internetMessageId ||
+                            currentEmail.subject?.substring(0, 20).replace(/[^a-zA-Z0-9]/g, '_') || 
+                            'email';
+      const dateHash = Date.now();
+      
+      setConversationId(`${emailIdentifier}_${dateHash}`);
+    } else {
+      // No email - use random ID
+      setConversationId(`random_${Date.now()}_${Math.random().toString(36).substring(7)}`);
+    }
+  }, [currentEmail?.conversationId, currentEmail?.subject, currentEmail?.internetMessageId]);
+  
+  // Load email attachments
+  useEffect(() => {
+    const loadAttachments = async () => {
+      try {
+        const attachmentsWithContent = await getAttachmentsWithContent();
+        setAttachments(attachmentsWithContent);
+        console.log('Loaded attachments:', attachmentsWithContent);
+      } catch (error) {
+        console.error('Failed to load attachments:', error);
+      }
+    };
+    
+    if (currentEmail) {
+      loadAttachments();
+    }
+  }, [currentEmail]);
   
   const cardStyles: IStackStyles = {
     root: {
@@ -219,8 +254,7 @@ const TemplateGenerator: React.FC = () => {
             // Stream complete
             console.log('✅ Template generation complete', chunk.metadata);
             setSuccess('Template generated successfully!');
-            // Create new conversation for this template
-            setConversationId(Date.now().toString());
+            // Don't change conversationId - keep the same conversation
           } else if (chunk.type === 'error') {
             setError(chunk.message || 'Failed to generate template');
           }
@@ -350,14 +384,19 @@ const TemplateGenerator: React.FC = () => {
               tone
             }}
             quickActions={[
-              { label: 'Répondre', prompt: 'Rédige une réponse professionnelle à cet email.' },
-              { label: 'Corriger', prompt: 'Corrige les fautes et améliore la formulation de ce message.' },
-              { label: 'Reformuler', prompt: 'Reformule ce texte avec un ton plus fluide et naturel.' },
-              { label: 'Synthétiser', prompt: 'Synthétiser le contenu de l’email principal.', email: true, attachment: [
-                  { name: 'Document 1.pdf', id: 'att1' },
-                  { name: 'Document 2.docx', id: 'att2' }
-                ]
-              }
+              { actionKey: 'reply' },
+              { actionKey: 'correct' },
+              { actionKey: 'reformulate' },
+              { 
+                actionKey: 'summarize', 
+                email: true, 
+                attachment: attachments.map(att => ({
+                  name: att.name,
+                  id: att.id,
+                  content: att.content,
+                  contentType: att.contentType
+                }))
+              },
             ]}
           />
           <Stack 
@@ -387,7 +426,7 @@ const TemplateGenerator: React.FC = () => {
               text="Nouveau Template"
               onClick={() => {
                 setGeneratedTemplate('');
-                setConversationId(null);
+                setConversationId(Date.now().toString()); // New conversation ID
                 setError('');
                 setSuccess('');
               }}

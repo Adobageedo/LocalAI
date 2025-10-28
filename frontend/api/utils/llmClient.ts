@@ -4,9 +4,15 @@
  * Handles communication with external LLM API
  */
 
+export interface ChatMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
+
 export interface LLMRequest {
-  systemPrompt: string;
-  userPrompt: string;
+  systemPrompt?: string;  // Optional, can use messages instead
+  userPrompt?: string;    // Optional, can use messages instead
+  messages?: ChatMessage[]; // For conversation history
   temperature?: number;
   maxTokens?: number;
   model?: string;
@@ -44,6 +50,14 @@ export class LLMClient {
       // For OpenAI-compatible APIs
       console.log('LLM Model:', process.env.LLM_MODEL);
       
+      // Build messages array - use provided messages or construct from prompts
+      const messages: ChatMessage[] = request.messages || [
+        ...(request.systemPrompt ? [{ role: 'system' as const, content: request.systemPrompt }] : []),
+        ...(request.userPrompt ? [{ role: 'user' as const, content: request.userPrompt }] : [])
+      ];
+      
+      console.log(`📨 Sending ${messages.length} messages to LLM`);
+      
       const response = await fetch(this.apiUrl, {
         method: 'POST',
         headers: {
@@ -52,16 +66,7 @@ export class LLMClient {
         },
         body: JSON.stringify({
           model: request.model || process.env.LLM_MODEL || 'gpt-5-mini',
-          messages: [
-            {
-              role: 'system',
-              content: request.systemPrompt
-            },
-            {
-              role: 'user',
-              content: request.userPrompt
-            }
-          ],
+          messages,
           temperature: request.temperature ?? 0.7,
           max_completion_tokens: request.maxTokens ?? 500
         })
@@ -101,6 +106,14 @@ export class LLMClient {
     try {
       console.log('🌊 Starting stream for LLM Model:', process.env.LLM_MODEL);
       
+      // Build messages array - use provided messages or construct from prompts
+      const messages: ChatMessage[] = request.messages || [
+        ...(request.systemPrompt ? [{ role: 'system' as const, content: request.systemPrompt }] : []),
+        ...(request.userPrompt ? [{ role: 'user' as const, content: request.userPrompt }] : [])
+      ];
+      
+      console.log(`📨 Streaming ${messages.length} messages to LLM`);
+      
       const response = await fetch(this.apiUrl, {
         method: 'POST',
         headers: {
@@ -109,16 +122,7 @@ export class LLMClient {
         },
         body: JSON.stringify({
           model: request.model || process.env.LLM_MODEL || 'gpt-4o-mini',
-          messages: [
-            {
-              role: 'system',
-              content: request.systemPrompt
-            },
-            {
-              role: 'user',
-              content: request.userPrompt
-            }
-          ],
+          messages,
           temperature: request.temperature ?? 0.7,
           max_completion_tokens: request.maxTokens ?? 500,
           stream: true // Enable streaming
