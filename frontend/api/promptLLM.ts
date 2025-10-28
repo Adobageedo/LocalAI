@@ -1,8 +1,10 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import llmClient from './utils/llmClient'; // your LLM streaming client
+import llmClient, { ChatMessage } from './utils/llmClient'; // your LLM streaming client
 
 interface StreamRequest {
-  prompt: string;
+  prompt?: string;  // Legacy support for single prompt
+  messages?: ChatMessage[];  // Conversation history
+  systemPrompt?: string;  // Optional system message
   maxTokens?: number;
   temperature?: number;
 }
@@ -14,12 +16,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { prompt, maxTokens = 500, temperature = 1 } = req.body as StreamRequest;
+    const { prompt, messages, systemPrompt, maxTokens = 500, temperature = 0.7 } = req.body as StreamRequest;
 
-    if (!prompt || !prompt.trim()) {
-      res.status(400).json({ error: 'Prompt is required' });
+    // Validate: either messages or prompt must be provided
+    if (!messages && (!prompt || !prompt.trim())) {
+      res.status(400).json({ error: 'Either messages array or prompt is required' });
       return;
     }
+
+    console.log(`📨 promptLLM: Received ${messages ? `${messages.length} messages` : 'single prompt'}`);
 
     // Set headers for SSE streaming
     res.setHeader('Content-Type', 'text/event-stream');
@@ -29,9 +34,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let fullText = '';
     let chunkNumber = 0;
 
+    // Build conversation messages
+    let conversationMessages: ChatMessage[];
+    
+    if (messages) {
+      // Use provided conversation history
+      conversationMessages = messages;
+    } else {
+      // Legacy: convert single prompt to messages format
+      conversationMessages = [
+        ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
+        { role: 'user' as const, content: prompt! }
+      ];
+    }
+
     for await (const chunk of llmClient.generateStream({
-      systemPrompt: '',
-      userPrompt: prompt,
+      messages: conversationMessages,
       temperature,
       maxTokens
     })) {

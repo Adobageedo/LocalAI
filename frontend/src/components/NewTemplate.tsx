@@ -18,6 +18,7 @@ import {
 import { Bot20Regular, Person20Regular, Sparkle20Regular } from '@fluentui/react-icons';
 import { authFetch } from '../utils/authFetch';
 import { API_ENDPOINTS } from '../config/api';
+import { QUICK_ACTIONS_DICTIONARY, QuickActionConfig } from '../config/quickActions';
 
 interface ChatMessage {
   id: string;
@@ -27,15 +28,38 @@ interface ChatMessage {
 }
 
 interface QuickAction {
-  label: string;
-  prompt: string;
+  actionKey: string;  // Key to lookup in dictionary
   email?: boolean;
   attachment?: {
     name: string;
     id: string;
+    content?: string;  // File content if available
+    contentType?: string;
   }[];
-
 }
+
+// Allowed file extensions for attachment processing
+const ALLOWED_EXTENSIONS = [
+  // Documents
+  '.doc', '.docx', '.txt', '.rtf', '.odt',
+  // Presentations
+  '.ppt', '.pptx', '.odp',
+  // Spreadsheets
+  '.xls', '.xlsx', '.csv', '.ods', '.numbers',
+  // PDFs
+  '.pdf',
+  // Text files
+  '.md', '.json', '.xml'
+];
+
+// Filter attachments by allowed extensions
+const filterAttachmentsByExtension = (attachments: QuickAction['attachment']): QuickAction['attachment'] => {
+  if (!attachments) return [];
+  return attachments.filter(att => {
+    const extension = att.name.substring(att.name.lastIndexOf('.')).toLowerCase();
+    return ALLOWED_EXTENSIONS.includes(extension);
+  });
+};
 
 interface TemplateChatInterfaceProps {
   conversationId: string;
@@ -46,7 +70,8 @@ interface TemplateChatInterfaceProps {
     additionalInfo?: string;
     tone?: string;
   };
-  quickActions?: QuickAction[]; // 👈 Liste de boutons prompts
+  quickActions?: QuickAction[]; // List of quick action buttons
+  activeActionKey?: string | null; // Currently active quick action for LLM context
 }
 
 const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
@@ -54,12 +79,11 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
   onTemplateUpdate,
   emailContext,
   quickActions = [
-    { label: 'Répondre', prompt: 'Rédige une réponse professionnelle à cet email.' },
-    { label: 'Corriger', prompt: 'Corrige les fautes et améliore la formulation de ce message.' },
-    { label: 'Reformuler', prompt: 'Reformule ce texte avec un ton plus fluide et naturel.' },
+    { actionKey: 'reply' },
+    { actionKey: 'correct' },
+    { actionKey: 'reformulate' },
     {
-      label: 'Synthétiser',
-      prompt: 'Synthétiser le contenu sélectionné',
+      actionKey: 'summarize',
       email: true,
       attachment: [
         { name: 'Document1.pdf', id: 'att1' },
@@ -74,6 +98,7 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
   const [error, setError] = useState('');
   const scrollableRef = useRef<HTMLDivElement>(null);
   const [lastQuickAction, setLastQuickAction] = useState<string | null>(null);
+  const [activeActionKey, setActiveActionKey] = useState<string | null>(null);
 
 
   const theme = getTheme();
@@ -92,17 +117,21 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
         console.error('Erreur chargement conversation:', err);
       }
     }
-    // Initialize conversation: show the AI template (if any) as first assistant message
-    const initMessages: ChatMessage[] = [];
-
-    initMessages.push({
+    
+    // Only initialize if we don't have messages yet
+    setMessages(prev => {
+      if (prev.length > 1) {
+        return prev; // Keep existing conversation
+      }
+      
+      // Initialize new conversation
+      return [{
         id: '1',
         role: 'assistant',
         content: "Hello how can i help you",
         timestamp: new Date(),
+      }];
     });
-
-    setMessages(initMessages);
   }, [conversationId]);
 
   /** Auto scroll vers le bas */
@@ -112,7 +141,7 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
     }
   }, [messages]);
 
-  /** Envoi du message utilisateur */
+  /** Envoi du message utilisateur avec streaming */
   const handleSendMessage = async () => {
     if (!currentMessage.trim() || isLoading) return;
 
@@ -129,35 +158,122 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
     setIsLoading(true);
     setError('');
 
+    // Create placeholder for streaming assistant message
+    const aiMessageId = (Date.now() + 1).toString();
+    const aiMsg: ChatMessage = {
+      id: aiMessageId,
+      role: 'assistant',
+      content: '',
+      timestamp: new Date(),
+    };
+    
+    const withPlaceholder = [...updated, aiMsg];
+    setMessages(withPlaceholder);
+
     try {
-      const response = await authFetch(`${API_ENDPOINTS.COMPOSE}`, {
+      // Build proper conversation messages array with system context
+      const conversationMessages: Array<{role: 'system' | 'user' | 'assistant', content: string}> = [];
+      
+      // Build system message with context and active quick action
+      let systemContext = 'You are an AI email assistant. Help the user with email-related tasks.';
+      
+      // Add quick action specific instructions
+      if (activeActionKey) {
+        const actionConfig = QUICK_ACTIONS_DICTIONARY[activeActionKey];
+        if (actionConfig) {
+          systemContext += `\n\n${actionConfig.llmPrompt}`;
+        }
+      }
+      
+      // Add email context if available
+      if (emailContext) {
+        systemContext += `\n\nEmail Context:\n- Subject: ${emailContext.subject || 'N/A'}\n- From: ${emailContext.from || 'N/A'}\n- Tone: ${emailContext.tone || 'professional'}`;
+        if (emailContext.additionalInfo) {
+          systemContext += `\n- Additional Info: ${emailContext.additionalInfo}`;
+        }
+      }
+      
+      systemContext += '\n\nProvide helpful, professional, and contextually appropriate responses.';
+      
+      conversationMessages.push({
+        role: 'system',
+        content: systemContext
+      });
+      
+      // Add all conversation history (user and assistant messages)
+      updated.forEach(msg => {
+        conversationMessages.push({
+          role: msg.role,
+          content: msg.content
+        });
+      });
+
+      const response = await fetch(API_ENDPOINTS.PROMPT_LLM, {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          messages: updated.map((m) => ({ role: m.role, content: m.content })),
-          user_request: currentMessage.trim(),
-          conversation_id: conversationId,
+          messages: conversationMessages,
+          maxTokens: 800,
+          temperature: 0.7
         }),
       });
 
       if (!response.ok) throw new Error(`API failed: ${response.status}`);
+      if (!response.body) throw new Error('No response body');
 
-      const data = await response.json();
-      if (data?.refined_template) {
-        const aiMsg: ChatMessage = {
-          id: (Date.now() + 1).toString(),
-          role: 'assistant',
-          content: data.refined_template,
-          timestamp: new Date(),
-        };
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let accumulatedText = '';
 
-        const final = [...updated, aiMsg];
-        setMessages(final);
-        onTemplateUpdate(data.refined_template);
-        localStorage.setItem(`chat_${conversationId}`, JSON.stringify(final));
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              
+              if (data.type === 'chunk' && data.delta) {
+                accumulatedText += data.delta;
+                
+                // Update assistant message in real-time
+                setMessages(prev => 
+                  prev.map(m => 
+                    m.id === aiMessageId 
+                      ? { ...m, content: accumulatedText }
+                      : m
+                  )
+                );
+              } else if (data.type === 'done') {
+                // Finalize and save
+                setMessages(prev => {
+                  const final = prev.map(m => 
+                    m.id === aiMessageId 
+                      ? { ...m, content: accumulatedText }
+                      : m
+                  );
+                  localStorage.setItem(`chat_${conversationId}`, JSON.stringify(final));
+                  return final;
+                });
+                onTemplateUpdate(accumulatedText);
+              } else if (data.type === 'error') {
+                throw new Error(data.error || 'Stream error');
+              }
+            } catch (e) {
+              console.warn('Failed to parse SSE data:', e);
+            }
+          }
+        }
       }
     } catch (err: any) {
       setError('Erreur de communication avec le serveur.');
       console.error(err);
+      // Remove placeholder message on error
+      setMessages(updated);
     } finally {
       setIsLoading(false);
     }
@@ -167,57 +283,70 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
     if (!action.attachment && !action.email) return undefined;
   
     const items: IContextualMenuItem[] = [];
+    const actionConfig = QUICK_ACTIONS_DICTIONARY[action.actionKey];
   
     // Add email item first if requested
     if (action.email) {
       items.push({
         key: 'email',
-        text: 'Synthesize Email',
+        text: 'Synthétiser Email',
         onClick: () =>
-          handleQuickAction({
-            label: 'Email',
-            prompt: 'Summarize the email content',
-          }),
+          handleQuickAction(action.actionKey, 'Synthétiser le contenu de l\'email', emailContext?.additionalInfo),
       });
     }
   
-    // Add attachments
-    if (action.attachment) {
-      action.attachment.forEach((att) => {
+    // Filter and add only allowed attachments
+    const filteredAttachments = filterAttachmentsByExtension(action.attachment);
+    if (filteredAttachments && filteredAttachments.length > 0) {
+      filteredAttachments.forEach((att) => {
         items.push({
           key: att.id,
-          text: `Synthesize: ${att.name}`,
-          onClick: () =>
-            handleQuickAction({
-              label: att.name,
-              prompt: `Summarize attachment: ${att.name}`,
-            }),
+          text: `Synthétiser ${att.name}`,
+          onClick: () => {
+            // Include file content if available
+            const fileContext = att.content ? `\n\nFile Content (${att.name}):\n${att.content}` : '';
+            handleQuickAction(
+              action.actionKey, 
+              `Synthétiser ${att.name}`,
+              fileContext
+            );
+          },
         });
       });
     }
   
-    return { items };
+    return items.length > 0 ? { items } : undefined;
   };
   
-  /** Bouton d’action rapide (prompt) */
-//   const handleQuickAction = (action: QuickAction) => {
-//     setCurrentMessage(action.prompt);
-//     //if (action.autoSend) handleSendMessage();
-//   };
-  const handleQuickAction = (action: QuickAction) => {
-    if (lastQuickAction === action.label) {
+  /** Handle quick action button click */
+  const handleQuickAction = (actionKey: string, customPrompt?: string, additionalContext?: string) => {
+    const actionConfig = QUICK_ACTIONS_DICTIONARY[actionKey];
+    if (!actionConfig) return;
+    
+    const displayPrompt = customPrompt || actionConfig.userPrompt;
+    
+    if (lastQuickAction === actionKey) {
       // Clicked the same button twice → send message
+      setActiveActionKey(actionKey);
+      // If there's additional context (file content), append it
+      if (additionalContext) {
+        setCurrentMessage(prev => prev + additionalContext);
+      }
       handleSendMessage();
-      setLastQuickAction(null); // reset
+      setLastQuickAction(null);
     } else {
-      // First click → just populate input
-      setCurrentMessage(action.prompt);
-      setLastQuickAction(action.label);
+      // First click → populate input and set active action
+      let fullMessage = displayPrompt;
+      if (additionalContext) {
+        fullMessage += additionalContext;
+      }
+      setCurrentMessage(fullMessage);
+      setLastQuickAction(actionKey);
+      setActiveActionKey(actionKey);
     }
   };
-  
 
-  const isNewConversation = messages.length <= 2; // si seulement template et contexte initial
+  const isNewConversation = messages.length <= 2;
 
   return (
     <Stack tokens={stackTokens} styles={{ root: { width: '95%', margin: 'auto', borderRadius: 12 } }}>
@@ -257,15 +386,28 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
                 boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
               }}
             >
-              <Text variant="small" styles={{ root: { whiteSpace: 'pre-wrap' } }}>
-                {m.content}
-              </Text>
+              {/* Show loading animation for empty assistant messages */}
+              {!m.content && isLoading && m.role === 'assistant' ? (
+                <Stack horizontal tokens={{ childrenGap: 4 }} verticalAlign="center">
+                  <Spinner size={SpinnerSize.small} />
+                  <Text variant="small" styles={{ root: { color: theme.palette.neutralSecondary } }}>
+                    Génération en cours
+                  </Text>
+                </Stack>
+              ) : (
+                <Text variant="small" styles={{ root: { whiteSpace: 'pre-wrap' } }}>
+                  {m.content}
+                  {isLoading && m.role === 'assistant' && m.content && ' ▌'}
+                </Text>
+              )}
             </div>
           </div>
         ))}
 
-        {isLoading && (
-          <Spinner size={SpinnerSize.small} label="Réflexion en cours..." />
+        {isLoading && !messages.some(m => m.role === 'assistant' && !m.content) && (
+          <div style={{ textAlign: 'left', marginBottom: 12 }}>
+            <Spinner size={SpinnerSize.small} label="Réflexion en cours..." />
+          </div>
         )}
       </div>
 
@@ -273,12 +415,16 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
       {messages.every(m => m.role !== 'user') && quickActions.length > 0 && (
         <Stack horizontal wrap tokens={{ childrenGap: 8 }}>
         {quickActions.map((action) => {
+          const actionConfig = QUICK_ACTIONS_DICTIONARY[action.actionKey];
+          if (!actionConfig) return null;
+          
           const menuProps = buildMenuProps(action);
           return (
             <DefaultButton
-              key={action.label}
-              text={action.label}
-              onClick={() => !menuProps && handleQuickAction(action)}
+              key={action.actionKey}
+              text={actionConfig.label}
+              iconProps={actionConfig.icon ? { iconName: actionConfig.icon } : undefined}
+              onClick={() => !menuProps && handleQuickAction(action.actionKey)}
               menuProps={menuProps} // if attachments exist, shows dropdown
               styles={{ root: { borderRadius: 8 } }}
             />
