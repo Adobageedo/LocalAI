@@ -1,140 +1,75 @@
 import React, { useState, useEffect } from 'react';
-import {
-  Stack,
-  Text,
-  TextField,
-  PrimaryButton,
-  Spinner,
-  SpinnerSize,
+import { 
+  Stack, 
+  Text, 
+  TextField, 
+  PrimaryButton, 
+  DefaultButton,
   MessageBar,
   MessageBarType,
+  Spinner,
+  SpinnerSize,
   Dropdown,
   IDropdownOption,
-  Pivot,
-  PivotItem,
-  IconButton,
-  TooltipHost,
-  IStackTokens,
-  IStackStyles,
-  DefaultButton,
-  mergeStyles,
-  FontWeights,
   getTheme,
-  Separator,
-  Label
+  FontWeights,
+  mergeStyles,
+  IStackStyles
 } from '@fluentui/react';
-import { 
-  Sparkle24Regular, 
-  CheckmarkCircle24Regular, 
-  ArrowSync24Regular,
-  Mail24Regular,
-  Add24Regular,
-  ArrowClockwise24Regular,
-  Eye24Regular,
-  Code24Regular
-} from '@fluentui/react-icons';
 import { useAuth } from '../../contexts/AuthContext';
-import { 
-  generateEmail, 
-  correctEmail, 
-  reformulateEmail,
-  generateEmailStream,
-  correctEmailStream,
-  reformulateEmailStream,
-  StreamChunk,
-  getCurrentEmailContent,
-  insertContentIntoOutlook,
-  getUserEmailFromOutlook,
-  processEscapeSequences
-} from '../../services/composeService';
-import { getOutlookLanguage } from '../../utils/i18n';
-import TemplateChatInterface from '../TemplateChatInterface';
+import { useOffice } from '../../contexts/OfficeContext';
+import { useTranslations } from '../../utils/i18n';
+import TemplateChatInterface from '../NewTemplate';
+import { getAttachmentsWithContent, AttachmentInfo } from '../../utils/attachmentHelpers';
 
-const EmailComposer: React.FC = () => {
+const TemplateGenerator: React.FC = () => {
   const { user } = useAuth();
-  
-  // State management
-  const [isLoading, setIsLoading] = useState(false);
+  const { currentEmail, insertTemplate } = useOffice();
+  const [attachments, setAttachments] = useState<AttachmentInfo[]>([]);
+  const t = useTranslations();
+  const [additionalInfo, setAdditionalInfo] = useState('');
+  const [tone, setTone] = useState<string>('professional');
+  const [generatedTemplate, setGeneratedTemplate] = useState('');
   const [isStreaming, setIsStreaming] = useState(false);
-  const [statusMessage, setStatusMessage] = useState<{message: string, type: MessageBarType} | null>(null);
-  
-  // User input states
-  const [userComment, setUserComment] = useState('');
-  const [selectedTone, setSelectedTone] = useState('professional');
-  
-  // Auto-detected language (no user selection needed)
-  const detectedLanguage = getOutlookLanguage();
-  
-  // Email content state
-  const [currentEmailBody, setCurrentEmailBody] = useState('');
-  
-  // Result states
-  const [showFormattedPreview, setShowFormattedPreview] = useState(false);
-  const [lastGeneratedText, setLastGeneratedText] = useState('');
-  const [lastOperation, setLastOperation] = useState<'generate' | 'correct' | 'reformulate' | null>(null);
-  const [showPreview, setShowPreview] = useState(false);
-  
-  // Chat states for conversational refinement
-  const [showChat, setShowChat] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
   const [conversationId, setConversationId] = useState<string>('');
-  const [hasGenerated, setHasGenerated] = useState(false);
-  
-  // Load email content for correct/reformulate tabs
-  const refreshEmailContent = async () => {
-    try {
-      const content = await getCurrentEmailContent();
-      setCurrentEmailBody(content);
-      // Clear success message after 3 seconds
-      setTimeout(() => setStatusMessage(null), 3000);
-    } catch (error) {
-      console.warn('Could not load email content:', error);
-      setStatusMessage({
-        message: 'Impossible de charger le contenu de l\'email depuis Outlook',
-        type: MessageBarType.warning
-      });
-    }
-  };
-
-  // Load email content on component mount
-  useEffect(() => {
-    refreshEmailContent();
-  }, []);
-
-  // Auto-refresh email content every 5 seconds until user generates content
-  useEffect(() => {
-    let intervalId: NodeJS.Timeout;
-    
-    if (!hasGenerated) {
-      intervalId = setInterval(() => {
-        getCurrentEmailContent()
-          .then(content => {
-            if (content !== currentEmailBody) {
-              setCurrentEmailBody(content);
-            }
-          })
-          .catch(error => {
-            console.warn('Auto-refresh failed:', error);
-          });
-      }, 5000); // Refresh every 5 seconds
-    }
-
-    return () => {
-      if (intervalId) {
-        clearInterval(intervalId);
-      }
-    };
-  }, [currentEmailBody, hasGenerated]);
-
-  const toneOptions: IDropdownOption[] = [
-    { key: 'professional', text: 'Professionnel' },
-    { key: 'friendly', text: 'Amical' },
-    { key: 'formal', text: 'Formel' },
-    { key: 'casual', text: 'Décontracté' },
-    { key: 'urgent', text: 'Urgent' },
-    { key: 'apologetic', text: 'Excuses' },
-  ];
 
   const theme = getTheme();
+  
+  // Generate conversationId based on current email
+  useEffect(() => {
+    if (currentEmail) {
+      // Create ID from email properties + current timestamp
+      const emailIdentifier = currentEmail.conversationId || 
+                            currentEmail.internetMessageId ||
+                            currentEmail.subject?.substring(0, 20).replace(/[^a-zA-Z0-9]/g, '_') || 
+                            'email';
+      const dateHash = Date.now();
+      
+      setConversationId(`${emailIdentifier}_${dateHash}`);
+    } else {
+      // No email - use random ID
+      setConversationId(`random_${Date.now()}_${Math.random().toString(36).substring(7)}`);
+    }
+  }, [currentEmail?.conversationId, currentEmail?.subject, currentEmail?.internetMessageId]);
+  
+  // Load email attachments
+  useEffect(() => {
+    const loadAttachments = async () => {
+      try {
+        const attachmentsWithContent = await getAttachmentsWithContent();
+        setAttachments(attachmentsWithContent);
+        console.log('Loaded attachments:', attachmentsWithContent);
+      } catch (error) {
+        console.error('Failed to load attachments:', error);
+      }
+    };
+    
+    if (currentEmail) {
+      loadAttachments();
+    }
+  }, [currentEmail]);
   
   const cardStyles: IStackStyles = {
     root: {
@@ -192,34 +127,6 @@ const EmailComposer: React.FC = () => {
     marginBottom: '24px',
     lineHeight: '1.4'
   });
-  
-  const successCardStyles: IStackStyles = {
-    root: {
-      backgroundColor: '#f3f9ff',
-      border: `2px solid ${theme.palette.themePrimary}`,
-      borderRadius: '16px',
-      padding: '24px 8px',
-      marginBottom: '20px',
-      position: 'relative',
-      width: '100%',
-      '@media (max-width: 768px)': {
-        padding: '20px 6px'
-      },
-      '@media (max-width: 480px)': {
-        padding: '16px 4px'
-      },
-      '&::before': {
-        content: '""',
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        height: '4px',
-        background: `linear-gradient(90deg, ${theme.palette.green}, ${theme.palette.greenDark})`,
-        borderRadius: '16px 16px 0 0'
-      }
-    }
-  };
   
   const modernButtonStyles = {
     root: {
@@ -281,396 +188,69 @@ const EmailComposer: React.FC = () => {
     }
   };
 
-  const insertIntoOutlookWithStatus = async (text: string, includeHistory: boolean = true) => {
-    try {
-      await insertContentIntoOutlook(text, includeHistory);
-    } catch (error) {
-      console.error('Failed to insert into Outlook:', error);
-      setStatusMessage({
-        message: 'Erreur lors de l\'insertion dans Outlook',
-        type: MessageBarType.error
-      });
-    }
-  };
+  const toneOptions: IDropdownOption[] = [
+    { key: 'professional', text: t.toneProfessional },
+    { key: 'friendly', text: t.toneFriendly },
+    { key: 'formal', text: t.toneFormal },
+    { key: 'casual', text: t.toneCasual },
+    { key: 'urgent', text: t.toneUrgent },
+    { key: 'apologetic', text: t.toneApologetic }
+  ];
 
-  // Get or create conversation ID
-  const getConversationId = () => {
-    if (!conversationId) {
-      const newId = Date.now().toString();
-      setConversationId(newId);
-      return newId;
-    }
-    return conversationId;
-  };
-
-  const renderChatInterface = () => {
-    if (!showChat) return null;
-
-    const operationLabel = lastOperation === 'generate' ? 'génération' : 
-                           lastOperation === 'correct' ? 'correction' : 'reformulation';
-
-    return (
-      <TemplateChatInterface
-        initialTemplate={lastGeneratedText}
-        conversationId={getConversationId()}
-        onTemplateUpdate={(newTemplate) => {
-          setLastGeneratedText(newTemplate);
-        }}
-        isInline={true}
-        userRequest={`Affiner le contenu de ${operationLabel} de l'email`}
-        emailContext={{
-          subject: '',
-          from: getUserEmailFromOutlook() || user?.email || '',
-          additionalInfo: userComment,
-          tone: selectedTone
-        }}
-      />
-    );
-  };
-
-  const handleGenerateEmail = async () => {
-    setIsLoading(true);
-    setIsStreaming(true);
-    setStatusMessage(null);
-    setLastGeneratedText(''); // Clear for streaming
-    setShowPreview(true); // Show preview immediately
-    setHasGenerated(true);
-
-    try {
-      await generateEmailStream(
-        {
-          additionalInfo: userComment || 'Générer une réponse appropriée',
-          tone: selectedTone,
-          language: detectedLanguage,
-          userId: user?.uid || 'compose-user',
-          from: getUserEmailFromOutlook() || user?.email || '',
-          body: currentEmailBody
-        },
-        (chunk: StreamChunk) => {
-          if (chunk.type === 'chunk' && chunk.delta) {
-            // Update text incrementally as chunks arrive
-            setLastGeneratedText(prev => prev + chunk.delta);
-          } else if (chunk.type === 'done') {
-            // Stream complete
-            console.log('✅ Generation complete', chunk.metadata);
-            setLastOperation('generate');
-            setShowChat(true);
-          } else if (chunk.type === 'error') {
-            setStatusMessage({
-              message: chunk.message || 'Erreur lors de la génération',
-              type: MessageBarType.error
-            });
-          }
-        }
-      );
-
-    } catch (error) {
-      console.error('Generate email failed:', error);
-      setStatusMessage({
-        message: 'Erreur lors de la génération de l\'email. Veuillez réessayer.',
-        type: MessageBarType.error
-      });
-    } finally {
-      setIsLoading(false);
-      setIsStreaming(false);
-    }
-  };
-
-  const handleCorrectEmail = async () => {
-    if (!currentEmailBody.trim()) {
-      setStatusMessage({
-        message: 'Aucun texte à corriger trouvé dans Outlook',
-        type: MessageBarType.error
-      });
+  const handleInsertTemplate = async (includeHistory: boolean = false) => {
+    if (!generatedTemplate) {
+      setError('No template to copy');
       return;
     }
 
-    setIsLoading(true);
-    setIsStreaming(true);
-    setStatusMessage(null);
-    setLastGeneratedText(''); // Clear for streaming
-    setShowPreview(true); // Show preview immediately
-    setHasGenerated(true);
-
     try {
-      await correctEmailStream(
-        {
-          body: currentEmailBody,
-          language: detectedLanguage,
-          userId: user?.uid || 'compose-user',
-          additionalInfo: userComment
-        },
-        (chunk: StreamChunk) => {
-          if (chunk.type === 'chunk' && chunk.delta) {
-            // Update text incrementally as chunks arrive
-            setLastGeneratedText(prev => prev + chunk.delta);
-          } else if (chunk.type === 'done') {
-            // Stream complete
-            console.log('✅ Correction complete', chunk.metadata);
-            setLastOperation('correct');
-            setShowChat(true);
-          } else if (chunk.type === 'error') {
-            setStatusMessage({
-              message: chunk.message || 'Erreur lors de la correction',
-              type: MessageBarType.error
-            });
-          }
-        }
-      );
-
-    } catch (error) {
-      console.error('Correct email failed:', error);
-      setStatusMessage({
-        message: 'Erreur lors de la correction. Veuillez réessayer.',
-        type: MessageBarType.error
-      });
-    } finally {
-      setIsLoading(false);
-      setIsStreaming(false);
+      await insertTemplate(generatedTemplate, includeHistory);
+      setSuccess('Template inserted into new email!');
+    } catch (error: any) {
+      setError('Failed to insert template: ' + error.message);
     }
   };
 
-  const handleReformulateEmail = async () => {
-    if (!currentEmailBody.trim()) {
-      setStatusMessage({
-        message: 'Aucun texte à reformuler trouvé dans Outlook',
-        type: MessageBarType.error
-      });
+  const handleCopyTemplate = () => {
+    if (!generatedTemplate) {
+      setError('No template to copy');
       return;
     }
 
-    setIsLoading(true);
-    setIsStreaming(true);
-    setStatusMessage(null);
-    setLastGeneratedText(''); // Clear for streaming
-    setShowPreview(true); // Show preview immediately
-    setHasGenerated(true);
-
-    try {
-      await reformulateEmailStream(
-        {
-          body: currentEmailBody,
-          additionalInfo: userComment || 'Améliorer la clarté, le style et la fluidité tout en conservant le sens original.',
-          tone: selectedTone,
-          language: detectedLanguage,
-          userId: user?.uid || 'compose-user'
-        },
-        (chunk: StreamChunk) => {
-          if (chunk.type === 'chunk' && chunk.delta) {
-            // Update text incrementally as chunks arrive
-            setLastGeneratedText(prev => prev + chunk.delta);
-          } else if (chunk.type === 'done') {
-            // Stream complete
-            console.log('✅ Reformulation complete', chunk.metadata);
-            setLastOperation('reformulate');
-            setShowChat(true);
-          } else if (chunk.type === 'error') {
-            setStatusMessage({
-              message: chunk.message || 'Erreur lors de la reformulation',
-              type: MessageBarType.error
-            });
-          }
-        }
-      );
-
-    } catch (error) {
-      console.error('Reformulate email failed:', error);
-      setStatusMessage({
-        message: 'Erreur lors de la reformulation. Veuillez réessayer.',
-        type: MessageBarType.error
-      });
-    } finally {
-      setIsLoading(false);
-      setIsStreaming(false);
-    }
+    navigator.clipboard.writeText(generatedTemplate).then(() => {
+      setSuccess('Template copied to clipboard!');
+    }).catch(() => {
+      setError('Failed to copy template to clipboard');
+    });
   };
 
-  // Main content before results
-  const renderInputSection = () => (
-    <Stack tokens={{ childrenGap: 16 }}>
-      {!hasGenerated && (
-        <Stack tokens={{ childrenGap: 20 }} styles={cardStyles}>
-          <Text className={headerStyles}>
-            <Sparkle24Regular /> Améliorer ou Générer un Email
-          </Text>
-          <Text className={subHeaderStyles}>
-            Améliorez le contenu existant ou décrivez un nouvel email à générer.
-          </Text>
-          
-          <TextField
-            label="Commentaire (optionnel)"
-            value={userComment}
-            onChange={(_, newValue) => setUserComment(newValue || '')}
-            placeholder="Ajoutez des instructions ou commentaires pour guider l'IA..."
-            multiline
-            rows={3}
-            styles={textFieldStyles}
-          />
-          
-          <Dropdown
-            label="Ton"
-            selectedKey={selectedTone}
-            onChange={(_, option) => option && setSelectedTone(option.key as string)}
-            options={toneOptions}
-            styles={{
-              dropdown: { borderRadius: '12px' },
-              title: { borderRadius: '12px', border: `2px solid ${theme.palette.neutralLight}` }
-            }}
-          />
-          
-          <Stack horizontal tokens={{ childrenGap: 12 }} wrap>
-            <PrimaryButton
-              text="✅ Corriger"
-              onClick={handleCorrectEmail}
-              disabled={isLoading || !currentEmailBody.trim()}
-              iconProps={{ iconName: 'CheckMark' }}
-              styles={modernButtonStyles}
-            />
-            <PrimaryButton
-              text="🔄 Reformuler"
-              onClick={handleReformulateEmail}
-              disabled={isLoading || !currentEmailBody.trim()}
-              iconProps={{ iconName: 'Sync' }}
-              styles={modernButtonStyles}
-            />
-            <PrimaryButton
-              text="✨ Générer Réponse"
-              onClick={handleGenerateEmail}
-              disabled={isLoading}
-              iconProps={{ iconName: 'Sparkle' }}
-              styles={modernButtonStyles}
-            />
-          </Stack>
-        </Stack>
-      )}
-      
-      {hasGenerated && (
-        <Stack tokens={{ childrenGap: 16 }}>
-          <Stack tokens={{ childrenGap: 12 }} styles={successCardStyles}>
-            <Stack horizontal horizontalAlign="space-between" verticalAlign="center">
-              <Text className={headerStyles}>
-                <CheckmarkCircle24Regular style={{ color: theme.palette.green }} /> 
-                {lastOperation === 'generate' ? 'Email Généré' : 
-                 lastOperation === 'correct' ? 'Email Corrigé' : 'Email Reformulé'}
-              </Text>
-              <Stack horizontal tokens={{ childrenGap: 12 }} wrap styles={{
-                root: {
-                  '@media (max-width: 768px)': {
-                    flexDirection: 'column',
-                    gap: '8px'
-                  }
-                }
-              }}>
-                <DefaultButton
-                  text={showPreview ? "Masquer l'aperçu" : "Voir l'aperçu"}
-                  onClick={() => setShowPreview(!showPreview)}
-                  iconProps={{ iconName: showPreview ? 'Hide' : 'View' }}
-                  styles={secondaryButtonStyles}
-                />
-                <PrimaryButton
-                  text="Insérer dans Outlook"
-                  onClick={() => insertIntoOutlookWithStatus(lastGeneratedText, true)}
-                  disabled={isLoading || !lastGeneratedText}
-                  iconProps={{ iconName: 'Mail' }}
-                  styles={modernButtonStyles}
-                />
-                <DefaultButton
-                  text="Nouveau"
-                  onClick={() => {
-                    setHasGenerated(false);
-                    setShowChat(false);
-                    setShowPreview(false);
-                    setLastGeneratedText('');
-                    setLastOperation(null);
-                    setUserComment('');
-                  }}
-                  iconProps={{ iconName: 'Add' }}
-                  styles={secondaryButtonStyles}
-                />
-              </Stack>
-            </Stack>
-          </Stack>
-          
-          {showPreview && (lastGeneratedText || isStreaming) && (
-            <Stack tokens={{ childrenGap: 12 }} styles={cardStyles}>
-              <Stack horizontal horizontalAlign="space-between" verticalAlign="center">
-                <Text className={headerStyles}>
-                  <Eye24Regular /> Aperçu du Contenu
-                  {isStreaming && <Spinner size={SpinnerSize.small} style={{ marginLeft: '8px' }} />}
-                </Text>
-                <IconButton
-                  iconProps={{ iconName: showFormattedPreview ? 'Code' : 'Preview' }}
-                  title={showFormattedPreview ? 'Voir le texte brut' : 'Voir le texte formaté'}
-                  onClick={() => setShowFormattedPreview(!showFormattedPreview)}
-                  styles={{ root: { borderRadius: '8px' } }}
-                />
-              </Stack>
-              
-              <Text variant="small" styles={{ root: { color: theme.palette.neutralSecondary, marginBottom: '8px' } }}>
-                {showFormattedPreview ? 
-                  'Aperçu formaté (séquences d\'\u00e9chappement converties) :' : 
-                  'Texte brut (avec séquences d\'\u00e9chappement) :'
-                }
-              </Text>
-              
-              <div style={{ position: 'relative' }}>
-                <TextField
-                  value={(showFormattedPreview ? processEscapeSequences(lastGeneratedText) : lastGeneratedText) + (isStreaming ? ' ▌' : '')}
-                  multiline
-                  rows={8}
-                  readOnly
-                  styles={{
-                    ...textFieldStyles,
-                    field: {
-                      ...textFieldStyles.field,
-                      backgroundColor: '#f8f9fa',
-                      fontFamily: showFormattedPreview ? 'inherit' : 'monospace',
-                      whiteSpace: showFormattedPreview ? 'pre-wrap' : 'pre',
-                      fontSize: '13px'
-                    }
-                  }}
-                />
-                {isStreaming && (
-                  <style>{`
-                    @keyframes blink-cursor {
-                      0%, 49% { opacity: 1; }
-                      50%, 100% { opacity: 0; }
-                    }
-                  `}</style>
-                )}
-              </div>
-            </Stack>
-          )}
-        </Stack>
-      )}
-      
-      {renderChatInterface()}
-    </Stack>
-  );
-
-  if (!user) return null;
+  if (!user) {
+    return null;
+  }
 
   return (
-    <Stack styles={{ 
-      root: { 
-        height: '100%', 
-        padding: '8px 4px', 
-        backgroundColor: '#fafbfc',
-        minHeight: '100vh',
-        width: '100%',
-        '@media (max-width: 768px)': {
-          padding: '6px 2px'
-        },
-        '@media (max-width: 480px)': {
-          padding: '4px 0px'
-        }
-      } 
-    }} tokens={{ childrenGap: 24 }}>
-      {statusMessage && (
+    <Stack 
+      tokens={{ childrenGap: 24 }} 
+      styles={{ 
+        root: { 
+          padding: '8px 4px',
+          backgroundColor: '#fafbfc',
+          minHeight: '100vh',
+          width: '100%',
+          '@media (max-width: 768px)': {
+            padding: '6px 2px'
+          },
+          '@media (max-width: 480px)': {
+            padding: '4px 1px'
+          }
+        } 
+      }}
+    >
+
+      {error && (
         <MessageBar 
-          messageBarType={statusMessage.type}
-          onDismiss={() => setStatusMessage(null)}
-          dismissButtonAriaLabel="Fermer"
+          messageBarType={MessageBarType.error} 
+          onDismiss={() => setError('')}
           styles={{
             root: {
               borderRadius: '12px',
@@ -680,35 +260,122 @@ const EmailComposer: React.FC = () => {
             }
           }}
         >
-          {statusMessage.message}
+          {error}
         </MessageBar>
       )}
 
-      {isLoading && (
-        <Stack 
-          horizontal 
-          horizontalAlign="center" 
-          tokens={{ childrenGap: 12 }} 
-          styles={{ 
-            root: { 
-              padding: '16px 24px',
-              backgroundColor: theme.palette.themeLighterAlt,
+      {success && (
+        <MessageBar 
+          messageBarType={MessageBarType.success} 
+          onDismiss={() => setSuccess('')}
+          styles={{
+            root: {
               borderRadius: '12px',
-              border: `1px solid ${theme.palette.themeLight}`,
-              marginBottom: '16px'
-            } 
+              marginBottom: '16px',
+              fontSize: '14px',
+              fontWeight: FontWeights.regular
+            }
           }}
         >
-          <Spinner size={SpinnerSize.medium} styles={{ circle: { borderTopColor: theme.palette.themePrimary } }} />
-          <Text styles={{ root: { fontSize: '16px', fontWeight: FontWeights.semibold, color: theme.palette.themePrimary } }}>
-            Traitement en cours...
-          </Text>
-        </Stack>
+          {success}
+        </MessageBar>
       )}
 
-      {renderInputSection()}
+      {(
+        <Stack tokens={{ childrenGap: 12 }}>
+          {isStreaming && (
+            <Stack horizontal tokens={{ childrenGap: 8 }} verticalAlign="center" styles={{ root: { padding: '12px', backgroundColor: theme.palette.themeLighterAlt, borderRadius: '8px' } }}>
+              <Spinner size={SpinnerSize.small} />
+              <Text styles={{ root: { color: theme.palette.themePrimary, fontWeight: FontWeights.semibold } }}>
+                Génération en cours...
+              </Text>
+            </Stack>
+          )}
+          <TemplateChatInterface
+            conversationId={"id"}//conversationId || Date.now().toString()}
+            onTemplateUpdate={(newTemplate) => {
+              setGeneratedTemplate(newTemplate);
+              setSuccess('Template refined successfully!');
+            }}
+            emailContext={{
+              subject: currentEmail?.subject,
+              from: currentEmail?.from,
+              additionalInfo,
+              tone,
+              body: currentEmail?.body,
+              attachments: attachments.map(att => ({
+                name: att.name,
+                content: att.content
+              }))
+            }}
+            quickActions={[
+              { actionKey: 'reply' },
+              { 
+                actionKey: 'summarize', 
+                email: true, 
+                attachment: attachments.map(att => ({
+                  name: att.name,
+                  id: att.id,
+                  content: att.content,
+                  contentType: att.contentType
+                }))
+              },
+            ]}
+          />
+          <Stack 
+            horizontal 
+            tokens={{ childrenGap: 12 }} 
+            horizontalAlign="space-between"
+            wrap
+            styles={{
+              root: {
+                padding: '20px 8px',
+                backgroundColor: '#f3f9ff',
+                borderRadius: '12px',
+                border: `2px solid ${theme.palette.themePrimary}`,
+                width: '100%',
+                '@media (max-width: 768px)': {
+                  flexDirection: 'column',
+                  gap: '12px',
+                  padding: '16px 6px'
+                },
+                '@media (max-width: 480px)': {
+                  padding: '12px 4px'
+                }
+              }
+            }}
+          >
+            <DefaultButton
+              text="Nouveau Template"
+              onClick={() => {
+                setGeneratedTemplate('');
+                setConversationId(Date.now().toString()); // New conversation ID
+                setError('');
+                setSuccess('');
+              }}
+              iconProps={{ iconName: 'Add' }}
+              styles={secondaryButtonStyles}
+            />
+            <Stack horizontal tokens={{ childrenGap: 12 }} wrap>
+              <PrimaryButton
+                text={t.insertTemplate}
+                onClick={() => handleInsertTemplate(true)}
+                iconProps={{ iconName: 'Mail' }}
+                styles={modernButtonStyles}
+              />
+              <DefaultButton
+                text="Copier"
+                onClick={handleCopyTemplate}
+                iconProps={{ iconName: 'Copy' }}
+                styles={secondaryButtonStyles}
+              />
+            </Stack>
+          </Stack>
+
+        </Stack>
+      )}
     </Stack>
   );
 };
 
-export default EmailComposer;
+export default TemplateGenerator;
