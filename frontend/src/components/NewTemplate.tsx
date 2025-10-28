@@ -20,11 +20,17 @@ import { authFetch } from '../utils/authFetch';
 import { API_ENDPOINTS } from '../config/api';
 import { QUICK_ACTIONS_DICTIONARY, QuickActionConfig } from '../config/quickActions';
 
+interface SuggestedButton {
+  label: string;
+  action: string;  // The text/prompt to send when clicked
+}
+
 interface ChatMessage {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  suggestedButtons?: SuggestedButton[];  // AI-suggested follow-up actions
 }
 
 interface QuickAction {
@@ -69,6 +75,8 @@ interface TemplateChatInterfaceProps {
     from?: string;
     additionalInfo?: string;
     tone?: string;
+    body?: string;  // Current email body content
+    attachments?: { name: string; content?: string; }[];  // Attachments with content
   };
   quickActions?: QuickAction[]; // List of quick action buttons
   activeActionKey?: string | null; // Currently active quick action for LLM context
@@ -99,6 +107,7 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
   const scrollableRef = useRef<HTMLDivElement>(null);
   const [lastQuickAction, setLastQuickAction] = useState<string | null>(null);
   const [activeActionKey, setActiveActionKey] = useState<string | null>(null);
+  const [lastClickedButton, setLastClickedButton] = useState<string | null>(null);
 
 
   const theme = getTheme();
@@ -108,6 +117,7 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
   useEffect(() => {
     const saved = localStorage.getItem(`chat_${conversationId}`);
     if (saved) {
+      console.log('Chargement conversation:', saved);
       try {
         const parsed = JSON.parse(saved);
         const msgs = parsed.map((m: any) => ({ ...m, timestamp: new Date(m.timestamp) }));
@@ -116,6 +126,9 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
       } catch (err) {
         console.error('Erreur chargement conversation:', err);
       }
+    }
+    else {
+      console.log('Conversation non trouvée');
     }
     
     // Only initialize if we don't have messages yet
@@ -157,6 +170,7 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
     setCurrentMessage('');
     setIsLoading(true);
     setError('');
+    setLastClickedButton(null); // Reset button state on new message
 
     // Create placeholder for streaming assistant message
     const aiMessageId = (Date.now() + 1).toString();
@@ -187,13 +201,171 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
       
       // Add email context if available
       if (emailContext) {
-        systemContext += `\n\nEmail Context:\n- Subject: ${emailContext.subject || 'N/A'}\n- From: ${emailContext.from || 'N/A'}\n- Tone: ${emailContext.tone || 'professional'}`;
+        systemContext += `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📧 EMAIL CONTEXT - ANALYZE THIS CAREFULLY FOR BUTTON SUGGESTIONS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+        systemContext += `\n• Subject: ${emailContext.subject || 'No subject'}`;
+        systemContext += `\n• From: ${emailContext.from || 'Unknown sender'}`;
+        systemContext += `\n• Requested Tone: ${emailContext.tone || 'professional'}`;
         if (emailContext.additionalInfo) {
-          systemContext += `\n- Additional Info: ${emailContext.additionalInfo}`;
+          systemContext += `\n• User Instructions: ${emailContext.additionalInfo}`;
         }
+        
+        // Add content based on action type
+        if (activeActionKey === 'reply' && emailContext.body) {
+          // For reply: include email body and attachments
+          systemContext += `\n\n📨 ORIGINAL EMAIL CONTENT (Use this to understand what to reply to):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${emailContext.body}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+          
+          if (emailContext.attachments && emailContext.attachments.length > 0) {
+            systemContext += `\n\n📎 ATTACHMENTS (Reference these if relevant):`;
+            emailContext.attachments.forEach(att => {
+              systemContext += `\n\n• File: ${att.name}`;
+              if (att.content) {
+                systemContext += `\n  Content: ${att.content.substring(0, 5000)}`; // Limit to 5000 chars per attachment
+              }
+            });
+          }
+        } else if (activeActionKey === 'summarize' && emailContext.body) {
+          // For summarize email: include email body only
+          systemContext += `\n\n📄 EMAIL TO SUMMARIZE:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${emailContext.body}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+        } else if ((activeActionKey === 'correct' || activeActionKey === 'reformulate') && emailContext.body) {
+          // For correct/reformulate: include current body
+          systemContext += `\n\n✏️ TEXT TO ${activeActionKey.toUpperCase()}:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${emailContext.body}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+        }
+        // Note: For summarize attachments, content is added via handleQuickAction additionalContext parameter
+        
+        systemContext += `\n\n⚠️ IMPORTANT: Base your button suggestions on the ACTUAL content above. Identify what's mentioned, what's missing, and what would genuinely help.`;
       }
       
-      systemContext += '\n\nProvide helpful, professional, and contextually appropriate responses.';
+      systemContext += `\n\nRESPONSE FORMAT (MANDATORY FOR EVERY RESPONSE):
+IMPORTANT: You MUST return EVERY single response in this JSON format, including follow-up messages.
+
+{
+  "response": "Your main response text here",
+  "buttons": [
+    {"label": "Short label", "action": "what user might say or ask next"},
+    {"label": "Another option", "action": "another logical next step"}
+  ]
+}
+
+CRITICAL: Even if this is the 2nd, 3rd, or 10th message in the conversation, you MUST ALWAYS use this JSON format with buttons.
+
+BUTTON PHILOSOPHY:
+The buttons represent REALISTIC and CONTEXTUAL suggestions based on the ACTUAL email content and situation.
+Analyze the email context carefully and suggest specific, actionable improvements.
+
+CRITICAL ANALYSIS REQUIRED:
+1. Read the email subject, sender, and content carefully
+2. Identify what information is actually present or missing
+3. Consider the email type (request, proposal, meeting invite, response, etc.)
+4. Suggest SPECIFIC actions based on real gaps or improvements needed
+5. Make suggestions that reference actual content from the email
+
+BUTTON TYPES (CONTENT ONLY - NO EXTERNAL ACTIONS):
+1. **Specific Content Addition**: Add concrete missing information based on email context
+   - Example: If email mentions "budget" but no numbers → "Add budget amount"
+   - Example: If meeting mentioned but no date → "Specify meeting date"
+   
+2. **Contextual Expansion**: Add specific details referenced in the email
+   - Example: If mentions "the project" → "Add project scope details"
+   - Example: If mentions "team" → "Specify team members"
+
+3. **Relevant Refinement**: Adjust based on actual content and recipient
+   - Example: If casual email to client → "Make more professional"
+   - Example: If technical details to non-tech person → "Simplify technical terms"
+
+4. **Targeted Modification**: Improve specific weak sections you identify
+   - Example: If unclear intro → "Clarify introduction"
+   - Example: If missing conclusion → "Add call to action"
+
+BUTTON CREATION RULES:
+✅ DO:
+- Reference specific elements from the email ("Add project timeline" if project mentioned)
+- Identify real gaps ("Include contact person" if sender asks who to contact)
+- Suggest concrete improvements ("Add deliverables list" for a proposal)
+- Be specific to the situation ("Clarify budget terms" not just "Add details")
+
+❌ DON'T:
+- Suggest generic actions that don't fit the context
+- Suggest adding information that's already there
+- Use vague labels like "Improve", "Modify", "Change"
+- Suggest external actions like "send", "schedule", "call"
+
+ANALYZE THEN SUGGEST:
+Before creating buttons, mentally answer:
+1. What is this email about? (meeting, proposal, request, response, etc.)
+2. What key information is present?
+3. What key information is missing or unclear?
+4. What would genuinely help complete or improve this specific email?
+
+REALISTIC EXAMPLES:
+
+Example 1 - Email says: "Re: Budget for Q2 Marketing Campaign"
+User asks: "write a response"
+Context Analysis: This is about budget approval, sender is asking for budget info
+{
+  "response": "Here's your response about the Q2 marketing budget: [response content]",
+  "buttons": [
+    {"label": "Add budget breakdown", "action": "add detailed budget breakdown by channel"},
+    {"label": "Include ROI projections", "action": "add expected ROI for Q2 campaign"},
+    {"label": "Specify timeline", "action": "add campaign timeline and milestones"},
+    {"label": "Mention previous results", "action": "reference Q1 campaign results"}
+  ]
+}
+
+Example 2 - Email from: john@client.com, Subject: "Meeting to discuss contract"
+User asks: "correct this email"
+Context Analysis: Professional email to client about contract meeting
+{
+  "response": "J'ai corrigé votre email. Les fautes d'orthographe et la structure ont été améliorées.",
+  "buttons": [
+    {"label": "Propose meeting times", "action": "add 3 specific meeting time options"},
+    {"label": "Add contract points", "action": "list key contract points to discuss"},
+    {"label": "More formal", "action": "make tone more formal for client communication"},
+    {"label": "Add availability", "action": "specify your availability for next week"}
+  ]
+}
+
+Example 3 - Original email mentions: "Can you summarize the technical specs for the new feature?"
+User asks: "summarize the technical email"
+Context Analysis: Technical request, recipient needs summary
+{
+  "response": "Résumé technique: La nouvelle fonctionnalité inclut...",
+  "buttons": [
+    {"label": "Simplify for non-tech", "action": "rewrite summary without technical jargon"},
+    {"label": "Add implementation time", "action": "include estimated development timeline"},
+    {"label": "List dependencies", "action": "specify technical dependencies and requirements"},
+    {"label": "Draft response", "action": "write response confirming technical feasibility"}
+  ]
+}
+
+Example 4 - User writes about new product launch
+User asks: "write email about product launch"
+Context Analysis: Announcement email, needs launch details
+{
+  "response": "Voici votre email d'annonce de lancement: [email content]",
+  "buttons": [
+    {"label": "Add launch date", "action": "specify exact product launch date and time"},
+    {"label": "Key features", "action": "list top 3 product features and benefits"},
+    {"label": "Pricing tiers", "action": "add pricing information and subscription options"},
+    {"label": "Demo link", "action": "include link to product demo or video"}
+  ]
+}
+
+REMEMBER: Create buttons that actually help complete THIS specific email based on what's ACTUALLY missing or unclear in the context provided.
+
+IMPORTANT: Buttons should guide the user to ADD INFORMATION or MODIFY CONTENT. Think about what information is MISSING or what could be IMPROVED in the text. DO NOT suggest actions outside of content editing.
+
+Provide helpful, professional, and contextually appropriate responses.`;
       
       conversationMessages.push({
         role: 'system',
@@ -240,26 +412,78 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
               if (data.type === 'chunk' && data.delta) {
                 accumulatedText += data.delta;
                 
+                // Try to extract just the response text during streaming
+                let displayText = accumulatedText;
+                try {
+                  // Check if we're accumulating JSON
+                  if (accumulatedText.trim().startsWith('{')) {
+                    // Try to extract content between "response": " and ", "buttons"
+                    // Using [\s\S]* instead of . with 's' flag for ES5 compatibility
+                    const responseMatch = accumulatedText.match(/"response"\s*:\s*"((?:[^"\\]|\\[\s\S])*)"/);
+                    if (responseMatch && responseMatch[1]) {
+                      // Decode escaped characters: \n, \", \\, etc.
+                      displayText = responseMatch[1]
+                        .replace(/\\n/g, '\n')
+                        .replace(/\\r/g, '\r')
+                        .replace(/\\t/g, '\t')
+                        .replace(/\\"/g, '"')
+                        .replace(/\\\\/g, '\\');
+                    } else {
+                      // If we can't extract complete response yet, check if we're still building it
+                      const partialMatch = accumulatedText.match(/"response"\s*:\s*"((?:[^"\\]|\\[\s\S])*)$/);
+                      if (partialMatch && partialMatch[1]) {
+                        // Show partial response being built
+                        displayText = partialMatch[1]
+                          .replace(/\\n/g, '\n')
+                          .replace(/\\r/g, '\r')
+                          .replace(/\\t/g, '\t')
+                          .replace(/\\"/g, '"')
+                          .replace(/\\\\/g, '\\');
+                      }
+                    }
+                  }
+                } catch (e) {
+                  // If parsing fails, show raw text
+                  console.warn('Failed to extract response during streaming:', e);
+                }
+                
                 // Update assistant message in real-time
                 setMessages(prev => 
                   prev.map(m => 
                     m.id === aiMessageId 
-                      ? { ...m, content: accumulatedText }
+                      ? { ...m, content: displayText }
                       : m
                   )
                 );
               } else if (data.type === 'done') {
+                // Parse JSON response to extract buttons
+                let finalContent = accumulatedText;
+                let suggestedButtons: SuggestedButton[] | undefined = undefined;
+                
+                try {
+                  // Try to parse as JSON
+                  const jsonResponse = JSON.parse(accumulatedText);
+                  if (jsonResponse.response && jsonResponse.buttons) {
+                    finalContent = jsonResponse.response;
+                    suggestedButtons = jsonResponse.buttons;
+                  }
+                } catch (e) {
+                  // If not JSON, use text as-is
+                  console.log('Response is not JSON, using as plain text');
+                }
+                
                 // Finalize and save
                 setMessages(prev => {
                   const final = prev.map(m => 
                     m.id === aiMessageId 
-                      ? { ...m, content: accumulatedText }
+                      ? { ...m, content: finalContent, suggestedButtons }
                       : m
                   );
                   localStorage.setItem(`chat_${conversationId}`, JSON.stringify(final));
+                  console.log('Final content:', finalContent);
                   return final;
                 });
-                onTemplateUpdate(accumulatedText);
+                onTemplateUpdate(finalContent);
               } else if (data.type === 'error') {
                 throw new Error(data.error || 'Stream error');
               }
@@ -290,8 +514,10 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
       items.push({
         key: 'email',
         text: 'Synthétiser Email',
-        onClick: () =>
-          handleQuickAction(action.actionKey, 'Synthétiser le contenu de l\'email', emailContext?.additionalInfo),
+        onClick: () => {
+          // Email body will be included automatically by the system based on activeActionKey
+          handleQuickAction(action.actionKey, 'Synthétiser le contenu de l\'email');
+        },
       });
     }
   
@@ -303,8 +529,10 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
           key: att.id,
           text: `Synthétiser ${att.name}`,
           onClick: () => {
-            // Include file content if available
-            const fileContext = att.content ? `\n\nFile Content (${att.name}):\n${att.content}` : '';
+            // Include file content if available with clear labeling for LLM
+            const fileContext = att.content 
+              ? `\n\n=== ATTACHMENT TO SUMMARIZE ===\nFile Name: ${att.name}\n\nFile Content:\n${att.content}` 
+              : `\n\nNote: File "${att.name}" content could not be extracted. Please ask user if they can provide the key information from this file.`;
             handleQuickAction(
               action.actionKey, 
               `Synthétiser ${att.name}`,
@@ -373,7 +601,12 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
 
       {/* Zone messages */}
       <div ref={scrollableRef} style={{ height: 500, overflowY: 'auto', padding: 16, backgroundColor: '#fafafa' }}>
-        {messages.map((m) => (
+        {messages.map((m, msgIndex) => {
+          // Find the last assistant message index
+          const lastAssistantIndex = messages.map((msg, idx) => msg.role === 'assistant' ? idx : -1).filter(idx => idx !== -1).pop();
+          const isLastAssistant = m.role === 'assistant' && msgIndex === lastAssistantIndex;
+          
+          return (
           <div key={m.id} style={{ marginBottom: 12, textAlign: m.role === 'user' ? 'right' : 'left' }}>
             <div
               style={{
@@ -401,8 +634,59 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
                 </Text>
               )}
             </div>
+            
+            {/* Suggested action buttons - only show for last assistant message */}
+            {isLastAssistant && m.suggestedButtons && m.suggestedButtons.length > 0 && !isLoading && (
+              <Stack 
+                horizontal 
+                wrap 
+                tokens={{ childrenGap: 8 }} 
+                styles={{ 
+                  root: { 
+                    marginTop: 8, 
+                    marginLeft: m.role === 'assistant' ? 0 : 'auto',
+                    maxWidth: '80%'
+                  } 
+                }}
+              >
+                {m.suggestedButtons.map((btn, idx) => {
+                  const buttonKey = `${btn.label}-${btn.action}`;
+                  return (
+                    <DefaultButton
+                      key={idx}
+                      text={btn.label}
+                      onClick={() => {
+                        if (lastClickedButton === buttonKey) {
+                          // Second click - send message
+                          setCurrentMessage(btn.action);
+                          setTimeout(() => {
+                            handleSendMessage();
+                            setLastClickedButton(null);
+                          }, 50);
+                        } else {
+                          // First click - populate input
+                          setCurrentMessage(btn.action);
+                          setLastClickedButton(buttonKey);
+                        }
+                      }}
+                      styles={{ 
+                        root: { 
+                          borderRadius: 8,
+                          fontSize: 12,
+                          padding: '4px 12px',
+                          height: 'auto',
+                          minHeight: 28,
+                          backgroundColor: lastClickedButton === buttonKey ? theme.palette.themeLighter : undefined
+                        } 
+                      }}
+                    />
+                  );
+                })}
+              </Stack>
+            )}
           </div>
-        ))}
+        );
+        })}
 
         {isLoading && !messages.some(m => m.role === 'assistant' && !m.content) && (
           <div style={{ textAlign: 'left', marginBottom: 12 }}>

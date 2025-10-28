@@ -16,14 +16,10 @@ import {
   mergeStyles,
   IStackStyles
 } from '@fluentui/react';
-import { Sparkle24Regular, Mail24Regular, Copy24Regular, Add24Regular } from '@fluentui/react-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { useOffice } from '../../contexts/OfficeContext';
-import { useTranslations, getOutlookLanguage } from '../../utils/i18n';
-import { generateOutlookTemplateStream, StreamChunk } from '../../services/composeService';
-import { API_ENDPOINTS } from '../../config/api';
+import { useTranslations } from '../../utils/i18n';
 import TemplateChatInterface from '../NewTemplate';
-import EmailContext from '../EmailContext';
 import { getAttachmentsWithContent, AttachmentInfo } from '../../utils/attachmentHelpers';
 
 const TemplateGenerator: React.FC = () => {
@@ -33,14 +29,10 @@ const TemplateGenerator: React.FC = () => {
   const t = useTranslations();
   const [additionalInfo, setAdditionalInfo] = useState('');
   const [tone, setTone] = useState<string>('professional');
-  const [language, setLanguage] = useState<string>('en');
-  const [useRag, setUseRag] = useState<boolean>(false);
   const [generatedTemplate, setGeneratedTemplate] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [showChat, setShowChat] = useState(false);
   const [conversationId, setConversationId] = useState<string>('');
 
   const theme = getTheme();
@@ -48,6 +40,7 @@ const TemplateGenerator: React.FC = () => {
   // Generate conversationId based on current email
   useEffect(() => {
     if (currentEmail) {
+      console.log('Current email:', currentEmail);
       // Create ID from email properties + current timestamp
       const emailIdentifier = currentEmail.conversationId || 
                             currentEmail.internetMessageId ||
@@ -57,6 +50,7 @@ const TemplateGenerator: React.FC = () => {
       
       setConversationId(`${emailIdentifier}_${dateHash}`);
     } else {
+      console.log('No current email');
       // No email - use random ID
       setConversationId(`random_${Date.now()}_${Math.random().toString(36).substring(7)}`);
     }
@@ -205,78 +199,6 @@ const TemplateGenerator: React.FC = () => {
     { key: 'apologetic', text: t.toneApologetic }
   ];
 
-  // Auto-detect language and set initial values on component mount
-  useEffect(() => {
-    // Set language based on Outlook settings
-    const detectedLang = getOutlookLanguage();
-    setLanguage(detectedLang);
-    
-    // Always set RAG to false initially (will be true in production)
-    setUseRag(false);
-  }, []);
-
-  const handleGenerateTemplate = async () => {
-    setIsGenerating(true);
-    setIsStreaming(true);
-    setError('');
-    setSuccess('');
-    setGeneratedTemplate(''); // Clear for streaming
-
-    try {
-      // Extract main body and conversation history from the email body
-      let mainBody = currentEmail?.body || null;
-      let conversationHistory = currentEmail?.fullConversation || null;
-      
-      const requestData = {
-        // User Input
-        additionalInfo: additionalInfo.trim() || undefined,
-        tone: tone,
-        language: language,
-        use_rag: useRag,
-        
-        // Email Context
-        subject: currentEmail?.subject || undefined,
-        from: currentEmail?.from || undefined,
-        body: mainBody || undefined,
-        conversationHistory: conversationHistory || undefined,
-        conversationId: currentEmail?.conversationId || undefined,
-        userId: user?.uid
-      };
-      console.log(requestData.conversationId)
-
-      await generateOutlookTemplateStream(
-        requestData,
-        (chunk: StreamChunk) => {
-          if (chunk.type === 'chunk' && chunk.delta) {
-            // Update text incrementally as chunks arrive
-            setGeneratedTemplate(prev => prev + chunk.delta);
-          } else if (chunk.type === 'done') {
-            // Stream complete
-            console.log('✅ Template generation complete', chunk.metadata);
-            setSuccess('Template generated successfully!');
-            // Don't change conversationId - keep the same conversation
-          } else if (chunk.type === 'error') {
-            setError(chunk.message || 'Failed to generate template');
-          }
-        }
-      );
-    } catch (error: any) {
-      console.error('Template generation error:', error);
-      if (error.name === 'TypeError' && error.message.includes('fetch')) {
-        setError('Network error. Please check your connection and ensure the backend is running.');
-      } else if (error.message.includes('API request failed')) {
-        setError(`API Error: ${error.message}`);
-      } else if (error.message === 'User not authenticated') {
-        setError('Authentication error. Please sign in again.');
-      } else {
-        setError('Failed to generate template. Please try again.');
-      }
-    } finally {
-      setIsGenerating(false);
-      setIsStreaming(false);
-    }
-  };
-
   const handleInsertTemplate = async (includeHistory: boolean = false) => {
     if (!generatedTemplate) {
       setError('No template to copy');
@@ -372,7 +294,7 @@ const TemplateGenerator: React.FC = () => {
             </Stack>
           )}
           <TemplateChatInterface
-            conversationId={conversationId || Date.now().toString()}
+            conversationId={"id"}//conversationId || Date.now().toString()}
             onTemplateUpdate={(newTemplate) => {
               setGeneratedTemplate(newTemplate);
               setSuccess('Template refined successfully!');
@@ -381,12 +303,15 @@ const TemplateGenerator: React.FC = () => {
               subject: currentEmail?.subject,
               from: currentEmail?.from,
               additionalInfo,
-              tone
+              tone,
+              body: currentEmail?.body,
+              attachments: attachments.map(att => ({
+                name: att.name,
+                content: att.content
+              }))
             }}
             quickActions={[
               { actionKey: 'reply' },
-              { actionKey: 'correct' },
-              { actionKey: 'reformulate' },
               { 
                 actionKey: 'summarize', 
                 email: true, 
