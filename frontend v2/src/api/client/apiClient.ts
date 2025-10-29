@@ -20,7 +20,10 @@ export const apiClient: AxiosInstance = axios.create({
 /**
  * Ajouter les intercepteurs
  */
-apiClient.interceptors.request.use(requestInterceptor, errorInterceptor);
+apiClient.interceptors.request.use(
+  requestInterceptor as unknown as (config: any) => any,
+  errorInterceptor
+);
 apiClient.interceptors.response.use(responseInterceptor, errorInterceptor);
 
 /**
@@ -244,5 +247,5 @@ export function setRequestConfig(config: Partial<AxiosRequestConfig>): void {
  * Obtenir la configuration actuelle
  */
 export function getRequestConfig(): AxiosRequestConfig {
-  return { ...apiClient.defaults };
+  return { ...(apiClient.defaults as unknown as AxiosRequestConfig) };
 }

@@ -3,7 +3,7 @@
  * Composant principal de l'application avec tous les providers
  */
 
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { auth } from './config/firebase';
 import { initializeAuthService } from './services/auth/AuthService';
 import {
