@@ -5,17 +5,25 @@
 
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+import App from './App';
 import './index.css';
 
 // Initialiser Office.js avant de rendre l'application
 if (typeof Office !== 'undefined') {
+  // Supprimer le warning Office.js en développement
+  const originalWarn = console.warn;
+  console.warn = (...args) => {
+    if (args[0]?.includes?.('Office.js is loaded outside')) return;
+    originalWarn.apply(console, args);
+  };
+
   Office.onReady(() => {
-    console.log('Office.js initialized successfully');
+    console.log('✅ Office.js initialized successfully');
     renderApp();
   });
 } else {
   // Mode développement (sans Office.js)
-  console.log('Running in development mode without Office.js');
+  console.log('🔧 Running in development mode without Office.js');
   renderApp();
 }
 
@@ -26,25 +34,13 @@ function renderApp() {
 
   root.render(
     <React.StrictMode>
-      <div style={{ padding: '20px' }}>
-        <h1>Outlook AI Assistant v2</h1>
-        <p>Application en cours de développement...</p>
-        <p>Architecture fondamentale établie ✅</p>
-        <ul>
-          <li>✅ Configuration (11 fichiers)</li>
-          <li>✅ Models/Types (15 fichiers)</li>
-          <li>✅ Utils (19 fichiers)</li>
-          <li>✅ API Layer (10 fichiers)</li>
-          <li>🔄 Services (en cours)</li>
-          <li>🔄 Hooks (à venir)</li>
-          <li>🔄 Components (à venir)</li>
-        </ul>
-      </div>
+      <App />
     </React.StrictMode>
   );
 }
 
 // Hot Module Replacement (HMR) pour le développement
-if (module.hot) {
+declare const module: any;
+if (typeof module !== 'undefined' && module.hot) {
   module.hot.accept();
 }

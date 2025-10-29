@@ -3,7 +3,7 @@
  * Service pour gérer le stockage local (localStorage)
  */
 
-import { STORAGE_KEYS, STORAGE_TTL, isPersistentKey, getTTL } from '@/config/storage';
+import { isPersistentKey, getTTL } from '@/config/storage';
 
 interface StorageItem<T> {
   value: T;

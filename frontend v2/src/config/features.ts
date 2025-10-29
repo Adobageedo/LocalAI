@@ -204,7 +204,7 @@ export const BETA_FEATURES = {
 /**
  * Vérifier si une beta feature est activée pour l'utilisateur
  */
-export const hasBetaAccess = (userId: string, betaFeature: string): boolean => {
+export const hasBetaAccess = (_userId: string, _betaFeature: string): boolean => {
   // À implémenter avec un système de beta testers
   // Pour l'instant, désactivé pour tous
   return false;

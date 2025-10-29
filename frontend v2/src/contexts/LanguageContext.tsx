@@ -3,7 +3,7 @@
  * Context pour gérer la langue de l'application
  */
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { SUPPORTED_LOCALES, DEFAULT_LOCALE } from '@/config/locales';
 import { getOutlookLanguage, getCurrentLanguage, saveLanguage } from '@/utils/i18n';
 
