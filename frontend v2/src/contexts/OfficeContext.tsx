@@ -3,7 +3,7 @@
  * Context pour gérer l'état Office.js
  */
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { EmailContext } from '@/models/domain';
 import { useOutlook } from '@/hooks/useOutlook';
 

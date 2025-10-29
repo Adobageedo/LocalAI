@@ -3,7 +3,7 @@
  * Service for email composition operations using the new dedicated compose endpoints
  */
 
-import { authFetch } from '../utils/authFetch.js';
+import { authFetch } from '../utils/helpers';
 import { API_ENDPOINTS } from '../config/api';
 
 // Types for compose operations

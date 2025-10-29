@@ -89,7 +89,6 @@ export class CacheService {
     // Nettoyer cache persistant
     const keys = StorageService.getKeysWithPrefix(this.CACHE_PREFIX);
     for (const fullKey of keys) {
-      const key = fullKey.replace(`${this.CACHE_PREFIX}:`, '');
       const entry = StorageService.get<CacheEntry<any>>(fullKey);
       
       if (entry && !this.isValid(entry)) {

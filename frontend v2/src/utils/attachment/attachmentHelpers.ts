@@ -12,8 +12,12 @@ import { SUPPORTED_FILE_TYPES } from '@/config/fileTypes';
  */
 export async function getAttachmentsWithContent(): Promise<AttachmentInfo[]> {
   try {
+    if (!Office.context?.mailbox?.item) {
+      return [];
+    }
+    
     const item = Office.context.mailbox.item;
-    if (!item || !item.attachments) {
+    if (!item.attachments) {
       return [];
     }
 
@@ -65,13 +69,14 @@ export async function getAttachmentsWithContent(): Promise<AttachmentInfo[]> {
  */
 async function getAttachmentContent(attachmentId: string): Promise<string | undefined> {
   return new Promise((resolve) => {
-    const item = Office.context.mailbox.item;
-    if (!item) {
+    if (!Office.context?.mailbox?.item) {
       resolve(undefined);
       return;
     }
+    
+    const item = Office.context.mailbox.item;
 
-    item.getAttachmentContentAsync(attachmentId, (result) => {
+    item.getAttachmentContentAsync(attachmentId, (result: any) => {
       if (result.status === Office.AsyncResultStatus.Succeeded) {
         try {
           const content = result.value.content;

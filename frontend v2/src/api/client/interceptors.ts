@@ -4,6 +4,11 @@
  */
 
 import { AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios';
+import { 
+  CustomAxiosRequestConfig, 
+  CustomInternalAxiosRequestConfig, 
+  CacheEntry 
+} from './types';
 
 /**
  * Intercepteur de requête
@@ -165,7 +170,7 @@ export function refreshTokenInterceptor(
   refreshTokenFn: () => Promise<string>
 ) {
   return async (error: AxiosError): Promise<any> => {
-    const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean };
+    const originalRequest = error.config as CustomAxiosRequestConfig;
 
     // Si erreur 401 et pas déjà retry
     if (error.response?.status === 401 && !originalRequest._retry) {
@@ -196,22 +201,24 @@ export function refreshTokenInterceptor(
 /**
  * Intercepteur pour logger les performances
  */
-export function performanceInterceptor(config: AxiosRequestConfig): AxiosRequestConfig {
+export function performanceInterceptor(config: AxiosRequestConfig): CustomAxiosRequestConfig {
+  const customConfig = config as CustomAxiosRequestConfig;
   const startTime = performance.now();
   
-  config.metadata = {
-    ...config.metadata,
+  customConfig.metadata = {
+    ...customConfig.metadata,
     startTime
   };
 
-  return config;
+  return customConfig;
 }
 
 /**
  * Intercepteur de réponse pour les performances
  */
 export function performanceResponseInterceptor(response: AxiosResponse): AxiosResponse {
-  const startTime = response.config.metadata?.startTime;
+  const config = response.config as CustomInternalAxiosRequestConfig;
+  const startTime = config.metadata?.startTime;
   
   if (startTime) {
     const duration = performance.now() - startTime;
@@ -232,7 +239,7 @@ export function performanceResponseInterceptor(response: AxiosResponse): AxiosRe
 /**
  * Intercepteur pour la gestion du cache
  */
-export function cacheInterceptor(cache: Map<string, any>, ttl: number = 300000) {
+export function cacheInterceptor(cache: Map<string, CacheEntry>, ttl: number = 300000) {
   return (config: AxiosRequestConfig): AxiosRequestConfig | Promise<AxiosResponse> => {
     // Seulement pour les requêtes GET
     if (config.method?.toUpperCase() !== 'GET') {
@@ -261,7 +268,7 @@ export function cacheInterceptor(cache: Map<string, any>, ttl: number = 300000) 
 /**
  * Intercepteur de réponse pour mettre en cache
  */
-export function cacheResponseInterceptor(cache: Map<string, any>) {
+export function cacheResponseInterceptor(cache: Map<string, CacheEntry>) {
   return (response: AxiosResponse): AxiosResponse => {
     // Seulement pour les GET réussis
     if (response.config.method?.toUpperCase() === 'GET' && response.status === 200) {

@@ -3,7 +3,7 @@
  * Service for managing user preferences and profile settings
  */
 
-import { authFetch } from '../utils/authFetch.js';
+import { authFetch } from '../utils/helpers';
 import { API_ENDPOINTS } from '../config/api';
 
 // Types for user preferences

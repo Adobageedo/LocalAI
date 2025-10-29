@@ -3,7 +3,7 @@
  * Context pour gérer le thème de l'application
  */
 
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useEffect, ReactNode } from 'react';
 import { ThemeProvider as FluentThemeProvider } from '@fluentui/react';
 import { lightTheme, darkTheme } from '@/config/themes';
 import { useLocalStorage } from '@/hooks/useStorage';
