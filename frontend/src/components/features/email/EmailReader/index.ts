@@ -1,5 +1,11 @@
 // Email Reader Components
 export { default as EmailContext } from './EmailContext';
 export { default as TemplateGenerator } from './TemplateGenerator';
-export { default as FileSynthesizer } from './FileSynthesizer';
-export { default as TabbedInterface } from './TabbedInterface';
+
+// Sub-components
+export { ActionButtons } from './ActionButtons';
+export { StatusMessages } from './StatusMessages';
+export { LoadingIndicator } from './LoadingIndicator';
+
+// Hooks
+export { useTemplateGeneration } from './useTemplateGeneration';

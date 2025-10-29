@@ -1,184 +1,41 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Stack, 
-  Text, 
-  TextField, 
-  PrimaryButton, 
-  DefaultButton,
-  MessageBar,
-  MessageBarType,
-  Spinner,
-  SpinnerSize,
-  Dropdown,
-  IDropdownOption,
-  getTheme,
-  FontWeights,
-  mergeStyles,
-  IStackStyles
-} from '@fluentui/react';
-import { useAuth } from '../../../../contexts/AuthContext';
-import { useOffice } from '../../../../contexts/OfficeContext';
-import { useTranslations } from '../../../../utils/i18n';
+import React from 'react';
+import { Stack, Text } from '@fluentui/react';
+import { Sparkle24Filled } from '@fluentui/react-icons';
+import { useTemplateGeneration } from './useTemplateGeneration';
+import { ActionButtons } from './ActionButtons';
+import { StatusMessages } from './StatusMessages';
+import { LoadingIndicator } from './LoadingIndicator';
+import { theme } from '../../../../styles';
 import TemplateChatInterface from '../TemplateChat/NewTemplate';
-import { AttachmentInfo, getAttachmentsWithContent } from '../../../../utils/helpers';
 
+/**
+ * Template Generator - Main container for email template generation
+ * Modern, polished UI with theme system
+ */
 const TemplateGenerator: React.FC = () => {
-  const { user } = useAuth();
-  const { isOfficeReady, isLoadingEmail, currentEmail, insertTemplate } = useOffice();  const [attachments, setAttachments] = useState<AttachmentInfo[]>([]);
-  const t = useTranslations();
-  const [additionalInfo, setAdditionalInfo] = useState('');
-  const [tone, setTone] = useState<string>('professional');
-  const [generatedTemplate, setGeneratedTemplate] = useState('');
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
-  const [conversationId, setConversationId] = useState<string>('');
-
-  const theme = getTheme();
-  
-  // Wait until Office is ready and the email is loaded
-  useEffect(() => {
-    if (!isOfficeReady) {
-      console.log('⏳ Office not ready yet...');
-      return;
-    }
-
-    if (isLoadingEmail) {
-      console.log('📨 Waiting for email to finish loading...');
-      return;
-    }
-
-    if (currentEmail) {
-      console.log('✅ Current email available:', currentEmail);
-
-      // Create a deterministic conversation ID
-      const emailIdentifier =
-        currentEmail.conversationId ||
-        currentEmail.internetMessageId ||
-        currentEmail.subject?.substring(0, 20).replace(/[^a-zA-Z0-9]/g, '_') ||
-        'email';
-
-      setConversationId(emailIdentifier);
-      console.log('Conversation ID:', emailIdentifier);
-    } else {
-      console.log('⚠️ No current email found');
-      setConversationId(`random_${Date.now()}_${Math.random().toString(36).substring(7)}`);
-    }
-  }, [isOfficeReady, isLoadingEmail, currentEmail]);
-
-  // Load attachments only when the email is fully ready
-  useEffect(() => {
-    const loadAttachments = async () => {
-      try {
-        const attachmentsWithContent = await getAttachmentsWithContent();
-        setAttachments(attachmentsWithContent);
-        console.log('📎 Attachments loaded:', attachmentsWithContent);
-      } catch (error) {
-        console.error('❌ Failed to load attachments:', error);
-      }
-    };
-
-    if (isOfficeReady && !isLoadingEmail && currentEmail) {
-      loadAttachments();
-    }
-  }, [isOfficeReady, isLoadingEmail, currentEmail]);
-
-  
-  const modernButtonStyles = {
-    root: {
-      borderRadius: '12px',
-      height: '44px',
-      fontSize: '14px',
-      fontWeight: FontWeights.semibold,
-      minWidth: '120px',
-      transition: 'all 0.2s ease-in-out',
-      '@media (max-width: 768px)': {
-        height: '40px',
-        fontSize: '13px',
-        minWidth: '100px'
-      },
-      '@media (max-width: 480px)': {
-        height: '36px',
-        fontSize: '12px',
-        minWidth: '80px',
-        padding: '0 12px'
-      }
-    }
-  };
-  
-  const secondaryButtonStyles = {
-    root: {
-      borderRadius: '12px',
-      height: '44px',
-      fontSize: '14px',
-      fontWeight: FontWeights.regular,
-      minWidth: '100px',
-      border: `2px solid ${theme.palette.neutralLight}`,
-      transition: 'all 0.2s ease-in-out',
-      '@media (max-width: 768px)': {
-        height: '40px',
-        fontSize: '13px',
-        minWidth: '90px'
-      },
-      '@media (max-width: 480px)': {
-        height: '36px',
-        fontSize: '12px',
-        minWidth: '70px',
-        padding: '0 8px'
-      }
-    }
-  };
-  
-  const textFieldStyles = {
-    fieldGroup: {
-      borderRadius: '12px',
-      border: `2px solid ${theme.palette.neutralLight}`,
-      transition: 'all 0.2s ease-in-out',
-      '&:hover': {
-        borderColor: theme.palette.themePrimary
-      }
-    },
-    field: {
-      fontSize: '14px',
-      lineHeight: '1.5'
-    }
-  };
-
-  const toneOptions: IDropdownOption[] = [
-    { key: 'professional', text: t.toneProfessional },
-    { key: 'friendly', text: t.toneFriendly },
-    { key: 'formal', text: t.toneFormal },
-    { key: 'casual', text: t.toneCasual },
-    { key: 'urgent', text: t.toneUrgent },
-    { key: 'apologetic', text: t.toneApologetic }
-  ];
-
-  const handleInsertTemplate = async (includeHistory: boolean = false) => {
-    if (!generatedTemplate) {
-      setError('No template to copy');
-      return;
-    }
-
-    try {
-      await insertTemplate(generatedTemplate, includeHistory);
-      setSuccess('Template inserted into new email!');
-    } catch (error: any) {
-      setError('Failed to insert template: ' + error.message);
-    }
-  };
-
-  const handleCopyTemplate = () => {
-    if (!generatedTemplate) {
-      setError('No template to copy');
-      return;
-    }
-
-    navigator.clipboard.writeText(generatedTemplate).then(() => {
-      setSuccess('Template copied to clipboard!');
-    }).catch(() => {
-      setError('Failed to copy template to clipboard');
-    });
-  };
+  const {
+    // User & context
+    user,
+    currentEmail,
+    
+    // State
+    attachments,
+    additionalInfo,
+    tone,
+    generatedTemplate,
+    isStreaming,
+    error,
+    success,
+    conversationId,
+    
+    // Actions
+    handleInsertTemplate,
+    handleCopyTemplate,
+    handleNewTemplate,
+    handleTemplateUpdate,
+    clearError,
+    clearSuccess,
+  } = useTemplateGeneration();
 
   if (!user) {
     return null;
@@ -186,73 +43,111 @@ const TemplateGenerator: React.FC = () => {
 
   return (
     <Stack 
-      tokens={{ childrenGap: 24 }} 
       styles={{ 
         root: { 
-          padding: '8px 4px',
-          backgroundColor: '#fafbfc',
-          minHeight: '100vh',
+          height: '100vh',
           width: '100%',
-          '@media (max-width: 768px)': {
-            padding: '6px 2px'
-          },
-          '@media (max-width: 480px)': {
-            padding: '4px 1px'
-          }
+          backgroundColor: theme.colors.white,
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
         } 
       }}
     >
-
-      {error && (
-        <MessageBar 
-          messageBarType={MessageBarType.error} 
-          onDismiss={() => setError('')}
-          styles={{
-            root: {
-              borderRadius: '12px',
-              marginBottom: '16px',
-              fontSize: '14px',
-              fontWeight: FontWeights.regular
-            }
-          }}
-        >
-          {error}
-        </MessageBar>
-      )}
-
-      {success && (
-        <MessageBar 
-          messageBarType={MessageBarType.success} 
-          onDismiss={() => setSuccess('')}
-          styles={{
-            root: {
-              borderRadius: '12px',
-              marginBottom: '16px',
-              fontSize: '14px',
-              fontWeight: FontWeights.regular
-            }
-          }}
-        >
-          {success}
-        </MessageBar>
-      )}
-
-      {(
-        <Stack tokens={{ childrenGap: 12 }}>
-          {isStreaming && (
-            <Stack horizontal tokens={{ childrenGap: 8 }} verticalAlign="center" styles={{ root: { padding: '12px', backgroundColor: theme.palette.themeLighterAlt, borderRadius: '8px' } }}>
-              <Spinner size={SpinnerSize.small} />
-              <Text styles={{ root: { color: theme.palette.themePrimary, fontWeight: FontWeights.semibold } }}>
-                Génération en cours...
-              </Text>
-            </Stack>
+      {/* Compact Header */}
+      <Stack 
+        horizontal 
+        verticalAlign="center" 
+        horizontalAlign="space-between"
+        styles={{
+          root: {
+            padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
+            borderBottom: `1px solid ${theme.colors.borderLight}`,
+            backgroundColor: theme.colors.white,
+            minHeight: 48,
+            boxShadow: theme.shadows.sm,
+          }
+        }}
+      >
+        <Stack horizontal verticalAlign="center" tokens={{ childrenGap: theme.spacing.sm }}>
+          <Sparkle24Filled style={{ color: theme.colors.primary, fontSize: 20 }} />
+          <Text 
+            variant="medium" 
+            styles={{ 
+              root: { 
+                fontWeight: theme.typography.fontWeight.semibold,
+                color: theme.colors.text,
+              } 
+            }}
+          >
+            AI Assistant
+          </Text>
+          {currentEmail?.subject && (
+            <Text 
+              variant="small" 
+              styles={{ 
+                root: { 
+                  color: theme.colors.textSecondary,
+                  marginLeft: theme.spacing.md,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  maxWidth: 300,
+                  [theme.mediaQueries.mobile]: {
+                    display: 'none',
+                  }
+                } 
+              }}
+            >
+              → {currentEmail.subject}
+            </Text>
           )}
+        </Stack>
+      </Stack>
+
+      {/* Status Messages */}
+      {(error || success) && (
+        <Stack styles={{ root: { padding: `${theme.spacing.xs}px ${theme.spacing.md}px` } }}>
+          <StatusMessages
+            error={error}
+            success={success}
+            onDismissError={clearError}
+            onDismissSuccess={clearSuccess}
+          />
+        </Stack>
+      )}
+
+      {/* Main Chat Area - Takes full remaining space */}
+      <Stack
+        styles={{
+          root: {
+            flex: 1,
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+          }
+        }}
+      >
+        {/* Loading Indicator */}
+        {isStreaming && (
+          <Stack styles={{ root: { padding: `${theme.spacing.xs}px ${theme.spacing.md}px` } }}>
+            <LoadingIndicator isLoading={isStreaming} />
+          </Stack>
+        )}
+
+        {/* Chat Interface - Full height */}
+        <Stack
+          styles={{
+            root: {
+              flex: 1,
+              overflow: 'auto',
+              padding: `0 ${theme.spacing.md}px`,
+            }
+          }}
+        >
           <TemplateChatInterface
             conversationId={conversationId || Date.now().toString()}
-            onTemplateUpdate={(newTemplate) => {
-              setGeneratedTemplate(newTemplate);
-              setSuccess('Template refined successfully!');
-            }}
+            onTemplateUpdate={handleTemplateUpdate}
             emailContext={{
               subject: currentEmail?.subject,
               from: currentEmail?.from,
@@ -278,58 +173,26 @@ const TemplateGenerator: React.FC = () => {
               },
             ]}
           />
-          <Stack 
-            horizontal 
-            tokens={{ childrenGap: 12 }} 
-            horizontalAlign="space-between"
-            wrap
-            styles={{
-              root: {
-                padding: '20px 8px',
-                backgroundColor: '#f3f9ff',
-                borderRadius: '12px',
-                border: `2px solid ${theme.palette.themePrimary}`,
-                width: '100%',
-                '@media (max-width: 768px)': {
-                  flexDirection: 'column',
-                  gap: '12px',
-                  padding: '16px 6px'
-                },
-                '@media (max-width: 480px)': {
-                  padding: '12px 4px'
-                }
-              }
-            }}
-          >
-            <DefaultButton
-              text="Nouveau Template"
-              onClick={() => {
-                setGeneratedTemplate('');
-                setConversationId(Date.now().toString()); // New conversation ID
-                setError('');
-                setSuccess('');
-              }}
-              iconProps={{ iconName: 'Add' }}
-              styles={secondaryButtonStyles}
-            />
-            <Stack horizontal tokens={{ childrenGap: 12 }} wrap>
-              <PrimaryButton
-                text={t.insertTemplate}
-                onClick={() => handleInsertTemplate(true)}
-                iconProps={{ iconName: 'Mail' }}
-                styles={modernButtonStyles}
-              />
-              <DefaultButton
-                text="Copier"
-                onClick={handleCopyTemplate}
-                iconProps={{ iconName: 'Copy' }}
-                styles={secondaryButtonStyles}
-              />
-            </Stack>
-          </Stack>
-
         </Stack>
-      )}
+      </Stack>
+
+      {/* Compact Action Bar at Bottom */}
+      <Stack
+        styles={{
+          root: {
+            borderTop: `1px solid ${theme.colors.borderLight}`,
+            padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
+            backgroundColor: theme.colors.backgroundAlt,
+          }
+        }}
+      >
+        <ActionButtons
+          onNewTemplate={handleNewTemplate}
+          onInsertTemplate={() => handleInsertTemplate(true)}
+          onCopyTemplate={handleCopyTemplate}
+          hasTemplate={!!generatedTemplate}
+        />
+      </Stack>
     </Stack>
   );
 };

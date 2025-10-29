@@ -3,7 +3,7 @@ import { initializeIcons } from '@fluentui/react/lib/Icons';
 import { AuthProvider } from './contexts/AuthContext';
 import { OfficeProvider } from './contexts/OfficeContext';
 import { useAuth } from './contexts/AuthContext';
-import { TabbedInterface } from './components/features/email';
+import { TemplateGenerator } from './components/features/email';
 import { EmailComposer } from './components/features/email';
 import { AuthSection, Sidebar } from './components/layout/Sidebar';
 import { Stack, Text, IconButton } from '@fluentui/react';
@@ -17,7 +17,7 @@ initializeIcons();
 function MainApp() {
   return (
     <div className="container">
-      <TabbedInterface />
+      <TemplateGenerator />
     </div>
   );
 }
