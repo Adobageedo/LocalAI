@@ -18,6 +18,7 @@ import {
 import { Bot20Regular, Person20Regular, Sparkle20Regular } from '@fluentui/react-icons';
 import { authFetch } from '../../../../utils/helpers';
 import { API_ENDPOINTS } from '../../../../config/api';
+import { buildSystemPrompt } from '../../../../config/prompt';
 import { QUICK_ACTIONS_DICTIONARY, QuickActionConfig } from '../../../../config/quickActions';
 
 interface SuggestedButton {
@@ -190,207 +191,9 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
       const conversationMessages: Array<{role: 'system' | 'user' | 'assistant', content: string}> = [];
       
       // Build system message with context and active quick action
-      let systemContext = 'You are an AI email assistant. Help the user with email-related tasks.';
-      
-      // Add quick action specific instructions
-      // if (activeActionKey) {
-      //   const actionConfig = QUICK_ACTIONS_DICTIONARY[activeActionKey];
-      //   if (actionConfig) {
-      //     systemContext += `\n\n${actionConfig.llmPrompt}`;
-      //   }
-      // }
-      
-      // Add email context if available
-      if (emailContext) {
-        systemContext += `\n\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-📧 EMAIL CONTEXT - ANALYZE THIS CAREFULLY FOR BUTTON SUGGESTIONS
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
-        systemContext += `\n• Subject: ${emailContext.subject || 'No subject'}`;
-        systemContext += `\n• From: ${emailContext.from || 'Unknown sender'}`;
-        systemContext += `\n• Requested Tone: ${emailContext.tone || 'professional'}`;
-        if (emailContext.additionalInfo) {
-          systemContext += `\n• User Instructions: ${emailContext.additionalInfo}`;
-        }
-        
-        // Add content based on action type
-        if (activeActionKey === 'reply' && emailContext.body) {
-          // For reply: include email body and attachments
-          systemContext += `\n\n📨 ORIGINAL EMAIL CONTENT (Use this to understand what to reply to):
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${emailContext.body}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
-          
-          if (emailContext.attachments && emailContext.attachments.length > 0) {
-            systemContext += `\n\n📎 ATTACHMENTS (Reference these if relevant):`;
-            emailContext.attachments.forEach(att => {
-              systemContext += `\n\n• File: ${att.name}`;
-              if (att.content) {
-                systemContext += `\n  Content: ${att.content.substring(0, 5000)}`; // Limit to 5000 chars per attachment
-              }
-            });
-          }
-        } else if (activeActionKey === 'summarize' && emailContext.body) {
-          // For summarize email: include email body only
-          systemContext += `\n\n📄 EMAIL TO SUMMARIZE:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${emailContext.body}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
-        } else if ((activeActionKey === 'correct' || activeActionKey === 'reformulate') && emailContext.body) {
-          // For correct/reformulate: include current body
-          systemContext += `\n\n✏️ TEXT TO ${activeActionKey.toUpperCase()}:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${emailContext.body}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
-        }
-        // Note: For summarize attachments, content is added via handleQuickAction additionalContext parameter
-        
-        systemContext += `\n\n⚠️ IMPORTANT: Base your button suggestions on the ACTUAL content above. Identify what's mentioned, what's missing, and what would genuinely help.`;
-      }
-      
-systemContext += `
-\n\n=== RESPONSE FORMAT (MANDATORY FOR EVERY RESPONSE) ===
-
-You MUST return EVERY single response in the following JSON format — for ALL replies, including follow-ups:
-
-{
-  "response": "Your main response text here",
-  "buttons": [
-    {"label": "Short label", "action": "Natural follow-up message the user might send"},
-    {"label": "Another option", "action": "Another realistic next user message"}
-  ]
-}
-
-⚠️ CRITICAL RULES:
-- ALWAYS use this JSON format, even for the 2nd, 3rd, or 10th message in the conversation.
-- NEVER output plain text — only valid JSON.
-- "buttons" must include 3–5 realistic, context-aware next actions that focus on content improvement.
-- "action" must be a natural, most probable next user message.
-- The language of the "action" must match the language of the email context.
-
----
-
-### 🎯 BUTTON PHILOSOPHY
-
-Buttons represent **realistic, contextual user follow-ups** — what the user is likely to say next to improve or complete the email.
-
-Each button must:
-1. Be specific to the email’s **actual content and gaps**.
-2. Address **real missing or unclear information**.
-3. Fit the **email type** (request, proposal, meeting, response, etc.).
-4. Contain a **natural user-style action message** (not an instruction).
-
----
-
-### 🧠 BUTTON CREATION RULES
-
-✅ **DO:**
-- Reference specific elements from the email  
-  → e.g., “Add project timeline” if a project is mentioned  
-- Identify real gaps  
-  → e.g., “Include contact person” if the sender asks who to contact  
-- Suggest concrete, content-based improvements  
-  → e.g., “Add deliverables list” for a proposal  
-- Be relevant and realistic  
-  → e.g., “Clarify budget terms” instead of “Add details”
-
-❌ **DON’T:**
-- Suggest generic or vague actions like “Improve” or “Modify”
-- Suggest adding information already present
-- Include non-writing actions like “send”, “schedule”, or “call”
-
----
-
-### 🔍 ANALYZE BEFORE CREATING BUTTONS
-
-Before generating buttons, always consider:
-1. What is this email about? (meeting, proposal, request, response, etc.)
-2. What information is already present?
-3. What key info is missing or unclear?
-4. What additions or edits would make this email more complete or effective?
-
----
-
-### 📘 REALISTIC EXAMPLES
-
-**Example 1 – Budget Email**  
-Subject: “Re: Budget for Q2 Marketing Campaign”  
-User: “write a response”  
-Context: Sender requests Q2 budget details
-
-{
-  "response": "Here's your response about the Q2 marketing budget: [response content]",
-  "buttons": [
-    {"label": "Add budget breakdown", "action": "Can you include a detailed breakdown of the Q2 budget by channel?"},
-    {"label": "Include ROI projections", "action": "Please add the expected ROI projections for each marketing channel."},
-    {"label": "Specify timeline", "action": "Can you mention the campaign timeline and milestones?"},
-    {"label": "Mention previous results", "action": "Could you reference the Q1 campaign results for comparison?"}
-  ]
-}
-
----
-
-**Example 2 – Contract Meeting**  
-From: john@client.com  
-Subject: “Meeting to discuss contract”  
-User: “correct this email”  
-Context: Professional message to client
-
-{
-  "response": "I have corrected your email. The spelling and structure have been improved.",
-  "buttons": [
-    {"label": "Propose meeting times", "action": "Can you add three possible time slots for the meeting?"},
-    {"label": "Add contract points", "action": "Please include the key contract points to be discussed."},
-    {"label": "More formal", "action": "Can you rephrase the message in a more professional tone?"},
-    {"label": "Add availability", "action": "Can you specify your availability for next week?"}
-  ]
-}
-
----
-
-**Example 3 – Technical Summary**  
-Email mentions: “Can you summarize the technical specs for the new feature?”  
-User: “summarize the technical email”  
-Context: Technical email needs readable summary
-
-{
-  "response": "Technical summary: The new feature includes...",
-  "buttons": [
-    {"label": "Simplify for non-tech", "action": "Can you simplify this summary for a non-technical audience?"},
-    {"label": "Add implementation time", "action": "Please include an estimate of the development time."},
-    {"label": "List dependencies", "action": "Can you specify the required technical dependencies?"},
-    {"label": "Draft response", "action": "Can you draft a reply confirming the technical feasibility?"}
-  ]
-}
-
----
-
-**Example 4 – Product Launch Email**  
-User: “write email about product launch”  
-Context: Product announcement needs launch details
-
-{
-  "response": "Here is your product launch announcement email: [email content]",
-  "buttons": [
-    {"label": "Add launch date", "action": "Can you specify the exact product launch date?"},
-    {"label": "Key features", "action": "Can you add the three main features and benefits of the product?"},
-    {"label": "Pricing tiers", "action": "Please include information about pricing and subscription plans."},
-    {"label": "Demo link", "action": "Can you include a link to the product demo or video?"}
-  ]
-}
-
----
-
-### 🧭 FINAL REMINDERS
-
-- ALWAYS output valid JSON — no markdown, no explanations.  
-- “response” = assistant’s main text.  
-- “buttons” = 3–5 contextually realistic next user messages.  
-- “action” = phrased as natural, the most probable next user message.  
-- Focus strictly on **content improvement or completion**, not external tasks.  
-`;
       conversationMessages.push({
         role: 'system',
-        content: systemContext
+        content: buildSystemPrompt( emailContext )
       });
       
       // Add all conversation history (user and assistant messages)
@@ -617,7 +420,9 @@ Context: Product announcement needs launch details
           <div key={m.id} style={{ marginBottom: 12, textAlign: m.role === 'user' ? 'right' : 'left' }}>
             <div
               style={{
-                display: 'inline-block',
+                display: 'inline-flex',          // change from inline-block to inline-flex
+                alignItems: 'center',            // vertical centering
+                justifyContent: 'center',        // horizontal centering
                 background: m.role === 'user' ? theme.palette.themePrimary : theme.palette.white,
                 color: m.role === 'user' ? 'white' : theme.palette.neutralPrimary,
                 padding: '10px 14px',
@@ -635,7 +440,10 @@ Context: Product announcement needs launch details
                   </Text>
                 </Stack>
               ) : (
-                <Text variant="small" styles={{ root: { whiteSpace: 'pre-wrap' } }}>
+                <Text
+                  variant="small"
+                  style={{ color: m.role === 'user' ? 'white' : theme.palette.neutralPrimary, whiteSpace: 'pre-wrap' }}
+                >
                   {m.content}
                   {isLoading && m.role === 'assistant' && m.content && ' ▌'}
                 </Text>
