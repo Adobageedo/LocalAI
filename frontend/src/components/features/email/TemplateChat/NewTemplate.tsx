@@ -595,7 +595,7 @@ Context: Product announcement needs launch details
   const isNewConversation = messages.length <= 2;
 
   return (
-    <Stack tokens={stackTokens} styles={{ root: { width: '95%', margin: 'auto', borderRadius: 12 } }}>
+    <Stack tokens={stackTokens} styles={{ root: { width: '100%', borderRadius: 12 } }}>
       {/* Header */}
       {error && (
         <MessageBar messageBarType={MessageBarType.error} onDismiss={() => setError('')}>
@@ -604,7 +604,7 @@ Context: Product announcement needs launch details
       )}
 
       {/* Zone messages */}
-      <div ref={scrollableRef} style={{ height: 500, overflowY: 'auto', padding: 16, backgroundColor: '#fafafa' }}>
+      <div ref={scrollableRef} style={{ height: '70vh', overflowY: 'auto', padding: 16, backgroundColor: '#fafafa' }}>
         {messages.map((m, msgIndex) => {
           // Find the last assistant message index
           const lastAssistantIndex = messages.map((msg, idx) => msg.role === 'assistant' ? idx : -1).filter(idx => idx !== -1).pop();

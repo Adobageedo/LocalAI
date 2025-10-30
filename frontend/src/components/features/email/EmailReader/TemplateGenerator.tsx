@@ -84,8 +84,7 @@ const TemplateGenerator: React.FC = () => {
       <Stack
         styles={{
           root: {
-            flex: 1,
-            overflow: 'hidden',
+            height: '100%',
             display: 'flex',
             flexDirection: 'column',
           }
@@ -104,7 +103,6 @@ const TemplateGenerator: React.FC = () => {
             root: {
               flex: 1,
               overflow: 'auto',
-              padding: `0 ${theme.spacing.md}px`,
             }
           }}
         >
