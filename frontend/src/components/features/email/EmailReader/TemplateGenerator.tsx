@@ -1,10 +1,8 @@
-import React from 'react';
-import { Stack, Text } from '@fluentui/react';
-import { Sparkle24Filled } from '@fluentui/react-icons';
-import { useTemplateGeneration } from './useTemplateGeneration';
-import { ActionButtons } from './ActionButtons';
-import { StatusMessages } from './StatusMessages';
-import { LoadingIndicator } from './LoadingIndicator';
+import React, { useState } from 'react';
+import { Stack } from '@fluentui/react';
+import { useTemplateGeneration } from '../../../../hooks';
+import { ActionButtons, StatusMessages, LoadingIndicator } from '../../../common';
+import { Header, Sidebar } from '../../../layout';
 import { theme } from '../../../../styles';
 import TemplateChatInterface from '../TemplateChat/NewTemplate';
 
@@ -13,6 +11,8 @@ import TemplateChatInterface from '../TemplateChat/NewTemplate';
  * Modern, polished UI with theme system
  */
 const TemplateGenerator: React.FC = () => {
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  
   const {
     // User & context
     user,
@@ -54,56 +54,19 @@ const TemplateGenerator: React.FC = () => {
         } 
       }}
     >
-      {/* Compact Header */}
-      <Stack 
-        horizontal 
-        verticalAlign="center" 
-        horizontalAlign="space-between"
-        styles={{
-          root: {
-            padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
-            borderBottom: `1px solid ${theme.colors.borderLight}`,
-            backgroundColor: theme.colors.white,
-            minHeight: 48,
-            boxShadow: theme.shadows.sm,
-          }
-        }}
-      >
-        <Stack horizontal verticalAlign="center" tokens={{ childrenGap: theme.spacing.sm }}>
-          <Sparkle24Filled style={{ color: theme.colors.primary, fontSize: 20 }} />
-          <Text 
-            variant="medium" 
-            styles={{ 
-              root: { 
-                fontWeight: theme.typography.fontWeight.semibold,
-                color: theme.colors.text,
-              } 
-            }}
-          >
-            AI Assistant
-          </Text>
-          {currentEmail?.subject && (
-            <Text 
-              variant="small" 
-              styles={{ 
-                root: { 
-                  color: theme.colors.textSecondary,
-                  marginLeft: theme.spacing.md,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  maxWidth: 300,
-                  [theme.mediaQueries.mobile]: {
-                    display: 'none',
-                  }
-                } 
-              }}
-            >
-              → {currentEmail.subject}
-            </Text>
-          )}
-        </Stack>
-      </Stack>
+      {/* Sidebar */}
+      <Sidebar
+        isOpen={sidebarOpen}
+        onDismiss={() => setSidebarOpen(false)}
+      />
+
+      {/* Universal Header */}
+      <Header
+        title="AI Assistant"
+        subtitle={currentEmail?.subject ? `→ ${currentEmail.subject}` : undefined}
+        showMenu={true}
+        onMenuClick={() => setSidebarOpen(!sidebarOpen)}
+      />
 
       {/* Status Messages */}
       {(error || success) && (

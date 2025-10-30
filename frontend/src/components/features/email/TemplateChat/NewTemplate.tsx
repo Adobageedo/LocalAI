@@ -597,20 +597,6 @@ Context: Product announcement needs launch details
   return (
     <Stack tokens={stackTokens} styles={{ root: { width: '95%', margin: 'auto', borderRadius: 12 } }}>
       {/* Header */}
-      <Stack horizontal verticalAlign="center" styles={{
-        root: {
-          padding: '12px',
-          background: theme.palette.themePrimary,
-          borderTopLeftRadius: 12,
-          borderTopRightRadius: 12,
-        },
-      }}>
-        <Sparkle20Regular style={{ color: 'white' }} />
-        <Text variant="mediumPlus" styles={{ root: { color: 'white', fontWeight: FontWeights.bold, marginLeft: 8 } }}>
-          Assistant IA - Gestion Email
-        </Text>
-      </Stack>
-
       {error && (
         <MessageBar messageBarType={MessageBarType.error} onDismiss={() => setError('')}>
           {error}
