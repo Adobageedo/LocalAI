@@ -1,6 +1,6 @@
 import React from 'react';
 import { Stack, Spinner, SpinnerSize, Text } from '@fluentui/react';
-import { theme } from '../../../../styles';
+import { theme } from '../../styles';
 
 interface LoadingIndicatorProps {
   isLoading: boolean;

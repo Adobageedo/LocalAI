@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useAuth } from '../../../../contexts/AuthContext';
-import { useOffice } from '../../../../contexts/OfficeContext';
-import { AttachmentInfo, getAttachmentsWithContent } from '../../../../utils/helpers';
+import { useAuth } from '../contexts/AuthContext';
+import { useOffice } from '../contexts/OfficeContext';
+import { AttachmentInfo, getAttachmentsWithContent } from '../utils/helpers';
 
 /**
  * Custom hook for template generation logic

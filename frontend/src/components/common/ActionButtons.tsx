@@ -1,6 +1,7 @@
 import React from 'react';
 import { Stack, PrimaryButton, DefaultButton } from '@fluentui/react';
-import { useTranslations } from '../../../../utils/i18n';
+import { useTranslations } from '../../utils/i18n';
+import { theme, compactButtonStyles } from '../../styles';
 
 interface ActionButtonsProps {
   onNewTemplate: () => void;
@@ -24,7 +25,7 @@ export function ActionButtons({
   return (
     <Stack 
       horizontal 
-      tokens={{ childrenGap: 8 }} 
+      tokens={{ childrenGap: theme.spacing.sm }} 
       horizontalAlign="space-between"
       wrap
       styles={{
@@ -37,43 +38,22 @@ export function ActionButtons({
         text="Nouveau"
         onClick={onNewTemplate}
         iconProps={{ iconName: 'Add' }}
-        styles={{
-          root: {
-            minWidth: 90,
-            height: 36,
-            borderRadius: 8,
-            fontSize: 13,
-          }
-        }}
+        styles={compactButtonStyles}
       />
       
-      <Stack horizontal tokens={{ childrenGap: 8 }}>
+      <Stack horizontal tokens={{ childrenGap: theme.spacing.sm }}>
         <PrimaryButton
           text={t.insertTemplate || 'Insérer'}
           onClick={onInsertTemplate}
           iconProps={{ iconName: 'Mail' }}
-          styles={{
-            root: {
-              minWidth: 100,
-              height: 36,
-              borderRadius: 8,
-              fontSize: 13,
-            }
-          }}
+          styles={compactButtonStyles}
           disabled={!hasTemplate}
         />
         <DefaultButton
           text="Copier"
           onClick={onCopyTemplate}
           iconProps={{ iconName: 'Copy' }}
-          styles={{
-            root: {
-              minWidth: 80,
-              height: 36,
-              borderRadius: 8,
-              fontSize: 13,
-            }
-          }}
+          styles={compactButtonStyles}
           disabled={!hasTemplate}
         />
       </Stack>

@@ -5,17 +5,15 @@ import {
   IconButton, 
   Stack, 
   Text,
-  DefaultButton,
-  getTheme,
-  FontWeights,
-  mergeStyles
+  DefaultButton
 } from '@fluentui/react';
-import { Settings24Regular, Dismiss24Regular } from '@fluentui/react-icons';
+import { Settings24Regular } from '@fluentui/react-icons';
 import EmailSync from './EmailSync';
 import AuthSection from './AuthSection';
 import UserPreferences from './UserPreferences';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useTranslations } from '../../../utils/i18n';
+import { theme, secondaryButtonStyles } from '../../../styles';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -25,35 +23,6 @@ interface SidebarProps {
 const Sidebar: React.FC<SidebarProps> = ({ isOpen, onDismiss }) => {
   const { user } = useAuth();
   const t = useTranslations();
-  const theme = getTheme();
-  
-  const headerStyles = mergeStyles({
-    background: `linear-gradient(135deg, ${theme.palette.themePrimary}, ${theme.palette.themeSecondary})`,
-    color: theme.palette.white,
-    padding: '24px',
-    borderRadius: '0 0 16px 16px',
-    marginBottom: '24px',
-    boxShadow: '0 4px 16px rgba(0, 120, 212, 0.2)'
-  });
-  
-  const titleStyles = mergeStyles({
-    fontSize: '18px',
-    fontWeight: FontWeights.bold,
-    display: 'flex',
-    alignItems: 'center',
-    gap: '12px'
-  });
-  
-  const modernButtonStyles = {
-    root: {
-      borderRadius: '12px',
-      height: '40px',
-      fontSize: '14px',
-      fontWeight: FontWeights.semibold,
-      minWidth: '100px',
-      transition: 'all 0.2s ease-in-out'
-    }
-  };
 
   return (
     <Panel
@@ -64,11 +33,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onDismiss }) => {
       styles={{
         main: { 
           maxWidth: '400px',
-          backgroundColor: '#fafbfc'
+          backgroundColor: theme.colors.background
         },
         content: { 
           padding: 0,
-          backgroundColor: '#fafbfc'
+          backgroundColor: theme.colors.background
         },
         header: {
           display: 'none'
@@ -76,21 +45,44 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onDismiss }) => {
       }}
       customWidth="400px"
     >
-      <div className={headerStyles}>
+      {/* Header */}
+      <Stack
+        styles={{
+          root: {
+            background: `linear-gradient(135deg, ${theme.colors.primary}, ${theme.colors.primaryDark})`,
+            color: theme.colors.white,
+            padding: theme.spacing.xxl,
+            borderRadius: `0 0 ${theme.borderRadius.large}px ${theme.borderRadius.large}px`,
+            marginBottom: theme.spacing.xxl,
+            boxShadow: theme.shadows.md
+          }
+        }}
+      >
         <Stack horizontal verticalAlign="center" horizontalAlign="space-between">
-          <Text className={titleStyles}>
-            <Settings24Regular /> Paramètres 
-          </Text>
+          <Stack horizontal verticalAlign="center" tokens={{ childrenGap: theme.spacing.md }}>
+            <Settings24Regular style={{ fontSize: 20 }} />
+            <Text 
+              styles={{ 
+                root: { 
+                  fontSize: theme.typography.fontSize.xl,
+                  fontWeight: theme.typography.fontWeight.bold,
+                  color: theme.colors.white
+                } 
+              }}
+            >
+              Paramètres
+            </Text>
+          </Stack>
           <IconButton 
             iconProps={{ iconName: 'Cancel' }}
             onClick={onDismiss}
             styles={{
               root: {
-                color: theme.palette.white,
+                color: theme.colors.white,
                 backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                borderRadius: '8px',
-                width: '32px',
-                height: '32px',
+                borderRadius: theme.borderRadius.medium,
+                width: 32,
+                height: 32,
                 '&:hover': {
                   backgroundColor: 'rgba(255, 255, 255, 0.2)'
                 }
@@ -98,9 +90,13 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onDismiss }) => {
             }}
           />
         </Stack>
-      </div>
+      </Stack>
       
-      <Stack tokens={{ childrenGap: 24 }} styles={{ root: { padding: '0 24px 24px 24px' } }}>
+      {/* Content */}
+      <Stack 
+        tokens={{ childrenGap: theme.spacing.xxl }} 
+        styles={{ root: { padding: `0 ${theme.spacing.xxl}px ${theme.spacing.xxl}px` } }}
+      >
         <Stack.Item>
           <AuthSection />
         </Stack.Item>
@@ -118,11 +114,11 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onDismiss }) => {
         )}
         
         <Stack.Item>
-          <Stack horizontal horizontalAlign="center" styles={{ root: { marginTop: '20px' } }}>
+          <Stack horizontal horizontalAlign="center" styles={{ root: { marginTop: theme.spacing.lg } }}>
             <DefaultButton 
               onClick={onDismiss}
               text={t.close || "Fermer"}
-              styles={modernButtonStyles}
+              styles={secondaryButtonStyles}
               iconProps={{ iconName: 'Cancel' }}
             />
           </Stack>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { MessageBar, MessageBarType } from '@fluentui/react';
-import { theme } from '../../../../styles';
+import { theme } from '../../styles';
 
 interface StatusMessagesProps {
   error?: string;
