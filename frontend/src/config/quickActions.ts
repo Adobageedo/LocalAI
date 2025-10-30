@@ -130,7 +130,7 @@ If the text contains ambiguous terms or cultural references that may not transla
 
   generate: {
     label: 'Générer',
-    userPrompt: 'Générer un nouvel email',
+    userPrompt: 'Générer un nouvel email de :',
     llmPrompt: `You are an email composition assistant. Generate a professional email based on the user's request.
 
 REQUIRED: Use the SAME LANGUAGE as specified in the user's request or context.
