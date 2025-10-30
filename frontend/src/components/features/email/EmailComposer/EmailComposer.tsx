@@ -123,17 +123,9 @@ const EmailComposer: React.FC = () => {
               }))
             }}
             quickActions={[
-              { actionKey: 'compose' },
-              { 
-                actionKey: 'summarize', 
-                email: false, 
-                attachment: attachments.map(att => ({
-                  name: att.name,
-                  id: att.id,
-                  content: att.content,
-                  contentType: att.contentType
-                }))
-              },
+              { actionKey: 'generate' },
+              { actionKey: 'correct' },
+              { actionKey: 'reformulate' }
             ]}
           />
         </Stack>

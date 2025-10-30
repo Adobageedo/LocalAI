@@ -88,6 +88,7 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
   emailContext,
   quickActions = [
     { actionKey: 'reply' },
+    { actionKey: 'generate' },
     { actionKey: 'correct' },
     { actionKey: 'reformulate' },
     {
@@ -192,12 +193,12 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
       let systemContext = 'You are an AI email assistant. Help the user with email-related tasks.';
       
       // Add quick action specific instructions
-      if (activeActionKey) {
-        const actionConfig = QUICK_ACTIONS_DICTIONARY[activeActionKey];
-        if (actionConfig) {
-          systemContext += `\n\n${actionConfig.llmPrompt}`;
-        }
-      }
+      // if (activeActionKey) {
+      //   const actionConfig = QUICK_ACTIONS_DICTIONARY[activeActionKey];
+      //   if (actionConfig) {
+      //     systemContext += `\n\n${actionConfig.llmPrompt}`;
+      //   }
+      // }
       
       // Add email context if available
       if (emailContext) {
@@ -263,6 +264,8 @@ You MUST return EVERY single response in the following JSON format — for ALL r
 - ALWAYS use this JSON format, even for the 2nd, 3rd, or 10th message in the conversation.
 - NEVER output plain text — only valid JSON.
 - "buttons" must include 3–5 realistic, context-aware next actions that focus on content improvement.
+- "action" must be a natural, most probable next user message.
+- The language of the "action" must match the language of the email context.
 
 ---
 
@@ -333,12 +336,12 @@ User: “correct this email”
 Context: Professional message to client
 
 {
-  "response": "J'ai corrigé votre email. Les fautes d'orthographe et la structure ont été améliorées.",
+  "response": "I have corrected your email. The spelling and structure have been improved.",
   "buttons": [
-    {"label": "Propose meeting times", "action": "Peux-tu ajouter trois créneaux possibles pour la réunion ?"},
-    {"label": "Add contract points", "action": "Merci d’ajouter les points clés du contrat à discuter."},
-    {"label": "More formal", "action": "Peux-tu reformuler le message avec un ton plus professionnel ?"},
-    {"label": "Add availability", "action": "Peux-tu préciser tes disponibilités pour la semaine prochaine ?"}
+    {"label": "Propose meeting times", "action": "Can you add three possible time slots for the meeting?"},
+    {"label": "Add contract points", "action": "Please include the key contract points to be discussed."},
+    {"label": "More formal", "action": "Can you rephrase the message in a more professional tone?"},
+    {"label": "Add availability", "action": "Can you specify your availability for next week?"}
   ]
 }
 
@@ -350,12 +353,12 @@ User: “summarize the technical email”
 Context: Technical email needs readable summary
 
 {
-  "response": "Résumé technique : La nouvelle fonctionnalité inclut...",
+  "response": "Technical summary: The new feature includes...",
   "buttons": [
-    {"label": "Simplify for non-tech", "action": "Peux-tu simplifier ce résumé pour un public non technique ?"},
-    {"label": "Add implementation time", "action": "Merci d’inclure une estimation du temps de développement."},
-    {"label": "List dependencies", "action": "Peux-tu préciser les dépendances techniques nécessaires ?"},
-    {"label": "Draft response", "action": "Peux-tu rédiger une réponse confirmant la faisabilité technique ?"}
+    {"label": "Simplify for non-tech", "action": "Can you simplify this summary for a non-technical audience?"},
+    {"label": "Add implementation time", "action": "Please include an estimate of the development time."},
+    {"label": "List dependencies", "action": "Can you specify the required technical dependencies?"},
+    {"label": "Draft response", "action": "Can you draft a reply confirming the technical feasibility?"}
   ]
 }
 
@@ -366,12 +369,12 @@ User: “write email about product launch”
 Context: Product announcement needs launch details
 
 {
-  "response": "Voici votre email d'annonce de lancement : [email content]",
+  "response": "Here is your product launch announcement email: [email content]",
   "buttons": [
-    {"label": "Add launch date", "action": "Peux-tu préciser la date exacte du lancement du produit ?"},
-    {"label": "Key features", "action": "Peux-tu ajouter les trois principales fonctionnalités et avantages du produit ?"},
-    {"label": "Pricing tiers", "action": "Merci d’ajouter les informations sur les tarifs et abonnements."},
-    {"label": "Demo link", "action": "Peux-tu inclure un lien vers la démo ou la vidéo du produit ?"}
+    {"label": "Add launch date", "action": "Can you specify the exact product launch date?"},
+    {"label": "Key features", "action": "Can you add the three main features and benefits of the product?"},
+    {"label": "Pricing tiers", "action": "Please include information about pricing and subscription plans."},
+    {"label": "Demo link", "action": "Can you include a link to the product demo or video?"}
   ]
 }
 
@@ -382,7 +385,7 @@ Context: Product announcement needs launch details
 - ALWAYS output valid JSON — no markdown, no explanations.  
 - “response” = assistant’s main text.  
 - “buttons” = 3–5 contextually realistic next user messages.  
-- “action” = phrased as natural, polite follow-ups (not commands).  
+- “action” = phrased as natural, the most probable next user message.  
 - Focus strictly on **content improvement or completion**, not external tasks.  
 `;
       conversationMessages.push({
