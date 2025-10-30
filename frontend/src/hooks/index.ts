@@ -3,6 +3,7 @@
 // Utility Hooks
 export * from './useDebounce';
 export * from './useLocalStorage';
+export * from './useEmailComposer';
 export * from './useTranslations';
 
 // Feature Hooks

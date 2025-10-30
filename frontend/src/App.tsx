@@ -5,10 +5,7 @@ import { OfficeProvider } from './contexts/OfficeContext';
 import { useAuth } from './contexts/AuthContext';
 import { TemplateGenerator } from './components/features/email';
 import { EmailComposer } from './components/features/email';
-import { AuthSection, Sidebar } from './components/layout/Sidebar';
-import { Stack, Text, IconButton } from '@fluentui/react';
-import { Edit20Regular } from '@fluentui/react-icons';
-import { useTranslations } from './utils/i18n';
+import { AuthSection } from './components/layout/Sidebar';
 import './App.css';
 
 // Initialize Fluent UI icons
@@ -23,42 +20,9 @@ function MainApp() {
 }
 
 function ComposerApp() {
-  const { user } = useAuth();
-  const t = useTranslations();
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-
-  if (!user) {
-    return null;
-  }
-
   return (
     <div className="container">
-      <Stack tokens={{ childrenGap: 16 }} styles={{ root: { padding: '3px' } }}>
-        {/* Header with Settings Button */}
-        <Stack horizontal verticalAlign="center" horizontalAlign="space-between" styles={{ root: { width: '100%' } }}>
-          <Stack horizontal verticalAlign="center" tokens={{ childrenGap: 8 }}>
-            <Edit20Regular style={{ fontSize: '18px', color: '#0078d4' }} />
-            <Text variant="mediumPlus" styles={{ root: { fontWeight: 600 } }}>
-              Email Composer
-            </Text>
-          </Stack>
-          <IconButton 
-            iconProps={{ iconName: 'Settings' }} 
-            title={t.settings || "Settings"}
-            ariaLabel={t.settings || "Settings"}
-            onClick={() => setIsSidebarOpen(true)}
-          />
-        </Stack>
-        
-        {/* Email Composer Component */}
-        <EmailComposer />
-        
-        {/* Sidebar */}
-        <Sidebar 
-          isOpen={isSidebarOpen} 
-          onDismiss={() => setIsSidebarOpen(false)} 
-        />
-      </Stack>
+      <EmailComposer />
     </div>
   );
 }
