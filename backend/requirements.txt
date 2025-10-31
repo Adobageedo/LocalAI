@@ -9,7 +9,6 @@ ollama
 pydantic
 python-multipart
 pdfplumber
-python-docx
 unstructured
 sentence-transformers
 langchain-huggingface
@@ -23,6 +22,7 @@ google-api-python-client
 langchain-core
 langchain-community
 langchain_openai
+langchain_text_splitters
 # --- Added from import analysis ---
 PyYAML  # for yaml
 python-dotenv  # for dotenv
