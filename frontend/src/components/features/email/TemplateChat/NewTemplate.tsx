@@ -210,7 +210,8 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
         body: JSON.stringify({
           messages: conversationMessages,
           maxTokens: 800,
-          temperature: 0.7
+          temperature: 0.7,
+          rag: true   // <-- pass RAG flag
         }),
       });
 
