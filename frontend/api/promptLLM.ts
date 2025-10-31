@@ -1,12 +1,21 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
+import fetch from 'node-fetch'; // or native fetch if supported
 import llmClient, { ChatMessage } from './utils/llmClient'; // your LLM streaming client
 
 interface StreamRequest {
-  prompt?: string;  // Legacy support for single prompt
-  messages?: ChatMessage[];  // Conversation history
-  systemPrompt?: string;  // Optional system message
+  prompt?: string;
+  messages?: ChatMessage[];
+  systemPrompt?: string;
   maxTokens?: number;
   temperature?: number;
+  rag?: boolean;           // <-- new flag
+  ragCollection?: string;  // optional collection for RAG search
+  topK?: number;           // optional top_k for RAG
+}
+
+interface RagDoc {
+  page_content: string;
+  metadata: Record<string, any>;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -16,15 +25,65 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const { prompt, messages, systemPrompt, maxTokens = 500, temperature = 0.7 } = req.body as StreamRequest;
+    const { 
+      prompt, 
+      messages, 
+      systemPrompt, 
+      maxTokens = 500, 
+      temperature = 0.7,
+      rag = false,
+      ragCollection="edoardo",
+    } = req.body as StreamRequest;
 
-    // Validate: either messages or prompt must be provided
     if (!messages && (!prompt || !prompt.trim())) {
       res.status(400).json({ error: 'Either messages array or prompt is required' });
       return;
     }
 
     console.log(`📨 promptLLM: Received ${messages ? `${messages.length} messages` : 'single prompt'}`);
+
+    // Build conversation messages
+    let conversationMessages: ChatMessage[] = messages ?? [
+      ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
+      { role: 'user' as const, content: prompt! }
+    ];
+
+    // --- RAG Integration ---
+    if (rag) {
+      try {
+        let topK=100
+        const ragResponse = await fetch(
+          `${process.env.RAG_API_URL || 'https://your-api.com/rag/search'}`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              query: prompt,
+              collection: ragCollection,
+              top_k: topK
+            })
+          }
+        );
+
+        if (!ragResponse.ok) {
+          console.warn('RAG API returned error', await ragResponse.text());
+        } else {
+          const ragData = await ragResponse.json();
+          const docs: RagDoc[] = ragData.documents ?? [];
+
+          // Prepend RAG content as a system message for context
+          if (docs.length > 0) {
+            const contextText = docs.map((d, i) => `Document ${i + 1}: ${d.page_content}`).join('\n\n');
+            conversationMessages = [
+              { role: 'system' as const, content: `Use the following RAG documents to answer the user query:\n\n${contextText}` },
+              ...conversationMessages
+            ];
+          }
+        }
+      } catch (err) {
+        console.error('RAG API call failed', err);
+      }
+    }
 
     // Set headers for SSE streaming
     res.setHeader('Content-Type', 'text/event-stream');
@@ -33,20 +92,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     let fullText = '';
     let chunkNumber = 0;
-
-    // Build conversation messages
-    let conversationMessages: ChatMessage[];
-    
-    if (messages) {
-      // Use provided conversation history
-      conversationMessages = messages;
-    } else {
-      // Legacy: convert single prompt to messages format
-      conversationMessages = [
-        ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
-        { role: 'user' as const, content: prompt! }
-      ];
-    }
 
     for await (const chunk of llmClient.generateStream({
       messages: conversationMessages,
@@ -75,6 +120,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         res.end();
       }
     }
+
   } catch (error) {
     console.error('Streaming error:', error);
     res.write(`data: ${JSON.stringify({
