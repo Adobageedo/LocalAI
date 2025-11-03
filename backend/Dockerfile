@@ -37,10 +37,10 @@ RUN mkdir -p /app/data
 # Create startup script
 RUN echo '#!/bin/bash\n\
 # Start sync service in background\n\
-# nohup python -m backend.services.sync_service.scheduled_sync_service > /app/data/sync.log 2>&1 &\n\
+# nohup python -m src.services.sync_service.scheduled_sync_service > /app/data/sync.log 2>&1 &\n\
 # \n\
 # Start main application\n\
-exec gunicorn --bind :${PORT:-8000} -k uvicorn.workers.UvicornWorker backend.api.main:app\n\
+exec gunicorn --bind :${PORT:-8000} -k uvicorn.workers.UvicornWorker src.api.main:app\n\
 ' > /app/start.sh && chmod +x /app/start.sh
 
 # Start application with sync service

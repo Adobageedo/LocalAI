@@ -1,0 +1,20 @@
+services:
+  # Outlook Add-in - React
+  qdrant:
+    image: qdrant/qdrant
+    container_name: qdrant
+    ports:
+      - "6333:6333"  # API HTTP
+      - "6334:6334"  # API gRPC
+    volumes:
+      - qdrant_data:/qdrant/storage
+    restart: unless-stopped
+    networks:
+      - rag-network
+
+networks:
+  rag-network:
+    driver: bridge
+
+volumes:
+  qdrant_data:  # Stockage persistant pour Qdrant

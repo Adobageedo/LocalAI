@@ -1,3 +1,5 @@
 // Email Reader Components
 export { default as EmailContext } from './EmailContext';
 export { default as TemplateGenerator } from './TemplateGenerator';
+export { default as TemplateHub } from './TemplateHub';
+export { default as QuickActions } from './QuickActions';

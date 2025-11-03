@@ -3,7 +3,7 @@ import { initializeIcons } from '@fluentui/react/lib/Icons';
 import { AuthProvider } from './contexts/AuthContext';
 import { OfficeProvider } from './contexts/OfficeContext';
 import { useAuth } from './contexts/AuthContext';
-import { TemplateGenerator } from './components/features/email';
+import { TemplateHub } from './components/features/email';
 import { EmailComposer } from './components/features/email';
 import { AuthSection } from './components/layout/Sidebar';
 import './App.css';
@@ -14,7 +14,7 @@ initializeIcons();
 function MainApp() {
   return (
     <div className="container">
-      <TemplateGenerator />
+      <TemplateHub />
     </div>
   );
 }

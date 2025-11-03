@@ -1,23 +1,5 @@
 services:
   # Outlook Add-in - React
-  outlook_addin:
-    build:
-      context: ./outlook-addin/test/my-app
-      dockerfile: Dockerfile
-    container_name: outlook-addin
-    # Add volumes for development with hot reloading
-    volumes:
-      - ./outlook-addin/test/my-app:/app
-      - /app/node_modules
-    environment:
-      - CHOKIDAR_USEPOLLING=true
-      - WDS_SOCKET_PORT=0
-    ports:
-      - "3000:3000"  # Expose React development server
-    restart: unless-stopped
-    networks:
-      - rag-network
-  # Qdrant - Base de données vectorielle pour RAG
   qdrant:
     image: qdrant/qdrant
     container_name: qdrant
@@ -39,7 +21,7 @@ services:
     # On expose seulement sur le réseau interne, Nginx fera le proxy
     ports:
       - "8000:8000"
-    env_file: ./backend/backend/core/.env
+    env_file: ./backend/src/core/.env
     volumes:
       #- ./backend:/app  # Pour le développement, permet de modifier les fichiers en direct
       - ./backend/data:/app/data  # Persistence des données (registre JSON)
@@ -52,27 +34,6 @@ services:
       - rag-network
 
   # Nginx - Serveur web et proxy inverse
-  nginx:
-    build:
-      context: ./nginx
-      dockerfile: Dockerfile
-    container_name: nginx
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - /var/www/chardouin.fr/html:/var/www/chardouin.fr/html:ro
-      - /var/www/hardouinosteopathe.fr/html:/var/www/hardouinosteopathe.fr/html:ro
-      - ./nginx/conf:/etc/nginx/conf.d
-      - ./nginx/ssl:/etc/nginx/ssl
-      - ./nginx/logs:/var/log/nginx
-    depends_on:
-      - backend
-      - outlook_addin
-    restart: unless-stopped
-    networks:
-      - rag-network
-
   postgres:
     image: postgres:15-alpine
     container_name: postgres
