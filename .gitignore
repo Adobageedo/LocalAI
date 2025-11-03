@@ -1,6 +1,10 @@
 .env
 *.env
 *.env.*
+**/venv/
+*.pst
+*.mbox
+*mbox*
 set_heroku_env.sh
 __pycache__/
 *.py[cod]

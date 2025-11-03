@@ -20,6 +20,7 @@ import { authFetch } from '../../../../utils/helpers';
 import { API_ENDPOINTS } from '../../../../config/api';
 import { buildSystemPrompt } from '../../../../config/prompt';
 import { QUICK_ACTIONS_DICTIONARY, QuickActionConfig } from '../../../../config/quickActions';
+import { Toggle } from '@fluentui/react';
 
 interface SuggestedButton {
   label: string;
@@ -110,6 +111,7 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
   const [lastQuickAction, setLastQuickAction] = useState<string | null>(null);
   const [activeActionKey, setActiveActionKey] = useState<string | null>(null);
   const [lastClickedButton, setLastClickedButton] = useState<string | null>(null);
+  const [useRag, setUseRag] = useState(false); // default on
 
 
   const theme = getTheme();
@@ -204,13 +206,19 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
         });
       });
 
+      const lastUserMessage = [...conversationMessages].reverse().find(msg => msg.role === 'user');
+      const prompt = lastUserMessage ? lastUserMessage.content : "Default fallback prompt";
+
+
       const response = await fetch(API_ENDPOINTS.PROMPT_LLM, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          prompt,
           messages: conversationMessages,
           maxTokens: 800,
-          temperature: 0.7
+          temperature: 0.7,
+          rag: useRag   // <-- pass RAG flag
         }),
       });
 
@@ -532,8 +540,11 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
       </Stack>      
       )}
 
-      {/* Zone de saisie */}
-      <Stack horizontal tokens={{ childrenGap: 8 }} styles={{ root: { padding: 16, borderTop: '1px solid #ddd' } }}>
+      <Stack
+        horizontal
+        tokens={{ childrenGap: 8 }}
+        styles={{ root: { padding: 16, borderTop: '1px solid #ddd' } }}
+      >
         <TextField
           placeholder="Écrivez un message..."
           value={currentMessage}
@@ -548,6 +559,15 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
             }
           }}
         />
+
+        {/* Toggle button */}
+        <Toggle
+          label="Use RAG"
+          checked={useRag} // your state
+          onChange={(_, checked) => setUseRag(!!checked)}
+          styles={{ root: { alignSelf: 'center' } }}
+        />
+
         <PrimaryButton
           text="Envoyer"
           onClick={handleSendMessage}

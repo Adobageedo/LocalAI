@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Stack } from '@fluentui/react';
 import { useTemplateGeneration } from '../../../../hooks';
 import { ActionButtons, StatusMessages, LoadingIndicator } from '../../../common';
-import { Header, Sidebar } from '../../../layout';
 import { theme } from '../../../../styles';
 import TemplateChatInterface from '../TemplateChat/NewTemplate';
 
@@ -10,9 +9,7 @@ import TemplateChatInterface from '../TemplateChat/NewTemplate';
  * Template Generator - Main container for email template generation
  * Modern, polished UI with theme system
  */
-const TemplateGenerator: React.FC = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  
+const TemplateGenerator: React.FC = () => {  
   const {
     // User & context
     user,
@@ -54,20 +51,6 @@ const TemplateGenerator: React.FC = () => {
         } 
       }}
     >
-      {/* Sidebar */}
-      <Sidebar
-        isOpen={sidebarOpen}
-        onDismiss={() => setSidebarOpen(false)}
-      />
-
-      {/* Universal Header */}
-      <Header
-        title="AI Assistant"
-        subtitle={currentEmail?.subject ? `→ ${currentEmail.subject}` : undefined}
-        showMenu={true}
-        onMenuClick={() => setSidebarOpen(!sidebarOpen)}
-      />
-
       {/* Status Messages */}
       {(error || success) && (
         <Stack styles={{ root: { padding: `${theme.spacing.xs}px ${theme.spacing.md}px` } }}>

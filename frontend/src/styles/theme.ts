@@ -55,6 +55,7 @@ export const spacing = {
 export const borderRadius = {
   small: 4,
   medium: 8,
+  lg: 12,
   large: 12,
   xlarge: 16,
 } as const;
@@ -114,9 +115,17 @@ export const mediaQueries = {
   wide: `@media (min-width: ${breakpoints.wide}px)`,
 } as const;
 
+// ✨ Effects (✅ Added for backward compatibility)
+export const effects = {
+  roundedCorner2: borderRadius.lg,
+  elevation8: shadows.md,
+  elevation16: shadows.lg,
+} as const;
+
 // Export complete theme object
 export const theme = {
   colors,
+  effects,
   spacing,
   borderRadius,
   typography,
