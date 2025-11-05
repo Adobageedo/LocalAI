@@ -9,12 +9,12 @@ const RequestInvoicePO: React.FC = () => {
     const handleReply = async () => {
       if (currentEmail) {
         const template = `
-          <div>Bonjour,</div>
-          <br/>
-          <div>Pouvez-vous rajouter sur la facture le bon de commande : <strong>[Numéro de commande]</strong></div>
+        <div style="font-family: Aptos, sans-serif; font-size: 16px; color: black;">
+          Bonjour,
+          <div>Pouvez-vous rajouter sur la facture le bon de commande : [Numéro PO]</div>
           <div>et l'envoyer à <a href="mailto:invoices@akuoenergy.com">invoices@akuoenergy.com</a> et moi en copie ?</div>
-          <br/>
           Cordialement,
+        </div>
         `;
         await insertTemplate(template);
       }
