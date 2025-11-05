@@ -4,44 +4,37 @@ import { PrimaryButton } from '@fluentui/react';
 import { theme } from '../../../../../styles';
 
 const RequestInvoicePO: React.FC = () => {
-  const { insertTemplate, currentEmail } = useOffice();
-
-  const handleReply = async () => {
-    if (currentEmail) {
-      const template = `
-        Bonjour ${currentEmail.from},
-        <br/><br/>
-        Je vous contacte pour demander la facture associée à l'ordre d'achat (PO). 
-        <br/><br/>
-        Veuillez trouver ci-dessous les informations de la commande :
-        <ul>
-          <li>Numéro de commande: [Insérer le numéro de commande]</li>
-          <li>Montant total: [Insérer le montant total]</li>
-        </ul>
-        Merci de bien vouloir m'envoyer la facture dans les plus brefs délais.
-        <br/><br/>
-        Cordialement,
-        [Votre Nom]
-      `;
-      await insertTemplate(template);
-    }
+    const { insertTemplate, currentEmail } = useOffice();
+  
+    const handleReply = async () => {
+      if (currentEmail) {
+        const template = `
+          Bonjour ${currentEmail.from},
+          <br/><br/>
+          Pouvez-vous rajouter sur la facture le bon de commande : [Numéro de commande] 
+          et l'envoyer à <a href="mailto:invoices@akuoenergy.com">invoices@akuoenergy.com</a> et moi en copie ?
+          <br/><br/>
+          Cordialement,
+        `;
+        await insertTemplate(template);
+      }
+    };
+  
+    return (
+      <PrimaryButton
+        text="Répondre avec Demande de Facture PO"
+        onClick={handleReply}
+        styles={{
+          root: {
+            width: 220,
+            height: 50,
+            fontWeight: 600,
+            borderRadius: theme.effects.roundedCorner2,
+            boxShadow: theme.effects.elevation8,
+          },
+        }}
+      />
+    );
   };
-
-  return (
-    <PrimaryButton
-      text="Répondre avec Demande de Facture PO"
-      onClick={handleReply}
-      styles={{
-        root: {
-          width: 220,
-          height: 50,
-          fontWeight: 600,
-          borderRadius: theme.effects.roundedCorner2,
-          boxShadow: theme.effects.elevation8,
-        },
-      }}
-    />
-  );
-};
-
-export default RequestInvoicePO;
+  
+  export default RequestInvoicePO;  
