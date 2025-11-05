@@ -9,7 +9,7 @@ const RequestInvoicePO: React.FC = () => {
     const handleReply = async () => {
       if (currentEmail) {
         const template = `
-          Bonjour ${currentEmail.from},
+          Bonjour,
           <br/><br/>
           Pouvez-vous rajouter sur la facture le bon de commande : [Numéro de commande] 
           et l'envoyer à <a href="mailto:invoices@akuoenergy.com">invoices@akuoenergy.com</a> et moi en copie ?
