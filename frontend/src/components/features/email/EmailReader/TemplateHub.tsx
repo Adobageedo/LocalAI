@@ -49,7 +49,7 @@ const TemplateHub: React.FC = () => {
         }}
       >
         <PivotItem headerText="Chat" itemKey="chat" />
-        <PivotItem headerText="TEST" itemKey="quick" />
+        <PivotItem headerText="Quick Actions" itemKey="quick" />
       </Pivot>
 
       {selectedKey === 'chat' && <TemplateGenerator />}
