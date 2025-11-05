@@ -1,6 +1,8 @@
 import React from 'react';
 import { Stack, PrimaryButton, Text } from '@fluentui/react';
 import { theme } from '../../../../styles';
+import InfoPDP from './QuickActions/InfoPDP';  // Update the import path
+import RequestInvoicePO from './QuickActions/RequestInvoicePO';  // Update the import path
 
 /**
  * QuickActions - Second tab in TemplateHub
@@ -8,11 +10,11 @@ import { theme } from '../../../../styles';
  */
 const QuickActions: React.FC = () => {
   const actions = [
-    { key: 'infoPDP', label: 'Info PDP' },
+    { key: 'infoPDP', label: 'Info PDP', component: <InfoPDP /> },
     { key: 'createPDP', label: 'Créer PDP' },
     { key: 'notePoint', label: 'Noter point' },
     { key: 'givePO', label: 'Donner PO' },
-    { key: 'requestInvoicePO', label: 'Demander Facture avec PO' },
+    { key: 'requestInvoicePO', label: 'Demander Facture avec PO', component: <RequestInvoicePO /> },
   ];
 
   const handleActionClick = (actionKey: string) => {
@@ -54,20 +56,25 @@ const QuickActions: React.FC = () => {
         tokens={{ childrenGap: theme.spacing.md, padding: theme.spacing.md }}
       >
         {actions.map((action) => (
-          <PrimaryButton
-            key={action.key}
-            text={action.label}
-            onClick={() => handleActionClick(action.key)}
-            styles={{
-              root: {
-                width: 220,
-                height: 50,
-                fontWeight: 600,
-                borderRadius: theme.effects.roundedCorner2,
-                boxShadow: theme.effects.elevation8,
-              },
-            }}
-          />
+          <React.Fragment key={action.key}>
+            {action.component ? (
+              action.component
+            ) : (
+              <PrimaryButton
+                text={action.label}
+                onClick={() => console.log(`Quick Action triggered: ${action.key}`)}
+                styles={{
+                  root: {
+                    width: 220,
+                    height: 50,
+                    fontWeight: 600,
+                    borderRadius: theme.effects.roundedCorner2,
+                    boxShadow: theme.effects.elevation8,
+                  },
+                }}
+              />
+            )}
+          </React.Fragment>
         ))}
       </Stack>
     </Stack>
