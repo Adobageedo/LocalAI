@@ -55,7 +55,7 @@ const ProdInvoice: React.FC = () => {
   
     return (
       <PrimaryButton
-        text="Répondre avec Demande d'Info PDP"
+        text="Facture Prod"
         onClick={handleReply}
         styles={{
           root: {
