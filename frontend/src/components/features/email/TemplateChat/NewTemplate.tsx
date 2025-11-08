@@ -210,7 +210,7 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
       const prompt = lastUserMessage ? lastUserMessage.content : "Default fallback prompt";
       
       const modelToUse = useFineTune 
-        ? "my-fine-tuned-model-id" // <-- replace with your fine-tuned model
+        ? "ft:gpt-4.1-nano-2025-04-14:personal::CZcTZYzO" // <-- replace with your fine-tuned model
         : "gpt-4.1-nano-2025-04-14"; // default base model
 
 
