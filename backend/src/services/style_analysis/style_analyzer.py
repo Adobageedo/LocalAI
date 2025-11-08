@@ -7,14 +7,14 @@ Il détecte les patterns de style global et les variations contextuelles.
 
 import os
 import sys
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any
 from datetime import datetime
 
 # Ajouter le chemin du backend au sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..')))
 
-from backend.core.logger import log
-from backend.services.llm.llm import LLM
+from src.core.logger import log
+from src.services.llm.llm import LLM
 
 logger = log.bind(name="backend.services.style_analysis.style_analyzer")
 
@@ -24,7 +24,7 @@ class StyleAnalyzer:
     """
     
     def __init__(self, model, temperature, max_tokens):
-        """Initialise l'analyseur de style."""
+        """Initialise l'     de style."""
         self.llm = LLM(model=model, temperature=temperature, max_tokens=max_tokens)
 
     def _prepare_emails_for_analysis(self, emails: List[Dict[str, Any]]) -> str:
