@@ -11,6 +11,7 @@ interface StreamRequest {
   rag?: boolean;           // <-- new flag
   ragCollection?: string;  // optional collection for RAG search
   topK?: number;           // optional top_k for RAG
+  model?: string;
 }
 
 interface RagDoc {
@@ -48,6 +49,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       temperature = 0.7,
       rag = false,
       ragCollection="edoardo",
+      model = "gpt-5-nano"
     } = req.body as StreamRequest;
 
     if (!messages && (!prompt || !prompt.trim())) {
@@ -114,6 +116,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let chunkNumber = 0;
 
     for await (const chunk of llmClient.generateStream({
+      model,
       messages: conversationMessages,
       temperature,
       maxTokens

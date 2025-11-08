@@ -112,7 +112,7 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
   const [activeActionKey, setActiveActionKey] = useState<string | null>(null);
   const [lastClickedButton, setLastClickedButton] = useState<string | null>(null);
   const [useRag, setUseRag] = useState(false); // default on
-
+  const [useFineTune, setUseFineTune] = useState(false); // default to using base model
 
   const theme = getTheme();
   const stackTokens: IStackTokens = { childrenGap: 16 };
@@ -208,6 +208,10 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
 
       const lastUserMessage = [...conversationMessages].reverse().find(msg => msg.role === 'user');
       const prompt = lastUserMessage ? lastUserMessage.content : "Default fallback prompt";
+      
+      const modelToUse = useFineTune 
+        ? "my-fine-tuned-model-id" // <-- replace with your fine-tuned model
+        : "gpt-4.1-nano-2025-04-14"; // default base model
 
 
       const response = await fetch(API_ENDPOINTS.PROMPT_LLM, {
@@ -218,7 +222,8 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
           messages: conversationMessages,
           maxTokens: 800,
           temperature: 0.7,
-          rag: useRag   // <-- pass RAG flag
+          rag: useRag,   // <-- pass RAG flag
+          model: modelToUse
         }),
       });
 
@@ -565,6 +570,12 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
           label="Use RAG"
           checked={useRag} // your state
           onChange={(_, checked) => setUseRag(!!checked)}
+          styles={{ root: { alignSelf: 'center' } }}
+        />
+        <Toggle
+          label="Use Fine-tuned Model"
+          checked={useFineTune}
+          onChange={(_, checked) => setUseFineTune(!!checked)}
           styles={{ root: { alignSelf: 'center' } }}
         />
 

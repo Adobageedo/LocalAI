@@ -44,7 +44,7 @@ def generate_response(email_text: str, use_fine_tune: bool = True, style_descrip
     """
     if use_fine_tune:
         model_id = FINE_TUNE_MODEL
-        prompt = email_text
+        prompt = f"Réponds au mail ci-dessous\n\nEmail reçu :\n{email_text}\n\nRéponse :"
     else:
         model_id = BASE_MODEL
         prompt = f"Réponds au mail ci-dessous en suivant ce style : {style_description}\n\nEmail reçu :\n{email_text}\n\nRéponse :"
@@ -69,7 +69,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     # Lire l'email depuis le fichier
-    email_text = """Bojnour Edoardo,
+    email_text = """Bonjour Edoardo,
 
 Ravi de faire ta connaissance et bienvenue sur le projet Annet stockage 🙂
 
@@ -79,6 +79,7 @@ Je te propose de la visionner en guise d'intro, puis de prendre un moment ensemb
 
 A ta dispo,
 Bien à toi
+Romain
 """
 
     # Générer la réponse fine-tunée
