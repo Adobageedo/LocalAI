@@ -15,7 +15,7 @@ from datetime import datetime
 # Ajouter le chemin du backend au sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..')))
 
-from backend.core.logger import log
+from src.core.logger import log
 
 logger = log.bind(name="backend.services.style_analysis.email_preprocessor")
 

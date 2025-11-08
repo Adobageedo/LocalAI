@@ -15,9 +15,9 @@ from datetime import datetime, timedelta
 # Ajouter le chemin du backend au sys.path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..')))
 
-from backend.core.logger import log
-from backend.services.auth.microsoft_auth import get_outlook_service
-from backend.services.auth.google_auth import get_gmail_service
+from src.core.logger import log
+from src.services.auth.microsoft_auth import get_outlook_service
+from src.services.auth.google_auth import get_gmail_service
 
 logger = log.bind(name="backend.services.style_analysis.email_extractor")
 

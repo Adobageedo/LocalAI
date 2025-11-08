@@ -3,6 +3,7 @@ import { Stack, PrimaryButton, Text } from '@fluentui/react';
 import { theme } from '../../../../styles';
 import InfoPDP from './QuickActions/InfoPDP';  // Update the import path
 import RequestInvoicePO from './QuickActions/RequestInvoicePO';  // Update the import path
+import ProdInvoice from './QuickActions/ProdInvoice';  // Update the import path
 
 /**
  * QuickActions - Second tab in TemplateHub
@@ -11,6 +12,7 @@ import RequestInvoicePO from './QuickActions/RequestInvoicePO';  // Update the i
 const QuickActions: React.FC = () => {
   const actions = [
     { key: 'infoPDP', label: 'Info PDP', component: <InfoPDP /> },
+    { key: 'prodInvoice', label: 'Mail Facture Prod', component: <ProdInvoice /> },
     { key: 'createPDP', label: 'Créer PDP' },
     { key: 'notePoint', label: 'Noter point' },
     { key: 'givePO', label: 'Donner PO' },
