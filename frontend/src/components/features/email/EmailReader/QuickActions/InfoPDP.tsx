@@ -14,7 +14,6 @@ const InfoPDP: React.FC = () => {
             <div>Dans le cadre de la préparation du plan de prévention (PDP) pour votre intervention sur le parc éolien, pourrais-tu me transmettre l'analyse de risque ainsi que le mode opératoire ?</div>
             <div>Nous aurions également besoin des coordonnées de vos intervenants sur site ainsi que de leurs habilitations.</div>
             <div>De plus, merci de bien vouloir remplir le tableau ci-dessous et de me le renvoyer complété :</div>
-            
             <table border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse; width: 100%; font-family: Aptos, sans-serif;">
               <tr>
                 <th style="width: 200px; text-align: left; padding: 10px; background-color: #f2f2f2; border: 1px solid #ddd;">Raison sociale</th>
