@@ -15,7 +15,7 @@ export interface QuickActionConfig {
 export const QUICK_ACTIONS_DICTIONARY: Record<string, QuickActionConfig> = {
   reply: {
     label: 'Répondre',
-    userPrompt: 'Rédiger une réponse professionnelle',
+    userPrompt: 'Rédiger une réponse avec mon style d\'écriture',
     llmPrompt: `You are an email assistant. Write a professional response to the email provided in the context.
 
 REQUIRED: Detect and use the SAME LANGUAGE as the original email. If the email is in French, respond in French. If in English, respond in English, etc.
@@ -38,7 +38,7 @@ IMPORTANT: If you need more information to write an appropriate response (e.g., 
 
   correct: {
     label: 'Corriger',
-    userPrompt: 'Corriger les fautes et améliorer la formulation',
+    userPrompt: 'Corriger les fautes',
     llmPrompt: `You are a professional text editor. Correct and improve the provided text.
 
 REQUIRED: Maintain the SAME LANGUAGE as the input text. Do not translate.
