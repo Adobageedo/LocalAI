@@ -11,7 +11,7 @@ interface EmailContext {
  * Builds the complete system prompt to send to the LLM.
  * Adds email info and attachments if available.
  */
-export const buildSystemPrompt = (emailContext?: EmailContext) => {
+export const buildSystemPromptEN = (emailContext?: EmailContext) => {
   let systemContext = `You are an AI email assistant. 
 Help the user write, correct, or summarize professional emails.
 Always respond helpfully and provide realistic follow-up suggestions.`;
@@ -80,6 +80,83 @@ Example:
   "buttons": [
     {"label": "Add agenda", "action": "Can you include the meeting agenda?"},
     {"label": "Make it more formal", "action": "Please make this message more formal."}
+  ]
+}
+`;
+
+  return systemContext;
+};
+
+export const buildSystemPrompt = (emailContext?: EmailContext) => {
+  let systemContext = `Vous êtes un assistant IA spécialisé dans les emails. 
+Aidez l'utilisateur à rédiger, corriger ou résumer des emails professionnels.
+Répondez toujours de manière utile et proposez des suggestions réalistes pour la suite.`;
+
+  if (emailContext) {
+    systemContext += `
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📧 CONTEXTE DE L'EMAIL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+• Objet : ${emailContext.subject || 'Pas d’objet'}
+• De : ${emailContext.from || 'Expéditeur inconnu'}
+• Ton : ${emailContext.tone || 'Professionnel'}
+${emailContext.additionalInfo ? `• Instructions utilisateur : ${emailContext.additionalInfo}` : ''}`;
+
+    if (emailContext.body) {
+      systemContext += `
+\n📄 CONTENU DE L'EMAIL :
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${emailContext.body}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+    }
+
+    if (emailContext.attachments && emailContext.attachments.length > 0) {
+      systemContext += `
+
+📎 PIÈCES JOINTES :
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+      emailContext.attachments.forEach((att, idx) => {
+        systemContext += `
+\n${idx + 1}. Fichier : ${att.name}`;
+        if (att.content) {
+          systemContext += `
+Extrait du contenu :
+${att.content.substring(0, 4000)} 
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+        } else {
+          systemContext += `\n(Contenu non disponible)`;
+        }
+      });
+    }
+  }
+
+  // Ajouter le format de sortie JSON et les règles pour les boutons
+  systemContext += `
+\n\n=== FORMAT DE RÉPONSE (OBLIGATOIRE) ===
+
+Toutes les réponses doivent être au format JSON valide :
+
+{
+  "response": "seulement le brouillon de l'email",
+  "buttons": [
+    {"label": "Petit libellé", "action": "Prochaine action probable de l'utilisateur"},
+    {"label": "Un autre libellé", "action": "Une autre action probable de l'utilisateur"}
+  ]
+}
+
+⚠️ RÈGLES :
+- TOUJOURS retourner un JSON valide, sans markdown ni texte brut.
+- Inclure 3 à 5 boutons pertinents par rapport au contexte.
+- "action" = prochaine action naturelle de l'utilisateur, dans la même langue que l'email.
+- Se concentrer uniquement sur l'amélioration du contenu, pas sur des tâches externes.
+- La langue utilisée sera par défaut celle de l’utilisateur, sauf indication expresse de sa part pour une autre langue.
+
+Exemple :
+{
+  "response": "Voici le brouillon de votre email concernant la réunion...",
+  "buttons": [
+    {"label": "Ajouter l'ordre du jour", "action": "Pouvez-vous inclure l'ordre du jour de la réunion ?"},
+    {"label": "Rendre plus formel", "action": "Merci de rendre ce message plus formel."}
   ]
 }
 `;

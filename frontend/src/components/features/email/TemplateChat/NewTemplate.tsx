@@ -166,16 +166,15 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
     console.log("message",messages)
 
     // ✅ If it's the first message, append email context to user's message
-    const initialContent = isFirstMessage
-      ? `I just received this email:
+    const initialContent = isFirstMessage 
+      ? `J'ai reçu cet email :
     "${emailContext}"
-
-    Here is my request:
+      
+    Voici ma demande :
     ${currentMessage.trim()}
-
-    Please respond in a way that directly addresses my request, considering the content of the email I received. 
-    If I am asking to correct or create a new email, return only the reworked email body.`
-      : currentMessage.trim();    
+      
+    Tu repondras répondre en abordant directement ma demande, en tenant compte du contenu de l'email que j'ai reçu. Si je demande une correction ou la création d'un nouvel email, retourne uniquement le corps de l'email.`
+      : currentMessage.trim();
     console.log("Message from the user to llm initialcontent :",initialContent)
     console.log("email context :",{emailContext})
     
