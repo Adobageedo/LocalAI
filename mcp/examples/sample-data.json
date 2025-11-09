@@ -1,0 +1,123 @@
+{
+  "title": "Plan de Prévention - Maintenance Éolienne",
+  "description": "Opération de maintenance préventive annuelle sur les turbines",
+  "pdp_number": "PDP-2024-001",
+  "date": "2024-01-15",
+  "windfarm": "Parc Éolien Alpha",
+  "location": "Zone Nord - Turbines T1-T10",
+  "project_manager": {
+    "name": "Jean Dupont",
+    "email": "jean.dupont@example.com",
+    "phone": "+33 1 23 45 67 89",
+    "company": "WindTech Services"
+  },
+  "technicians": [
+    {
+      "name": "Marie Martin",
+      "email": "marie.martin@example.com",
+      "role": "Lead Technician",
+      "phone": "+33 6 12 34 56 78",
+      "certification": "GWO BST",
+      "tasks": ["Inspection", "Maintenance", "Reporting"]
+    },
+    {
+      "name": "Pierre Bernard",
+      "email": "pierre.bernard@example.com",
+      "role": "Electrical Technician",
+      "phone": "+33 6 98 76 54 32",
+      "certification": "Electrical Safety Level 2",
+      "tasks": ["Electrical Systems", "Safety Checks"]
+    },
+    {
+      "name": "Sophie Dubois",
+      "email": "sophie.dubois@example.com",
+      "role": "Mechanical Technician",
+      "phone": "+33 6 45 67 89 01",
+      "certification": "Mechanical Engineering",
+      "tasks": ["Gearbox Inspection", "Blade Maintenance"]
+    }
+  ],
+  "work_description": {
+    "objective": "Perform annual preventive maintenance on wind turbines to ensure optimal performance and safety",
+    "scope": "Inspection and maintenance of 10 turbines including mechanical, electrical, and structural components",
+    "duration": "5 days",
+    "start_date": "2024-01-15",
+    "end_date": "2024-01-19"
+  },
+  "safety_measures": [
+    {
+      "category": "Fall Protection",
+      "measures": [
+        "Full body harness required",
+        "Double lanyard system",
+        "Rescue plan in place"
+      ]
+    },
+    {
+      "category": "Electrical Safety",
+      "measures": [
+        "LOTO procedures",
+        "Voltage testing",
+        "PPE requirements"
+      ]
+    },
+    {
+      "category": "Environmental",
+      "measures": [
+        "Weather monitoring",
+        "Wind speed limits",
+        "Emergency procedures"
+      ]
+    }
+  ],
+  "equipment": [
+    {
+      "name": "Lifting Equipment",
+      "items": ["Crane", "Hoists", "Slings"]
+    },
+    {
+      "name": "Testing Equipment",
+      "items": ["Multimeter", "Thermal Camera", "Vibration Analyzer"]
+    },
+    {
+      "name": "Safety Equipment",
+      "items": ["Harnesses", "Helmets", "Safety Lines"]
+    }
+  ],
+  "risk_assessment": {
+    "high_risks": [
+      "Working at height",
+      "Electrical hazards",
+      "Confined spaces"
+    ],
+    "medium_risks": [
+      "Manual handling",
+      "Weather conditions",
+      "Equipment failure"
+    ],
+    "mitigation": "All risks addressed through comprehensive safety procedures and training"
+  },
+  "emergency_contacts": [
+    {
+      "role": "Site Manager",
+      "name": "Claude Leroy",
+      "phone": "+33 6 11 22 33 44"
+    },
+    {
+      "role": "Emergency Services",
+      "name": "SAMU",
+      "phone": "15"
+    },
+    {
+      "role": "Fire Brigade",
+      "name": "Pompiers",
+      "phone": "18"
+    }
+  ],
+  "signatures": {
+    "prepared_by": "Jean Dupont",
+    "reviewed_by": "Marie Martin",
+    "approved_by": "Claude Leroy",
+    "date": "2024-01-15"
+  }
+}

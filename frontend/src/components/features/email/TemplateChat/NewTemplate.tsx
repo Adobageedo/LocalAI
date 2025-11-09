@@ -162,10 +162,27 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
   const handleSendMessage = async () => {
     if (!currentMessage.trim() || isLoading) return;
 
+    const isFirstMessage = messages.length === 0;
+    console.log("message",messages)
+
+    // ✅ If it's the first message, append email context to user's message
+    const initialContent = isFirstMessage
+      ? `I just received this email:
+    "${emailContext}"
+
+    Here is my request:
+    ${currentMessage.trim()}
+
+    Please respond in a way that directly addresses my request, considering the content of the email I received. 
+    If I am asking to correct or create a new email, return only the reworked email body.`
+      : currentMessage.trim();    
+    console.log("Message from the user to llm initialcontent :",initialContent)
+    console.log("email context :",{emailContext})
+    
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
-      content: currentMessage.trim(),
+      content: initialContent,
       timestamp: new Date(),
     };
 
@@ -195,7 +212,7 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
       // Build system message with context and active quick action
       conversationMessages.push({
         role: 'system',
-        content: buildSystemPrompt( emailContext )
+        content: buildSystemPrompt()
       });
       
       // Add all conversation history (user and assistant messages)
