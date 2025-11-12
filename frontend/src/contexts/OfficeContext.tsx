@@ -325,6 +325,8 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
       internetMessageId 
     });
   };
+  console.log('Body :',body)
+  console.log('fullConversation :',fullConversation)
 
   const getFullConversation = (conversationId: string, internetMessageId: string, callback: (conversation: string) => void) => {
     if (typeof Office === 'undefined' || !conversationId) {
