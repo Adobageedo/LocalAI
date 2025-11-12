@@ -172,7 +172,7 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
     Voici ma demande :
     ${currentMessage.trim()}
       
-    Tu repondras dans la meme langue, abordant directement ma demande, en tenant compte du contenu de l'email que j'ai reçu. Si je demande une correction ou la création d'un nouvel email, retourne uniquement le corps de l'email.`
+    Tu repondras dans la meme langue, abordant directement ma demande, en tenant compte du contenu de l'email que j'ai reçu. Retourne uniquement le corps de l'email, sans introduction, conclusion ou explication :.`
       : currentMessage.trim();
     console.log("email context :",{emailContext})
     
