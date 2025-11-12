@@ -300,6 +300,9 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
   let activeLoadingManager: LoadingManager | null = null;
   
   const updateEmailData = (subject: string, from: string, body: string, conversationId?: string, fullConversation?: string, internetMessageId?: string) => {
+    console.log('Body:', body);
+    console.log('Full Conversation:', fullConversation);
+
     setCurrentEmail({ 
       subject, 
       from, 
@@ -325,8 +328,6 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
       internetMessageId 
     });
   };
-  console.log('Body :',body)
-  console.log('fullConversation :',fullConversation)
 
   const getFullConversation = (conversationId: string, internetMessageId: string, callback: (conversation: string) => void) => {
     if (typeof Office === 'undefined' || !conversationId) {
