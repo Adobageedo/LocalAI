@@ -162,7 +162,8 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
   const handleSendMessage = async () => {
     if (!currentMessage.trim() || isLoading) return;
 
-    const isFirstMessage = messages.length === 0;
+    console.log(messages)
+    const isFirstMessage = messages.length <2;
     console.log("message",messages)
 
     // ✅ If it's the first message, append email context to user's message
