@@ -162,21 +162,18 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
   const handleSendMessage = async () => {
     if (!currentMessage.trim() || isLoading) return;
 
-    console.log(messages)
-    const isFirstMessage = messages.length <2;
-    console.log("message",messages)
+    const isFirstMessage = messages.length === 1;
 
     // ✅ If it's the first message, append email context to user's message
     const initialContent = isFirstMessage 
       ? `J'ai reçu cet email :
-    "${emailContext}"
+    "${emailContext!.body ?? "(no body)"}"
       
     Voici ma demande :
     ${currentMessage.trim()}
       
-    Tu repondras répondre en abordant directement ma demande, en tenant compte du contenu de l'email que j'ai reçu. Si je demande une correction ou la création d'un nouvel email, retourne uniquement le corps de l'email.`
+    Tu repondras dans la meme langue, abordant directement ma demande, en tenant compte du contenu de l'email que j'ai reçu. Si je demande une correction ou la création d'un nouvel email, retourne uniquement le corps de l'email.`
       : currentMessage.trim();
-    console.log("Message from the user to llm initialcontent :",initialContent)
     console.log("email context :",{emailContext})
     
     const userMessage: ChatMessage = {
