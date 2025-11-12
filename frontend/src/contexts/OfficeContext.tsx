@@ -300,9 +300,6 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
   let activeLoadingManager: LoadingManager | null = null;
   
   const updateEmailData = (subject: string, from: string, body: string, conversationId?: string, fullConversation?: string, internetMessageId?: string) => {
-    console.log('Body:', body);
-    console.log('Full Conversation:', fullConversation);
-
     setCurrentEmail({ 
       subject, 
       from, 
