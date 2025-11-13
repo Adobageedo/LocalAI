@@ -165,8 +165,7 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
   const handleSendMessage = async () => {
     if (!currentMessage.trim() || isLoading) return;
 
-    const isFirstMessage = messages.length === 0;
-    console.log("message",messages)
+    const isFirstMessage = messages.length === 1;
 
     // ✅ If it's the first message, append email context to user's message
     const llmContent = isFirstMessage 
@@ -238,6 +237,7 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
         : "gpt-4.1-nano-2025-04-14"; // default base model
 
 
+      console.log('Conversation :',conversationMessages)
       const response = await fetch(API_ENDPOINTS.PROMPT_LLM, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
