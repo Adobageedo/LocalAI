@@ -168,7 +168,9 @@ export const buildUserPrompt = (emailContext: any, currentMessage: string, compo
   let userContext = ""
   if (compose) {
     userContext = `Voici le mail que je suis en train de composer ainsi que la conversation :
-      "${emailContext}"
+      "subject :${emailContext.subject??"(no subject)"}"
+      "from :${emailContext.from??"(no from)"}"
+      "body :${emailContext.body??"(no body)"}"
         
       Voici ma demande :
       ${currentMessage.trim()}
@@ -177,7 +179,9 @@ export const buildUserPrompt = (emailContext: any, currentMessage: string, compo
 
   }else{
     userContext = `J'ai reçu cet email :
-      "${emailContext}"
+      "subject :${emailContext.subject??"(no subject)"}"
+      "from :${emailContext.from??"(no from)"}"
+      "body :${emailContext.body??"(no body)"}"
         
       Voici ma demande :
       ${currentMessage.trim()}
