@@ -92,6 +92,7 @@ const TemplateGenerator: React.FC = () => {
           <TemplateChatInterface
             conversationId={conversationId || Date.now().toString()}
             onTemplateUpdate={handleTemplateUpdate}
+            compose={false}
             emailContext={{
               subject: currentEmail?.subject,
               from: currentEmail?.from,

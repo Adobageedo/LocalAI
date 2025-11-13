@@ -111,6 +111,7 @@ const EmailComposer: React.FC = () => {
           <TemplateChatInterface
             conversationId={conversationId || Date.now().toString()}
             onTemplateUpdate={handleTemplateUpdate}
+            compose={true}
             emailContext={{
               subject: currentEmail?.subject,
               from: currentEmail?.from,

@@ -18,7 +18,7 @@ import {
 import { Bot20Regular, Person20Regular, Sparkle20Regular } from '@fluentui/react-icons';
 import { authFetch } from '../../../../utils/helpers';
 import { API_ENDPOINTS } from '../../../../config/api';
-import { buildSystemPrompt } from '../../../../config/prompt';
+import { buildSystemPrompt, buildUserPrompt } from '../../../../config/prompt';
 import { QUICK_ACTIONS_DICTIONARY, QuickActionConfig } from '../../../../config/quickActions';
 import { Toggle } from '@fluentui/react';
 
@@ -72,6 +72,7 @@ const filterAttachmentsByExtension = (attachments: QuickAction['attachment']): Q
 interface TemplateChatInterfaceProps {
   conversationId: string;
   onTemplateUpdate: (newTemplate: string) => void;
+  compose: boolean;
   emailContext?: {
     subject?: string;
     from?: string;
@@ -87,6 +88,7 @@ interface TemplateChatInterfaceProps {
 const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
   conversationId,
   onTemplateUpdate,
+  compose,
   emailContext,
   quickActions = [
     { actionKey: 'reply' },
@@ -103,7 +105,8 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
     }
   ]
 }) => {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messagesLLM, setMessagesLLM] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);  
   const [currentMessage, setCurrentMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -166,22 +169,17 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
     console.log("message",messages)
 
     // ✅ If it's the first message, append email context to user's message
-    const initialContent = isFirstMessage 
-      ? `J'ai reçu cet email :
-    "${emailContext}"
-      
-    Voici ma demande :
-    ${currentMessage.trim()}
-      
-    Tu repondras répondre en abordant directement ma demande, en tenant compte du contenu de l'email que j'ai reçu. Si je demande une correction ou la création d'un nouvel email, retourne uniquement le corps de l'email.`
+    const llmContent = isFirstMessage 
+      ? `${buildUserPrompt(emailContext, currentMessage, compose)}`
       : currentMessage.trim();
-    console.log("Message from the user to llm initialcontent :",initialContent)
+      
+    console.log("Message from the user to llm initialcontent :",llmContent)
     console.log("email context :",{emailContext})
     
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
-      content: initialContent,
+      content: currentMessage.trim(),
       timestamp: new Date(),
     };
 
@@ -206,23 +204,33 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
 
     try {
       // Build proper conversation messages array with system context
-      const conversationMessages: Array<{role: 'system' | 'user' | 'assistant', content: string}> = [];
-      
+      const conversationMessagesLLM: Array<{role: 'system' | 'user' | 'assistant', content: string}> = [];
+
       // Build system message with context and active quick action
-      conversationMessages.push({
+      conversationMessagesLLM.push({
         role: 'system',
         content: buildSystemPrompt()
       });
-      
+
       // Add all conversation history (user and assistant messages)
       updated.forEach(msg => {
-        conversationMessages.push({
-          role: msg.role,
-          content: msg.content
-        });
+        if (msg.content === currentMessage.trim()) {
+          conversationMessagesLLM.push({
+            role: msg.role,
+            content: llmContent
+          });
+          console.log("Message from the user to llm llmContent :",llmContent)
+        }else{
+          conversationMessagesLLM.push({
+            role: msg.role,
+            content: msg.content
+          });
+          console.log("Message from the user to llm message original :",msg.content)
+        }
       });
+    
 
-      const lastUserMessage = [...conversationMessages].reverse().find(msg => msg.role === 'user');
+      const lastUserMessage = [...conversationMessagesLLM].reverse().find(msg => msg.role === 'user');
       const prompt = lastUserMessage ? lastUserMessage.content : "Default fallback prompt";
       
       const modelToUse = useFineTune 
@@ -235,7 +243,7 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt,
-          messages: conversationMessages,
+          messages: conversationMessagesLLM,
           maxTokens: 800,
           temperature: 0.7,
           rag: useRag,   // <-- pass RAG flag
