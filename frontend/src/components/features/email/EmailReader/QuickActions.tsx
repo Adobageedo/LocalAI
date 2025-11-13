@@ -11,10 +11,10 @@ import ProdInvoice from './QuickActions/ProdInvoice';  // Update the import path
  */
 const QuickActions: React.FC = () => {
   const actions = [
-    { key: 'infoPDP', label: 'Info PDP', component: <InfoPDP /> },
+    { key: 'infoPDP', label: 'Demander information PDP', component: <InfoPDP /> },
     { key: 'prodInvoice', label: 'Mail Facture Prod', component: <ProdInvoice /> },
-    { key: 'createPDP', label: 'Créer PDP' },
-    { key: 'notePoint', label: 'Noter point' },
+    { key: 'createPDP', label: 'Generer PDP' },
+    { key: 'notePoint', label: 'Sauvegarder point' },
     { key: 'givePO', label: 'Donner PO' },
     { key: 'requestInvoicePO', label: 'Demander Facture avec PO', component: <RequestInvoicePO /> },
   ];
