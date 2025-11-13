@@ -163,3 +163,26 @@ Exemple :
 
   return systemContext;
 };
+
+export const buildUserPrompt = (emailContext: any, currentMessage: string, compose: boolean) => {
+  let userContext = ""
+  if (compose) {
+    userContext = `Voici le mail que je suis en train de composer ainsi que la conversation :
+      "${emailContext}"
+        
+      Voici ma demande :
+      ${currentMessage.trim()}
+        
+      Tu repondras répondre en abordant directement ma demande, en tenant compte du contenu de l'email que je suis en train de composer. Si je demande une correction ou la création d'un nouvel email, retourne uniquement le corps de l'email.`
+
+  }else{
+    userContext = `J'ai reçu cet email :
+      "${emailContext}"
+        
+      Voici ma demande :
+      ${currentMessage.trim()}
+        
+      Tu repondras répondre en abordant directement ma demande, en tenant compte du contenu de l'email que j'ai reçu. Si je demande une synthesis ou la création d'un nouvel email, retourne uniquement le corps de l'email.`
+  }
+  return userContext
+}  
