@@ -173,7 +173,7 @@ export const buildUserPrompt = (emailContext: any, currentMessage: string, compo
       Voici ma demande :
       ${currentMessage.trim()}
         
-      Tu repondras répondre en abordant directement ma demande, en tenant compte du contenu de l'email que je suis en train de composer. Si je demande une correction ou la création d'un nouvel email, retourne uniquement le corps de l'email.`
+      Tu repondras dans la meme langue, abordant directement ma demande, en tenant compte du contenu de l'email que je suis en train de composer. Retourne uniquement le corps de l'email, sans introduction, conclusion ou explication :.`
 
   }else{
     userContext = `J'ai reçu cet email :
@@ -182,7 +182,7 @@ export const buildUserPrompt = (emailContext: any, currentMessage: string, compo
       Voici ma demande :
       ${currentMessage.trim()}
         
-      Tu repondras répondre en abordant directement ma demande, en tenant compte du contenu de l'email que j'ai reçu. Si je demande une synthesis ou la création d'un nouvel email, retourne uniquement le corps de l'email.`
+      Tu repondras dans la meme langue, abordant directement ma demande, en tenant compte du contenu de l'email que j'ai reçu. Retourne uniquement le corps de l'email, sans introduction, conclusion ou explication :.`
   }
   return userContext
 }  
