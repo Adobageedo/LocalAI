@@ -237,7 +237,7 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
         : "gpt-4.1-nano-2025-04-14"; // default base model
 
 
-      console.log('Conversation :',conversationMessages)
+      console.log('Conversation :',conversationMessagesLLM)
       const response = await fetch(API_ENDPOINTS.PROMPT_LLM, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
