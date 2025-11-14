@@ -47,7 +47,7 @@ class PDPMCPServer {
           {
             name: 'generate_pdp_document',
             description:
-              'Generate a PDP document from a template with provided data. Supports data cleaning, placeholder filling, and structured file saving.',
+              'Generate a PDP document from a template with provided data. Supports both flat format and company/workers structured format. Automatically transforms data, cleans empty rows, and saves with timestamps.',
             inputSchema: {
               type: 'object',
               properties: {
@@ -59,30 +59,69 @@ class PDPMCPServer {
                   type: 'string',
                   description: 'Name of the windfarm',
                 },
+                surname: {
+                  type: 'string',
+                  description: 'Power plant surname used to select template <surname>.docx and annual PDF <surname>.pdf',
+                },
                 data: {
                   type: 'object',
                   description:
-                    'Template data with placeholders. Supports nested objects and arrays.',
+                    'Template data. Supports two formats: 1) Flat format with direct placeholders (company_name, technician1_name, etc.), or 2) Structured format with company object and workers array (automatically transformed).',
                   properties: {
-                    title: { type: 'string' },
-                    description: { type: 'string' },
-                    technicians: {
+                    company: {
+                      type: 'object',
+                      description: 'Company information (structured format)',
+                      properties: {
+                        name: { type: 'string' },
+                        address: { type: 'string' },
+                        phone: { type: 'string' },
+                        email: { type: 'string' },
+                        legal_representative: { type: 'string' },
+                        hse_responsible: { type: 'string' },
+                      },
+                    },
+                    workers: {
                       type: 'array',
+                      description: 'List of workers (structured format, max 10)',
                       items: {
                         type: 'object',
                         properties: {
-                          name: { type: 'string' },
-                          email: { type: 'string' },
-                          role: { type: 'string' },
+                          first_name: { type: 'string' },
+                          last_name: { type: 'string' },
                           phone: { type: 'string' },
+                          email: { type: 'string' },
+                          certifications: {
+                            type: 'array',
+                            items: {
+                              type: 'object',
+                              properties: {
+                                certification_type: { type: 'string' },
+                                certification_name: { type: 'string' },
+                                issue_date: { type: 'string' },
+                                expiry_date: { type: 'string' },
+                              },
+                            },
+                          },
                         },
                       },
+                    },
+                    risk_analysis: {
+                      type: 'boolean',
+                      description: 'Risk analysis performed',
+                    },
+                    operational_mode: {
+                      type: 'boolean',
+                      description: 'Operational mode active',
                     },
                   },
                 },
                 templateName: {
                   type: 'string',
                   description: 'Optional template filename (default: pdp_template.docx)',
+                },
+                mergeWithPDP: {
+                  type: 'boolean',
+                  description: 'If true, convert generated DOCX to PDF and append to annual PDF named by surname in PDP_ANNUAL_BASE_FOLDER',
                 },
                 saveToFile: {
                   type: 'boolean',
@@ -142,6 +181,10 @@ class PDPMCPServer {
                   type: 'string',
                   description: 'Name of the windfarm',
                 },
+                surname: {
+                  type: 'string',
+                  description: 'Power plant surname used to select template <surname>.docx and annual PDF <surname>.pdf',
+                },
                 data: {
                   type: 'object',
                   description: 'Template data with placeholders',
@@ -153,6 +196,10 @@ class PDPMCPServer {
                 templateName: {
                   type: 'string',
                   description: 'Optional template filename',
+                },
+                mergeWithPDP: {
+                  type: 'boolean',
+                  description: 'If true, convert generated DOCX to PDF and append to annual PDF named by surname in PDP_ANNUAL_BASE_FOLDER',
                 },
                 enhanceWithRAG: {
                   type: 'boolean',
@@ -288,12 +335,14 @@ class PDPMCPServer {
    * Handle generate_pdp_document tool
    */
   async handleGeneratePDP(args) {
-    const { pdpId, windfarmName, data, templateName, saveToFile = true } = args;
+    const { pdpId, windfarmName, data, templateName, surname, mergeWithPDP = false, saveToFile = true } = args;
 
     const result = await documentGeneratorService.generatePDP({
       pdpId,
       windfarmName,
       data,
+      surname,
+      mergeWithPDP,
       templateName,
       saveToFile,
     });
@@ -334,6 +383,8 @@ class PDPMCPServer {
       data,
       ragQuery,
       templateName,
+      surname,
+      mergeWithPDP = false,
       enhanceWithRAG = true,
     } = args;
 
@@ -364,6 +415,8 @@ class PDPMCPServer {
       pdpId,
       windfarmName,
       data: enhancedData,
+      surname,
+      mergeWithPDP,
       templateName,
       saveToFile: true,
     });

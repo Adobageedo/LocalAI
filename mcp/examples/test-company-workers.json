@@ -1,0 +1,68 @@
+{
+  "pdpId": "PDP-2024-FR-001",
+  "windfarmName": "Parc Éolien Alpha",
+  "surname": "Alpha",
+  "mergeWithPDP": true,
+  "data": {
+    "company": {
+      "name": "WindTech Maintenance SAS",
+      "address": "123 Rue de l'Énergie, 75001 Paris, France",
+      "phone": "+33 1 23 45 67 89",
+      "email": "contact@windtech-maintenance.fr",
+      "legal_representative": "Jean Dupont",
+      "hse_responsible": "Marie Bernard"
+    },
+    "workers": [
+      {
+        "first_name": "Pierre",
+        "last_name": "Martin",
+        "phone": "+33 6 12 34 56 78",
+        "email": "pierre.martin@windtech.fr",
+        "certifications": [
+          {
+            "certification_type": "Travail en hauteur",
+            "certification_name": "GWO BST",
+            "issue_date": "2023-01-15",
+            "expiry_date": "2025-01-15"
+          },
+          {
+            "certification_type": "Électrique",
+            "certification_name": "B2V Haute Tension",
+            "issue_date": "2022-06-10",
+            "expiry_date": "2025-06-10"
+          }
+        ]
+      },
+      {
+        "first_name": "Sophie",
+        "last_name": "Dubois",
+        "phone": "+33 6 98 76 54 32",
+        "email": "sophie.dubois@windtech.fr",
+        "certifications": [
+          {
+            "certification_type": "SST",
+            "certification_name": "Sauveteur Secouriste du Travail",
+            "issue_date": "2023-03-20",
+            "expiry_date": "2025-03-20"
+          }
+        ]
+      },
+      {
+        "first_name": "Thomas",
+        "last_name": "Leroy",
+        "phone": "+33 6 45 67 89 01",
+        "email": "thomas.leroy@windtech.fr",
+        "certifications": [
+          {
+            "certification_type": "CACES",
+            "certification_name": "CACES R486 Catégorie B",
+            "issue_date": "2022-11-05",
+            "expiry_date": "2027-11-05"
+          }
+        ]
+      }
+    ],
+    "risk_analysis": true,
+    "operational_mode": true
+  }
+}
