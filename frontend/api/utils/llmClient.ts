@@ -17,6 +17,7 @@ export interface LLMRequest {
   maxTokens?: number;
   model?: string;
   stream?: boolean;
+  tools?: any[];
 }
 
 export interface LLMResponse {
@@ -125,7 +126,8 @@ export class LLMClient {
           messages,
           temperature: request.temperature ?? 0.7,
           max_completion_tokens: request.maxTokens ?? 500,
-          stream: true // Enable streaming
+          stream: true, // Enable streamingm
+          tools: request.tools,
         })
       });
 

@@ -324,30 +324,53 @@ class DocumentGeneratorService {
    * @returns {Promise<Buffer>} Template buffer
    */
   async loadTemplate(templateName = config.documents.defaultTemplate) {
-    const templatePath = path.resolve(this.templateFolder, templateName);
+  const primaryTemplatePath = path.resolve(this.templateFolder, templateName);
+  const fallbackTemplatePath = path.resolve(this.templateFolder, 'template.docx');
 
-    logger.info('Loading template', {
-      templateName,
-      templatePath,
+  logger.info('Loading template', {
+    requestedTemplate: templateName,
+    primaryTemplatePath,
+  });
+
+  try {
+    // Try to read the requested template file
+    const buffer = await fs.readFile(primaryTemplatePath);
+
+    logger.info('Template loaded successfully', {
+      usedTemplate: templateName,
+      size: buffer.length,
     });
 
-    try {
-      const buffer = await fs.readFile(templatePath);
-
-      logger.info('Template loaded successfully', {
-        size: buffer.length,
-      });
-
-      return buffer;
-    } catch (error) {
-      logger.error('Error loading template', {
-        error: error.message,
-        templatePath,
-      });
-
-      throw new Error(`Failed to load template: ${error.message}`);
-    }
+    return buffer;
+  } catch (error) {
+    logger.warn('Requested template not found, falling back to template.docx', {
+      requestedTemplate: templateName,
+      error: error.message,
+      fallbackTemplatePath,
+    });
   }
+
+  // Try loading the fallback template
+  try {
+    const fallbackBuffer = await fs.readFile(fallbackTemplatePath);
+
+    logger.info('Fallback template loaded successfully', {
+      usedTemplate: 'template.docx',
+      size: fallbackBuffer.length,
+    });
+
+    return fallbackBuffer;
+  } catch (fallbackError) {
+    logger.error('Fallback template also missing!', {
+      error: fallbackError.message,
+      attemptedPaths: [primaryTemplatePath, fallbackTemplatePath],
+    });
+
+    throw new Error(
+      `No template could be loaded. Missing: ${templateName} and template.docx`
+    );
+  }
+}
 
   /**
    * Generate PDP document from template and data

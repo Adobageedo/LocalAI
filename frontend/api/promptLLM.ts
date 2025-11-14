@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import fetch from 'node-fetch'; // or native fetch if supported
-import llmClient, { ChatMessage } from './utils/llmClient'; // your LLM streaming client
+import llmClient, { ChatMessage, LLMRequest } from './utils/llmClient';
+import { getMcpTools } from "./utils/mcp";
 
 interface StreamRequest {
   prompt?: string;
@@ -90,7 +90,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         if (!ragResponse.ok) {
           console.warn('RAG API returned error', await ragResponse.text());
         } else {
-          const ragData = await ragResponse.json();
+          const ragData: any = await ragResponse.json();
           const docs: RagDoc[] = ragData.documents ?? [];
 
           // Prepend RAG content as a system message for context
@@ -115,11 +115,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let fullText = '';
     let chunkNumber = 0;
 
+    // Fetch MCP tools once
+    const mcpTools = await getMcpTools();
+
     for await (const chunk of llmClient.generateStream({
       model,
       messages: conversationMessages,
       temperature,
-      maxTokens
+      maxTokens,
+      tools: mcpTools,
     })) {
       chunkNumber++;
 
