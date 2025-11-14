@@ -16,10 +16,10 @@ import {
   FontWeights,
 } from '@fluentui/react';
 import { Bot20Regular, Person20Regular, Sparkle20Regular } from '@fluentui/react-icons';
-import { authFetch } from '../../../../utils/helpers';
-import { API_ENDPOINTS } from '../../../../config/api';
-import { buildSystemPrompt, buildUserPrompt } from '../../../../config/prompt';
-import { QUICK_ACTIONS_DICTIONARY, QuickActionConfig } from '../../../../config/quickActions';
+import { authFetch } from '../../../utils/helpers';
+import { API_ENDPOINTS } from '../../../config/api';
+import { buildSystemPrompt, buildUserPrompt } from '../../../config/prompt';
+import { QUICK_ACTIONS_DICTIONARY, QuickActionConfig } from '../../../config/quickActions';
 import { Toggle } from '@fluentui/react';
 
 interface SuggestedButton {

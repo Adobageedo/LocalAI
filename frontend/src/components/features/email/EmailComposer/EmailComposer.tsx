@@ -4,7 +4,7 @@ import { useEmailComposer } from '../../../../hooks';
 import { ActionButtons, StatusMessages, LoadingIndicator } from '../../../common';
 import { Header, Sidebar } from '../../../layout';
 import { theme } from '../../../../styles';
-import TemplateChatInterface from '../TemplateChat/NewTemplate';
+import TemplateChatInterface from '../../chat/NewTemplate';
 
 /**
  * Email Composer - Main container for composing new emails

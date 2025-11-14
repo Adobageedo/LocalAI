@@ -12,6 +12,7 @@ interface StreamRequest {
   ragCollection?: string;  // optional collection for RAG search
   topK?: number;           // optional top_k for RAG
   model?: string;
+  useMcpTools?: boolean;   // <-- flag to enable/disable MCP tools (default: true)
 }
 
 interface RagDoc {
@@ -49,7 +50,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       temperature = 0.7,
       rag = false,
       ragCollection="edoardo",
-      model = "gpt-5-nano"
+      model = "gpt-4o-mini",
+      useMcpTools = true  // default to using MCP tools
     } = req.body as StreamRequest;
 
     if (!messages && (!prompt || !prompt.trim())) {
@@ -115,15 +117,73 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let fullText = '';
     let chunkNumber = 0;
 
-    // Fetch MCP tools once
-    const mcpTools = await getMcpTools();
+    // Fetch MCP tools if enabled
+    const mcpTools = useMcpTools ? await getMcpTools() : undefined;
 
+    // --- TWO-HOP FLOW: First non-streaming to detect tool calls ---
+    if (mcpTools && mcpTools.length > 0) {
+      console.log('🔍 First hop: checking for tool calls...');
+      
+      const firstResponse = await llmClient.generateWithTools({
+        model,
+        messages: conversationMessages,
+        temperature,
+        maxTokens,
+        tools: mcpTools,
+      });
+
+      // If LLM decided to call tools, execute them
+      if (firstResponse.tool_calls && firstResponse.tool_calls.length > 0) {
+        console.log(`🔧 LLM wants to call ${firstResponse.tool_calls.length} tool(s)`);
+        
+        // Add the assistant's message with tool_calls to conversation
+        conversationMessages.push({
+          role: 'assistant',
+          content: firstResponse.message?.content || '',
+          ...(firstResponse.tool_calls && { tool_calls: firstResponse.tool_calls })
+        } as any);
+
+        // Execute each tool call and add results
+        const { executeMcpTool } = await import('./utils/mcp');
+        
+        for (const toolCall of firstResponse.tool_calls) {
+          const toolName = toolCall.function.name;
+          const toolArgs = JSON.parse(toolCall.function.arguments);
+          
+          try {
+            const toolResult = await executeMcpTool(toolName, toolArgs);
+            
+            // Add tool result to conversation
+            conversationMessages.push({
+              role: 'tool',
+              content: JSON.stringify(toolResult),
+              tool_call_id: toolCall.id,
+              name: toolName
+            });
+          } catch (toolError) {
+            console.error(`❌ Tool execution failed:`, toolError);
+            conversationMessages.push({
+              role: 'tool',
+              content: JSON.stringify({ error: toolError instanceof Error ? toolError.message : 'Unknown error' }),
+              tool_call_id: toolCall.id,
+              name: toolName
+            });
+          }
+        }
+
+        console.log('✅ All tools executed, now streaming final response...');
+      } else {
+        console.log('💬 No tool calls, streaming direct response...');
+      }
+    }
+
+    // --- SECOND HOP: Stream the final response ---
     for await (const chunk of llmClient.generateStream({
       model,
       messages: conversationMessages,
       temperature,
       maxTokens,
-      tools: mcpTools,
+      tools: undefined,  // Don't offer tools again in final response
     })) {
       chunkNumber++;
 
