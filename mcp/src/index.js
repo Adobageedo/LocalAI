@@ -13,6 +13,10 @@ import logger from './utils/logger.js';
 import config, { validateConfig } from './utils/config.js';
 import documentGeneratorService from './services/documentGeneratorService.js';
 import ragService from './services/ragService.js';
+import NotesService from './services/notesService.js';
+
+// Initialize notes service
+const notesService = new NotesService(config.paths.pdpBaseFolder);
 
 /**
  * MCP Server for PDP Document Generation with RAG Integration
@@ -217,6 +221,40 @@ class PDPMCPServer {
               properties: {},
             },
           },
+          {
+            name: 'save_note',
+            description: 'Save a note/point to the database with date, windfarm, topic, comment, type (O&M, operational, invoice, etc.), and company',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                date: {
+                  type: 'string',
+                  description: 'Date of the note (YYYY-MM-DD format)'
+                },
+                windfarm: {
+                  type: 'string',
+                  description: 'Name of the windfarm'
+                },
+                topic: {
+                  type: 'string',
+                  description: 'Topic or subject of the note'
+                },
+                comment: {
+                  type: 'string',
+                  description: 'Detailed comment or description'
+                },
+                type: {
+                  type: 'string',
+                  description: 'Type of note: O&M, operational, invoice, contract, meeting, incident, maintenance, etc.'
+                },
+                company: {
+                  type: 'string',
+                  description: 'Company name (optional)'
+                }
+              },
+              required: ['date', 'windfarm', 'topic', 'comment', 'type']
+            },
+          },
         ],
       };
     });
@@ -240,6 +278,9 @@ class PDPMCPServer {
 
           case 'list_templates':
             return await this.handleListTemplates();
+
+          case 'save_note':
+            return await this.handleSaveNote(args);
 
           default:
             throw new Error(`Unknown tool: ${name}`);
@@ -453,6 +494,40 @@ class PDPMCPServer {
               templates,
               count: templates.length,
               templateFolder: config.documents.templateFolder,
+            },
+            null,
+            2
+          ),
+        },
+      ],
+    };
+  }
+
+  /**
+   * Handle save_note tool
+   */
+  async handleSaveNote(args) {
+    const { date, windfarm, topic, comment, type, company } = args;
+
+    logger.info('Saving note', { date, windfarm, topic, type });
+
+    const result = await notesService.addNote({
+      date,
+      windfarm,
+      topic,
+      comment,
+      type,
+      company
+    });
+
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify(
+            {
+              ...result,
+              message: 'Note saved successfully'
             },
             null,
             2

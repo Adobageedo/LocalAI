@@ -5,6 +5,7 @@ import InfoPDP from './QuickActions/InfoPDP';
 import RequestInvoicePO from './QuickActions/RequestInvoicePO';
 import ProdInvoice from './QuickActions/ProdInvoice';
 import GeneratePDP from './QuickActions/GeneratePDP';
+import SavePoint from './QuickActions/SavePoint';
 
 /**
  * QuickActions - Second tab in TemplateHub
@@ -15,7 +16,7 @@ const QuickActions: React.FC = () => {
     { key: 'infoPDP', label: 'Demander information PDP', component: <InfoPDP /> },
     { key: 'prodInvoice', label: 'Mail Facture Prod', component: <ProdInvoice /> },
     { key: 'createPDP', label: 'Generer PDP', component: <GeneratePDP /> },
-    { key: 'notePoint', label: 'Sauvegarder point' },
+    { key: 'notePoint', label: 'Sauvegarder point', component: <SavePoint /> },
     { key: 'givePO', label: 'Donner PO' },
     { key: 'requestInvoicePO', label: 'Demander Facture avec PO', component: <RequestInvoicePO /> },
   ];
