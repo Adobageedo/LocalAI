@@ -57,6 +57,9 @@ IMPORTANT POUR LES DATES D'EXPIRATION :
 Format attendu :
 {
   "company": { "name": "...", "address": "...", ... },
+  "windfarmName": "...",
+  "surname": "...",
+  "mergeWithPDP": true,
   "workers": [
     {
       "first_name": "Elie",
