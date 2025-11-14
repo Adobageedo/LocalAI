@@ -5,8 +5,10 @@
  */
 
 export interface ChatMessage {
-  role: 'system' | 'user' | 'assistant';
+  role: 'system' | 'user' | 'assistant' | 'tool';
   content: string;
+  tool_call_id?: string;
+  name?: string;
 }
 
 export interface LLMRequest {
@@ -41,6 +43,85 @@ export class LLMClient {
   constructor() {
     this.apiUrl = process.env.OPENAI_API_URL || 'https://api.openai.com/v1/chat/completions';
     this.apiKey = process.env.OPENAI_API_KEY || '';
+  }
+
+  /**
+   * Call external LLM API with tools support (non-streaming)
+   * Returns tool calls if the model decides to use them
+   */
+  async generateWithTools(request: LLMRequest): Promise<{
+    message?: { role: string; content: string };
+    tool_calls?: Array<{
+      id: string;
+      type: string;
+      function: { name: string; arguments: string };
+    }>;
+    finish_reason?: string;
+  }> {
+    try {
+      console.log('🤖 Calling LLM with tools (non-streaming)');
+      
+      const messages: ChatMessage[] = request.messages || [
+        ...(request.systemPrompt ? [{ role: 'system' as const, content: request.systemPrompt }] : []),
+        ...(request.userPrompt ? [{ role: 'user' as const, content: request.userPrompt }] : [])
+      ];
+      
+      console.log(`📨 Sending ${messages.length} messages to LLM`);
+      
+      const body: any = {
+        model: request.model || process.env.LLM_MODEL || 'gpt-4o-mini',
+        messages,
+        temperature: request.temperature ?? 0.7,
+        max_completion_tokens: request.maxTokens ?? 500
+      };
+
+      if (request.tools && request.tools.length > 0) {
+        body.tools = request.tools;
+      }
+      
+      const response = await fetch(this.apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${this.apiKey}`
+        },
+        body: JSON.stringify(body)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(`LLM API error: ${response.status} ${response.statusText} - ${JSON.stringify(errorData)}`);
+      }
+
+      const data = await response.json() as {
+        choices?: Array<{
+          message?: {
+            role: string;
+            content: string;
+            tool_calls?: Array<{
+              id: string;
+              type: string;
+              function: { name: string; arguments: string };
+            }>;
+          };
+          finish_reason?: string;
+        }>;
+      };
+
+      const choice = data.choices?.[0];
+      if (!choice) {
+        throw new Error('No choices in LLM response');
+      }
+
+      return {
+        message: choice.message,
+        tool_calls: choice.message?.tool_calls,
+        finish_reason: choice.finish_reason
+      };
+    } catch (error) {
+      console.error('LLM API call with tools failed:', error);
+      throw error;
+    }
   }
 
   /**

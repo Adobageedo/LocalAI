@@ -3,7 +3,7 @@ import { Stack } from '@fluentui/react';
 import { useTemplateGeneration } from '../../../../hooks';
 import { ActionButtons, StatusMessages, LoadingIndicator } from '../../../common';
 import { theme } from '../../../../styles';
-import TemplateChatInterface from '../TemplateChat/NewTemplate';
+import TemplateChatInterface from '../../chat/NewTemplate';
 
 /**
  * Template Generator - Main container for email template generation

@@ -11,10 +11,10 @@ const mcpServerArgs = [path.resolve(__dirname, "../../../mcp/src/index.js")];
 const mcpEnv = {
   RAG_API_URL: "http://localhost:8000",
   RAG_API_KEY: "your-api-key-here",
-  PDP_BASE_FOLDER: path.resolve(__dirname, "../../../mcp/data/PDP"),
-  TEMPLATE_FOLDER: path.resolve(__dirname, "../../../mcp/templates"),
+  PDP_BASE_FOLDER: "/Users/edoardo/Documents/LocalAI/mcp/data/PDP",
+  TEMPLATE_FOLDER: "/Users/edoardo/Documents/LocalAI/mcp/data/templates",
   LOG_LEVEL: "info",
-  LOG_FILE: path.resolve(__dirname, "../../../mcp/data/logs/mcp-server.log"),
+  LOG_FILE: "/Users/edoardo/Documents/LocalAI/mcp/data/logs/mcp-server.log",
   MCP_SERVER_NAME: "pdp-document-generator",
   MCP_SERVER_VERSION: "1.0.0",
 };
@@ -70,6 +70,33 @@ export async function getMcpTools() {
   // Convert MCP tools to OpenAI format
   const openAITools = convertMcpToolsToOpenAI(toolList.tools);
   return openAITools;
+}
+
+/**
+ * Execute an MCP tool with given arguments
+ */
+export async function executeMcpTool(toolName: string, args: any): Promise<any> {
+  if (!mcpClient) {
+    throw new Error("MCP client not initialized. Call getMcpTools() first.");
+  }
+
+  try {
+    console.log(`🔧 Executing MCP tool: ${toolName}`);
+    console.log(`📥 Tool arguments:`, JSON.stringify(args, null, 2));
+
+    const result = await mcpClient.callTool({
+      name: toolName,
+      arguments: args
+    });
+
+    console.log(`✅ Tool ${toolName} executed successfully`);
+    console.log(`📤 Tool result:`, JSON.stringify(result, null, 2));
+
+    return result;
+  } catch (error) {
+    console.error(`❌ Error executing tool ${toolName}:`, error);
+    throw error;
+  }
 }
 
 /**
