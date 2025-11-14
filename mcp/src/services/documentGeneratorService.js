@@ -2,9 +2,14 @@ import PizZip from 'pizzip';
 import Docxtemplater from 'docxtemplater';
 import fs from 'fs/promises';
 import path from 'path';
+import os from 'os';
 import { fileURLToPath } from 'url';
 import logger from '../utils/logger.js';
 import config from '../utils/config.js';
+import dataTransformerService from './dataTransformerService.js';
+import { PDFDocument } from 'pdf-lib';
+import { execa } from 'execa';
+import JsonDatabase from './dbService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -16,6 +21,7 @@ class DocumentGeneratorService {
   constructor() {
     this.baseFolder = config.documents.baseFolder;
     this.templateFolder = config.documents.templateFolder;
+    this.annualBaseFolder = config.documents.annualBaseFolder;
   }
 
   /**
@@ -76,6 +82,123 @@ class DocumentGeneratorService {
 
       throw new Error(`Document generation failed: ${error.message}`);
     }
+  }
+
+  /**
+   * Convert a DOCX file to PDF using LibreOffice/soffice in headless mode
+   * @param {string} docxPath
+   * @returns {Promise<string>} path to generated PDF
+   */
+  async convertDocxToPdf(docxPath) {
+    const outDir = await fs.mkdtemp(path.join(os.tmpdir(), 'pdp-pdf-'));
+    const sofficeCmd = await this._detectSoffice();
+
+    logger.info('Converting DOCX to PDF', { docxPath, outDir, sofficeCmd });
+
+    try {
+      await execa(sofficeCmd, ['--headless', '--convert-to', 'pdf', '--outdir', outDir, docxPath], {
+        stdio: 'ignore',
+      });
+      const base = path.basename(docxPath, path.extname(docxPath));
+      const pdfPath = path.join(outDir, `${base}.pdf`);
+      // Ensure file exists
+      await fs.access(pdfPath);
+      logger.info('DOCX converted to PDF', { pdfPath });
+      return pdfPath;
+    } catch (error) {
+      throw new Error(`DOCX->PDF conversion failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Merge generated PDF at the end of the annual PDF file for the given surname.
+   * If annual doesn't exist, create it.
+   * @param {string} generatedPdfPath
+   * @param {string} surname
+   * @returns {Promise<string>} path to annual PDF
+   */
+  async mergeIntoAnnualPdf(generatedPdfPath, surname) {
+    const safeSurname = this._sanitizeFilename(surname);
+    const annualDir = path.resolve(this.annualBaseFolder);
+    await fs.mkdir(annualDir, { recursive: true });
+    const annualPdfPath = path.join(annualDir, `${safeSurname}.pdf`);
+
+    logger.info('Merging into annual PDF', { annualPdfPath, generatedPdfPath });
+
+    // If annual file doesn't exist, copy generated
+    try {
+      await fs.access(annualPdfPath);
+    } catch {
+      const bytes = await fs.readFile(generatedPdfPath);
+      await fs.writeFile(annualPdfPath, bytes);
+      return annualPdfPath;
+    }
+
+    // Load existing annual and new pdf, append pages
+    const annualBytes = await fs.readFile(annualPdfPath);
+    const newBytes = await fs.readFile(generatedPdfPath);
+
+    const annualDoc = await PDFDocument.load(annualBytes);
+    const newDoc = await PDFDocument.load(newBytes);
+
+    const pages = await annualDoc.copyPages(newDoc, newDoc.getPageIndices());
+    pages.forEach((p) => annualDoc.addPage(p));
+
+    const mergedBytes = await annualDoc.save();
+    await fs.writeFile(annualPdfPath, mergedBytes);
+    logger.info('Annual PDF updated', { annualPdfPath, addedPages: pages.length });
+    return annualPdfPath;
+  }
+
+  /**
+   * Save (upsert) worker data directly into the JSON database (no Python call)
+   * @param {Object} workerData - Worker data in JSON format
+   * @param {string} dbPath - Path to database file (default: database.json)
+   * @returns {Promise<boolean>} Success status
+   */
+  async saveWorkerToDatabase(workerData, dbPath = 'database.json') {
+    try {
+      const projectRoot = path.resolve(__dirname, '../..');
+      const absoluteDbPath = path.isAbsolute(dbPath)
+        ? dbPath
+        : path.join(projectRoot, dbPath);
+
+      const db = new JsonDatabase(path.dirname(absoluteDbPath), path.basename(absoluteDbPath));
+      await db.load();
+      const res = await db.upsertWorker(workerData);
+      await db.save();
+
+      logger.info('Worker saved using JsonDatabase', {
+        dbPath: absoluteDbPath,
+        action: res.action,
+        index: res.index,
+      });
+      return true;
+    } catch (error) {
+      logger.error('Failed to save worker to database', { error: error.message });
+      return false;
+    }
+  }
+
+  /**
+   * Detect soffice binary
+   * @returns {Promise<string>}
+   */
+  async _detectSoffice() {
+    const candidates = [
+      'soffice',
+      'libreoffice',
+      '/Applications/LibreOffice.app/Contents/MacOS/soffice',
+    ];
+    for (const cmd of candidates) {
+      try {
+        await execa(cmd, ['--version'], { stdio: 'ignore' });
+        return cmd;
+      } catch (_) {
+        // try next
+      }
+    }
+    throw new Error('LibreOffice (soffice) not found. Please install LibreOffice to enable DOCX->PDF conversion.');
   }
 
   /**
@@ -231,7 +354,7 @@ class DocumentGeneratorService {
    * @param {Object} params - Generation parameters
    * @param {string} params.pdpId - PDP identifier
    * @param {string} params.windfarmName - Windfarm name
-   * @param {Object} params.data - Template data
+   * @param {Object} params.data - Template data (supports both flat and company/workers structure)
    * @param {string} [params.templateName] - Optional template name
    * @param {boolean} [params.saveToFile] - Whether to save to file
    * @returns {Promise<Object>} Generation result
@@ -241,7 +364,9 @@ class DocumentGeneratorService {
       pdpId,
       windfarmName,
       data,
-      templateName = config.documents.defaultTemplate,
+      surname,
+      mergeWithPDP = false,
+      templateName,
       saveToFile = true,
     } = params;
 
@@ -250,16 +375,39 @@ class DocumentGeneratorService {
       windfarmName,
       templateName,
       saveToFile,
+      hasCompanyStructure: !!(data.company || data.workers),
     });
 
     try {
+      // Transform data if it has company/workers structure
+      let processedData = data;
+      if (data.company || data.workers) {
+        logger.info('Detected company/workers structure, transforming data');
+        
+        const validation = dataTransformerService.validateInputData(data);
+        if (!validation.valid) {
+          throw new Error(`Invalid data structure: ${validation.errors.join(', ')}`);
+        }
+        
+        processedData = dataTransformerService.transformToTemplateFormat(data);
+        processedData = dataTransformerService.cleanEmptyTechnicians(processedData);
+        
+        logger.debug('Data transformation completed', {
+          originalKeys: Object.keys(data).length,
+          transformedKeys: Object.keys(processedData).length,
+        });
+      }
+
+      // Resolve template by surname if provided, otherwise fallback
+      const resolvedTemplateName = templateName || (surname ? `${this._sanitizeFilename(surname)}.docx` : config.documents.defaultTemplate);
       // Load template
-      const templateBuffer = await this.loadTemplate(templateName);
+      const templateBuffer = await this.loadTemplate(resolvedTemplateName);
 
       // Generate document
-      const documentBuffer = await this.generateDocument(templateBuffer, data);
+      const documentBuffer = await this.generateDocument(templateBuffer, processedData);
 
       let filePath = null;
+      let annualPdfPath = null;
       if (saveToFile) {
         // Save document
         filePath = await this.saveGeneratedDocument(
@@ -267,6 +415,17 @@ class DocumentGeneratorService {
           pdpId,
           windfarmName
         );
+
+        // If requested, convert to PDF and merge into annual PDF
+        if (mergeWithPDP && surname) {
+          try {
+            const generatedPdfPath = await this.convertDocxToPdf(filePath);
+            annualPdfPath = await this.mergeIntoAnnualPdf(generatedPdfPath, surname);
+          } catch (mergeErr) {
+            logger.error('PDF merge failed', { error: mergeErr.message });
+            // Do not fail the whole operation; include error info
+          }
+        }
       }
 
       return {
@@ -277,6 +436,10 @@ class DocumentGeneratorService {
         documentBuffer: saveToFile ? null : documentBuffer,
         size: documentBuffer.length,
         timestamp: new Date().toISOString(),
+        dataTransformed: !!(data.company || data.workers),
+        templateUsed: resolvedTemplateName,
+        mergedIntoAnnual: !!annualPdfPath,
+        annualPdfPath: annualPdfPath || null,
       };
     } catch (error) {
       logger.error('Error in PDP generation', {
