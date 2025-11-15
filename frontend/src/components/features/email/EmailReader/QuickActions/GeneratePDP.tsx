@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { useOffice } from '../../../../../contexts/OfficeContext';
 import { PrimaryButton, Spinner, SpinnerSize, MessageBar, MessageBarType } from '@fluentui/react';
 import { theme } from '../../../../../styles';
+import { useQuickAction } from '../../../../../contexts/QuickActionContext';
 
 const GeneratePDP: React.FC = () => {
   const { currentEmail } = useOffice();
   const [isGenerating, setIsGenerating] = useState(false);
   const [status, setStatus] = useState<{ type: 'success' | 'error' | 'info', message: string } | null>(null);
+  const quickAction = useQuickAction();
 
   const buildExtractionPrompt = () => {
     return `Tu es un assistant spécialisé dans l'extraction de données depuis des documents relatifs à des chantiers de parcs éoliens (Plan de Prévention).
@@ -97,6 +99,9 @@ IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.
 
     setIsGenerating(true);
     setStatus({ type: 'info', message: 'Extraction des données et génération du PDP en cours...' });
+    
+    // Start QuickAction with LLM and MCP
+    quickAction.startAction('generatePDP', true, true);
 
     try {
       // Get attachments if available
@@ -115,6 +120,9 @@ ${currentEmail.fullConversation ? `\nFULL CONVERSATION:\n${currentEmail.fullConv
 ${attachments.length > 0 ? `\nATTACHMENTS:\n${attachments.map(att => `- ${att.name} (${att.size} bytes)`).join('\n')}` : ''}
       `.trim();
 
+      // Update status to using MCP
+      quickAction.updateStatus('using_mcp', 'Utilisation de l\'outil MCP generate_pdp_document...');
+      
       // Call the API with MCP tools enabled
       const response = await fetch('/api/promptLLM', {
         method: 'POST',
@@ -142,6 +150,9 @@ ${attachments.length > 0 ? `\nATTACHMENTS:\n${attachments.map(att => `- ${att.na
       if (!response.ok) {
         throw new Error(`Erreur API: ${response.status} ${response.statusText}`);
       }
+      
+      // Update status to streaming
+      quickAction.updateStatus('streaming', 'Génération du document en cours...');
 
       // Read the SSE stream
       const reader = response.body?.getReader();
@@ -163,6 +174,7 @@ ${attachments.length > 0 ? `\nATTACHMENTS:\n${attachments.map(att => `- ${att.na
                 
                 if (data.type === 'chunk' && data.delta) {
                   fullResponse += data.delta;
+                  quickAction.updateStreamedContent(fullResponse);
                 } else if (data.type === 'done') {
                   fullResponse = data.fullText || fullResponse;
                 } else if (data.type === 'error') {
@@ -177,6 +189,7 @@ ${attachments.length > 0 ? `\nATTACHMENTS:\n${attachments.map(att => `- ${att.na
       }
 
       console.log('PDP Generation Response:', fullResponse);
+      quickAction.completeAction();
       setStatus({ 
         type: 'success', 
         message: 'PDP généré avec succès! Vérifiez le dossier de sortie MCP.' 
@@ -184,12 +197,16 @@ ${attachments.length > 0 ? `\nATTACHMENTS:\n${attachments.map(att => `- ${att.na
 
     } catch (error) {
       console.error('Error generating PDP:', error);
+      const errorMsg = error instanceof Error ? error.message : 'Erreur inconnue';
+      quickAction.setError(errorMsg);
       setStatus({ 
         type: 'error', 
-        message: `Erreur lors de la génération: ${error instanceof Error ? error.message : 'Erreur inconnue'}` 
+        message: `Erreur lors de la génération: ${errorMsg}` 
       });
     } finally {
       setIsGenerating(false);
+      // Reset after a delay
+      setTimeout(() => quickAction.resetAction(), 3000);
     }
   };
 

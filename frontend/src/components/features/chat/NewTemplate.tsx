@@ -14,6 +14,8 @@ import {
   IStackTokens,
   getTheme,
   FontWeights,
+  Icon,
+  ProgressIndicator,
 } from '@fluentui/react';
 import { Bot20Regular, Person20Regular, Sparkle20Regular } from '@fluentui/react-icons';
 import { authFetch } from '../../../utils/helpers';
@@ -21,6 +23,7 @@ import { API_ENDPOINTS } from '../../../config/api';
 import { buildSystemPrompt, buildUserPrompt } from '../../../config/prompt';
 import { QUICK_ACTIONS_DICTIONARY, QuickActionConfig } from '../../../config/quickActions';
 import { Toggle } from '@fluentui/react';
+import { useQuickAction } from '../../../contexts/QuickActionContext';
 
 interface SuggestedButton {
   label: string;
@@ -114,8 +117,9 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
   const [lastQuickAction, setLastQuickAction] = useState<string | null>(null);
   const [activeActionKey, setActiveActionKey] = useState<string | null>(null);
   const [lastClickedButton, setLastClickedButton] = useState<string | null>(null);
-  const [useRag, setUseRag] = useState(false); // default on
-  const [useFineTune, setUseFineTune] = useState(false); // default to using base model
+  const [useRag, setUseRag] = useState(false);
+  const [useFineTune, setUseFineTune] = useState(false);
+  const quickActionContext = useQuickAction();
 
   const theme = getTheme();
   const stackTokens: IStackTokens = { childrenGap: 16 };
@@ -153,6 +157,36 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
       }];
     });
   }, [conversationId]);
+  
+  /** Update messages when QuickAction streams content */
+  useEffect(() => {
+    if (quickActionContext.state.isActive && quickActionContext.state.streamedContent) {
+      setMessages(prev => {
+        // Check if we already have a message for this QuickAction
+        const hasQuickActionMessage = prev.some(m => m.id === 'quickaction-stream');
+        
+        if (hasQuickActionMessage) {
+          // Update existing message
+          return prev.map(m => 
+            m.id === 'quickaction-stream'
+              ? { ...m, content: quickActionContext.state.streamedContent }
+              : m
+          );
+        } else {
+          // Add new message
+          return [
+            ...prev,
+            {
+              id: 'quickaction-stream',
+              role: 'assistant' as const,
+              content: quickActionContext.state.streamedContent,
+              timestamp: new Date(),
+            }
+          ];
+        }
+      });
+    }
+  }, [quickActionContext.state.streamedContent, quickActionContext.state.isActive]);
 
   /** Auto scroll vers le bas */
   useEffect(() => {
@@ -437,9 +471,88 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
 
   const isNewConversation = messages.length <= 2;
 
+  const getStatusIcon = () => {
+    switch (quickActionContext.state.status) {
+      case 'extracting':
+        return { iconName: 'SearchData', color: theme.palette.blue };
+      case 'using_mcp':
+        return { iconName: 'PlugConnected', color: theme.palette.purple };
+      case 'streaming':
+        return { iconName: 'Streaming', color: theme.palette.green };
+      case 'complete':
+        return { iconName: 'CheckMark', color: theme.palette.green };
+      case 'error':
+        return { iconName: 'ErrorBadge', color: theme.palette.red };
+      default:
+        return null;
+    }
+  };
+
   return (
-    <Stack tokens={stackTokens} styles={{ root: { width: '100%', borderRadius: 12 } }}>
-      {/* Header */}
+    <Stack tokens={stackTokens} styles={{ root: { width: '100%', borderRadius: 12, height: '100%', display: 'flex', flexDirection: 'column' } }}>
+      {/* Top Bar with Toggles */}
+      <Stack
+        horizontal
+        horizontalAlign="space-between"
+        verticalAlign="center"
+        styles={{
+          root: {
+            padding: '12px 16px',
+            backgroundColor: theme.palette.neutralLighter,
+            borderBottom: `1px solid ${theme.palette.neutralLight}`,
+            borderTopLeftRadius: 12,
+            borderTopRightRadius: 12,
+          },
+        }}
+      >
+        <Text variant="medium" styles={{ root: { fontWeight: FontWeights.semibold } }}>
+          Assistant IA
+        </Text>
+        <Stack horizontal tokens={{ childrenGap: 16 }}>
+          <Toggle
+            label="RAG"
+            checked={useRag}
+            onChange={(_, checked) => setUseRag(!!checked)}
+            styles={{ root: { marginBottom: 0 } }}
+            inlineLabel
+          />
+          <Toggle
+            label="Fine-tuned"
+            checked={useFineTune}
+            onChange={(_, checked) => setUseFineTune(!!checked)}
+            styles={{ root: { marginBottom: 0 } }}
+            inlineLabel
+          />
+        </Stack>
+      </Stack>
+
+      {/* Status Indicator */}
+      {quickActionContext.state.isActive && quickActionContext.state.status !== 'idle' && (
+        <Stack
+          horizontal
+          verticalAlign="center"
+          tokens={{ childrenGap: 8 }}
+          styles={{
+            root: {
+              padding: '8px 16px',
+              backgroundColor: theme.palette.themeLighter,
+              borderBottom: `1px solid ${theme.palette.neutralLight}`,
+            },
+          }}
+        >
+          {getStatusIcon() && (
+            <Icon iconName={getStatusIcon()!.iconName} styles={{ root: { color: getStatusIcon()!.color, fontSize: 16 } }} />
+          )}
+          <Text variant="small" styles={{ root: { color: theme.palette.neutralPrimary } }}>
+            {quickActionContext.state.statusMessage}
+          </Text>
+          {quickActionContext.state.status !== 'complete' && quickActionContext.state.status !== 'error' && (
+            <Spinner size={SpinnerSize.small} />
+          )}
+        </Stack>
+      )}
+
+      {/* Error Message */}
       {error && (
         <MessageBar messageBarType={MessageBarType.error} onDismiss={() => setError('')}>
           {error}
@@ -447,7 +560,7 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
       )}
 
       {/* Zone messages */}
-      <div ref={scrollableRef} style={{ height: '70vh', overflowY: 'auto', padding: 16, backgroundColor: '#fafafa' }}>
+      <div ref={scrollableRef} style={{ flex: 1, overflowY: 'auto', padding: 16, backgroundColor: '#fafafa' }}>
         {messages.map((m, msgIndex) => {
           // Find the last assistant message index
           const lastAssistantIndex = messages.map((msg, idx) => msg.role === 'assistant' ? idx : -1).filter(idx => idx !== -1).pop();
@@ -569,10 +682,11 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
       </Stack>      
       )}
 
+      {/* Input Area */}
       <Stack
         horizontal
         tokens={{ childrenGap: 8 }}
-        styles={{ root: { padding: 16, borderTop: '1px solid #ddd' } }}
+        styles={{ root: { padding: 16, borderTop: `1px solid ${theme.palette.neutralLight}`, backgroundColor: theme.palette.white } }}
       >
         <TextField
           placeholder="Écrivez un message..."
@@ -589,24 +703,17 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
           }}
         />
 
-        {/* Toggle button */}
-        <Toggle
-          label="Use RAG"
-          checked={useRag} // your state
-          onChange={(_, checked) => setUseRag(!!checked)}
-          styles={{ root: { alignSelf: 'center' } }}
-        />
-        <Toggle
-          label="Use Fine-tuned Model"
-          checked={useFineTune}
-          onChange={(_, checked) => setUseFineTune(!!checked)}
-          styles={{ root: { alignSelf: 'center' } }}
-        />
-
         <PrimaryButton
           text="Envoyer"
           onClick={handleSendMessage}
           disabled={!currentMessage.trim() || isLoading}
+          iconProps={{ iconName: 'Send' }}
+          styles={{
+            root: {
+              minWidth: 100,
+              height: 40,
+            },
+          }}
         />
       </Stack>
     </Stack>

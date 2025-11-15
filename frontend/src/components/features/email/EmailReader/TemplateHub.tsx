@@ -4,6 +4,7 @@ import { theme } from '../../../../styles';
 import TemplateGenerator from './TemplateGenerator';
 import QuickActions from './QuickActions';
 import { Header, Sidebar } from '../../../layout';
+import { QuickActionProvider } from '../../../../contexts/QuickActionContext';
 
 /**
  * TemplateHub - Intermediate layer between App and TemplateGenerator
@@ -14,15 +15,16 @@ const TemplateHub: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <Stack
-      styles={{
-        root: {
-          height: '100vh',
-          width: '100%',
-          backgroundColor: theme.colors.white,
-        },
-      }}
-    >
+    <QuickActionProvider>
+      <Stack
+        styles={{
+          root: {
+            height: '100vh',
+            width: '100%',
+            backgroundColor: theme.colors.white,
+          },
+        }}
+      >
           {/* Sidebar */}
           <Sidebar
             isOpen={sidebarOpen}
@@ -54,7 +56,8 @@ const TemplateHub: React.FC = () => {
 
       {selectedKey === 'chat' && <TemplateGenerator />}
       {selectedKey === 'quick' && <QuickActions />}
-    </Stack>
+      </Stack>
+    </QuickActionProvider>
   );
 };
 
