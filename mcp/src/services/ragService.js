@@ -1,6 +1,6 @@
 import fetch from 'node-fetch';
 import logger from '../utils/logger.js';
-import config from '../utils/config.js';
+import config from '../config/index.js';
 
 /**
  * Service for interacting with RAG API

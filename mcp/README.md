@@ -13,23 +13,58 @@ A Model Context Protocol (MCP) server for generating PDP (Plan de Prévention) d
 
 ## Architecture
 
+**✨ REFACTORED: Clean modular architecture with strict separation of concerns**
+
 ```
 mcp/
 ├── src/
-│   ├── index.js                        # MCP server entry point
-│   ├── services/
-│   │   ├── documentGeneratorService.js # Document generation logic
-│   │   └── ragService.js               # RAG API integration
-│   └── utils/
-│       ├── logger.js                   # Winston logger configuration
-│       └── config.js                   # Application configuration
+│   ├── index.js                        # Server initialization & tool registration ONLY
+│   ├── config/                         # Configuration layer
+│   │   ├── index.js                    # Main configuration
+│   │   └── constants.js                # Application constants
+│   ├── tools/                          # Tool definitions (one per file)
+│   │   ├── generatePdpDocument.js
+│   │   ├── fetchRagContext.js
+│   │   ├── generatePdpWithRag.js
+│   │   ├── listTemplates.js
+│   │   └── saveNote.js
+│   ├── schemas/                        # JSON schemas
+│   │   ├── pdpSchema.js
+│   │   ├── ragSchema.js
+│   │   └── noteSchema.js
+│   ├── services/                       # Business logic
+│   │   ├── documentGeneratorService.js
+│   │   ├── ragService.js
+│   │   ├── dataTransformerService.js
+│   │   ├── notesService.js
+│   │   └── dbService.js
+│   ├── utils/                          # Utilities
+│   │   ├── logger.js
+│   │   ├── fileHelpers.js
+│   │   ├── pathHelpers.js
+│   │   └── validators.js
+│   └── lib/                            # Low-level modules
+│       ├── errors.js                   # Custom error classes
+│       └── mcpHelpers.js               # MCP response formatters
 ├── templates/                          # Word document templates
-├── data/                               # Generated documents (created at runtime)
-├── logs/                               # Server logs (created at runtime)
+├── data/                               # Generated documents
+├── logs/                               # Server logs
+├── ARCHITECTURE.md                     # 📘 Complete architecture guide
+├── REFACTORING_SUMMARY.md              # 📋 Refactoring details
+├── TESTING_GUIDE.md                    # 🧪 Testing guide
 ├── package.json
-├── .env.example
-└── README.md
+└── .env.example
 ```
+
+### Architecture Highlights
+
+- **🎯 Single Responsibility**: Each file has ONE clear purpose
+- **🔌 Modular Tools**: Easy to add/remove tools without touching core
+- **🧩 Layered Design**: Clean separation between tools, services, and utilities
+- **🛡️ Error Handling**: Centralized error classes and handling
+- **📐 Scalable**: Ready for growth and microservices extraction
+
+**📚 See [ARCHITECTURE.md](./ARCHITECTURE.md) for complete architectural documentation**
 
 ## Installation
 
@@ -103,7 +138,7 @@ npm run dev
 
 ## Available Tools
 
-The MCP server exposes the following tools:
+The MCP server exposes **5 tools** (each in its own modular file):
 
 ### 1. generate_pdp_document
 
@@ -234,6 +269,47 @@ List all available document templates.
 }
 ```
 
+### 5. save_note
+
+Save a note/point to the database.
+
+**Parameters**:
+- `date` (string, required): Date in YYYY-MM-DD format
+- `windfarm` (string, required): Windfarm name
+- `topic` (string, required): Note topic/subject
+- `comment` (string, required): Detailed comment
+- `type` (string, required): Note type (O&M, operational, invoice, etc.)
+- `company` (string, optional): Company name
+
+**Example**:
+```json
+{
+  "date": "2024-01-15",
+  "windfarm": "WindFarm Alpha",
+  "topic": "Maintenance Completed",
+  "comment": "Annual inspection completed successfully",
+  "type": "O&M",
+  "company": "Tech Services Ltd"
+}
+```
+
+**Response**:
+```json
+{
+  "success": true,
+  "note": {
+    "id": "note-uuid",
+    "date": "2024-01-15",
+    "windfarm": "WindFarm Alpha",
+    "topic": "Maintenance Completed",
+    "comment": "Annual inspection completed successfully",
+    "type": "O&M",
+    "company": "Tech Services Ltd"
+  },
+  "message": "Note saved successfully"
+}
+```
+
 ## Available Resources
 
 ### 1. config://server
@@ -329,23 +405,73 @@ The MCP server can be integrated with LLMs to:
 
 ### Project Structure
 
-- **Services**: Modular services for specific functionality
-- **Utils**: Shared utilities (logging, configuration)
-- **Error Handling**: Comprehensive error catching and logging
-- **Type Safety**: JSDoc comments for better IDE support
+**Clean Architecture Principles:**
+- **index.js**: Server lifecycle management ONLY
+- **tools/**: One file per tool (schema + handler)
+- **schemas/**: Centralized JSON schemas
+- **services/**: Business logic and domain operations
+- **utils/**: Reusable helper functions
+- **lib/**: Low-level abstractions (errors, formatters)
+- **config/**: Configuration and constants
 
-### Adding New Document Types
+### Adding a New Tool
 
-1. Add new template to `templates/` folder
-2. Create service method if custom logic needed
-3. Add new tool definition in `src/index.js`
-4. Update documentation
+**Step 1:** Create schema (`schemas/myToolSchema.js`)
+```javascript
+export const myToolSchema = {
+  type: 'object',
+  properties: {
+    param1: { type: 'string', description: '...' }
+  },
+  required: ['param1']
+};
+```
+
+**Step 2:** Create tool file (`tools/myTool.js`)
+```javascript
+import { createToolDefinition } from '../lib/mcpHelpers.js';
+import { myToolSchema } from '../schemas/myToolSchema.js';
+
+export const toolDefinition = createToolDefinition(
+  'my_tool',
+  'What it does',
+  myToolSchema
+);
+
+export async function handler(args) {
+  // Validate, call services, return result
+}
+
+export default { toolDefinition, handler };
+```
+
+**Step 3:** Register in `index.js`
+```javascript
+import myTool from './tools/myTool.js';
+
+const TOOL_REGISTRY = [
+  // ... existing tools
+  myTool,
+];
+```
+
+**That's it!** No other modifications needed.
 
 ### Testing
 
 ```bash
-npm test
+# Run server
+npm start
+
+# See testing guide for detailed tests
+cat TESTING_GUIDE.md
 ```
+
+### Documentation
+
+- **[ARCHITECTURE.md](./ARCHITECTURE.md)** - Complete architectural guide
+- **[REFACTORING_SUMMARY.md](./REFACTORING_SUMMARY.md)** - Refactoring details
+- **[TESTING_GUIDE.md](./TESTING_GUIDE.md)** - Testing procedures
 
 ## Troubleshooting
 
@@ -367,10 +493,43 @@ npm test
 - Check data structure matches template
 - Review logs for detailed error messages
 
+## 🎯 Benefits of Refactored Architecture
+
+### ✅ Maintainability
+- Easy to find and modify code
+- Clear file organization
+- Self-documenting structure
+
+### ✅ Testability
+- Services testable in isolation
+- Utils are pure functions
+- Tools can mock services
+
+### ✅ Scalability
+- Add tools without touching core
+- Services extractable to microservices
+- Easy to optimize individual layers
+
+### ✅ Developer Experience
+- Consistent patterns
+- Clear extension points
+- Comprehensive documentation
+
+## 📊 Code Quality
+
+- **Custom Error Classes**: Type-safe error handling
+- **Validation Helpers**: Reusable validation logic
+- **MCP Helpers**: Standardized response formatting
+- **Logging**: Comprehensive winston-based logging
+- **Configuration**: Centralized environment config
+
 ## License
 
 MIT
 
 ## Support
 
-For issues and questions, please check the logs in `logs/mcp-server.log` for detailed error information.
+For issues and questions:
+1. Check logs in `logs/mcp-server.log`
+2. Review [TESTING_GUIDE.md](./TESTING_GUIDE.md)
+3. See [ARCHITECTURE.md](./ARCHITECTURE.md) for design decisions

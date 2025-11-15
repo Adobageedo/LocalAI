@@ -4,13 +4,13 @@
   <Version>1.0.0.0</Version>
   <ProviderName>Chardouin</ProviderName>
   <DefaultLocale>en-US</DefaultLocale>
-  <DisplayName DefaultValue="Local"/>
-  <Description DefaultValue="Local"/>
-  <IconUrl DefaultValue="https://localhost:3000/assets/icon-64.png"/>
-  <HighResolutionIconUrl DefaultValue="https://localhost:3000/assets/icon-128.png"/>
-  <SupportUrl DefaultValue="https://localhost:3000/support"/>
+  <DisplayName DefaultValue="Email AI Assistant"/>
+  <Description DefaultValue="AI-powered email management and composition assistant for Outlook"/>
+  <IconUrl DefaultValue="https://easier-snappily-ansley.ngrok-free.dev/assets/icon-64.png"/>
+  <HighResolutionIconUrl DefaultValue="https://easier-snappily-ansley.ngrok-free.dev/assets/icon-128.png"/>
+  <SupportUrl DefaultValue="https://easier-snappily-ansley.ngrok-free.dev/support"/>
   <AppDomains>
-    <AppDomain>https://localhost:3000</AppDomain>
+    <AppDomain>https://easier-snappily-ansley.ngrok-free.dev</AppDomain>
   </AppDomains>
   <Hosts>
     <Host Name="Mailbox"/>
@@ -23,7 +23,7 @@
   <FormSettings>
     <Form xsi:type="ItemRead">
       <DesktopSettings>
-        <SourceLocation DefaultValue="https://localhost:3000"/>
+        <SourceLocation DefaultValue="https://easier-snappily-ansley.ngrok-free.dev/taskpane.html"/>
         <RequestedHeight>350</RequestedHeight>
       </DesktopSettings>
     </Form>
@@ -94,17 +94,17 @@
     </Hosts>
     <Resources>
       <bt:Images>
-        <bt:Image id="Icon.16x16" DefaultValue="https://localhost:3000/assets/icon-16.png"/>
-        <bt:Image id="Icon.32x32" DefaultValue="https://localhost:3000/assets/icon-32.png"/>
-        <bt:Image id="Icon.80x80" DefaultValue="https://localhost:3000/assets/icon-80.png"/>
+        <bt:Image id="Icon.16x16" DefaultValue="https://easier-snappily-ansley.ngrok-free.dev/assets/icon-16.png"/>
+        <bt:Image id="Icon.32x32" DefaultValue="https://easier-snappily-ansley.ngrok-free.dev/assets/icon-32.png"/>
+        <bt:Image id="Icon.80x80" DefaultValue="https://easier-snappily-ansley.ngrok-free.dev/assets/icon-80.png"/>
       </bt:Images>
       <bt:Urls>
-        <bt:Url id="Commands.Url" DefaultValue="https://localhost:3000/commands.html"/>
-        <bt:Url id="Taskpane.ComposeUrl" DefaultValue="https://localhost:3000/?mode=compose"/>
-        <bt:Url id="Taskpane.ReadUrl" DefaultValue="https://localhost:3000/?mode=read"/>
+        <bt:Url id="Commands.Url" DefaultValue="https://easier-snappily-ansley.ngrok-free.dev/commands.html"/>
+        <bt:Url id="Taskpane.ComposeUrl" DefaultValue="https://easier-snappily-ansley.ngrok-free.dev/taskpane.html?mode=compose"/>
+        <bt:Url id="Taskpane.ReadUrl" DefaultValue="https://easier-snappily-ansley.ngrok-free.dev/taskpane.html?mode=read"/>
       </bt:Urls>
       <bt:ShortStrings>
-        <bt:String id="GroupLabel" DefaultValue="Local"/>
+        <bt:String id="GroupLabel" DefaultValue="Email Template Generator"/>
         <bt:String id="TaskpaneButton.Label" DefaultValue="Generate Template"/>
         <bt:String id="ActionButton.Label" DefaultValue="Create Template"/>
       </bt:ShortStrings>

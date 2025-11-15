@@ -2,11 +2,13 @@ import React, { useState } from 'react';
 import { useOffice } from '../../../../../contexts/OfficeContext';
 import { PrimaryButton, Spinner, SpinnerSize, MessageBar, MessageBarType } from '@fluentui/react';
 import { theme } from '../../../../../styles';
+import { useQuickAction } from '../../../../../contexts/QuickActionContext';
 
 const SavePoint: React.FC = () => {
   const { currentEmail } = useOffice();
   const [isSaving, setIsSaving] = useState(false);
   const [status, setStatus] = useState<{ type: 'success' | 'error' | 'info', message: string } | null>(null);
+  const quickAction = useQuickAction();
 
   const buildExtractionPrompt = () => {
     return `Tu es un assistant spécialisé dans l'extraction d'informations depuis des emails pour créer des notes structurées.
@@ -62,6 +64,9 @@ IMPORTANT:
 
     setIsSaving(true);
     setStatus({ type: 'info', message: 'Extraction des informations et sauvegarde en cours...' });
+    
+    // Start QuickAction with LLM and MCP
+    quickAction.startAction('savePoint', true, true);
 
     try {
       // Build the email context for the LLM
@@ -76,6 +81,9 @@ ${currentEmail.body}
 ${currentEmail.fullConversation ? `\nFULL CONVERSATION:\n${currentEmail.fullConversation}` : ''}
       `.trim();
 
+      // Update status to using MCP
+      quickAction.updateStatus('using_mcp', 'Utilisation de l\'outil MCP save_note...');
+      
       // Call the API with MCP tools enabled
       const response = await fetch('/api/promptLLM', {
         method: 'POST',
@@ -103,6 +111,9 @@ ${currentEmail.fullConversation ? `\nFULL CONVERSATION:\n${currentEmail.fullConv
       if (!response.ok) {
         throw new Error(`Erreur API: ${response.status} ${response.statusText}`);
       }
+      
+      // Update status to streaming
+      quickAction.updateStatus('streaming', 'Sauvegarde de la note...');
 
       // Read the SSE stream
       const reader = response.body?.getReader();
@@ -124,6 +135,7 @@ ${currentEmail.fullConversation ? `\nFULL CONVERSATION:\n${currentEmail.fullConv
                 
                 if (data.type === 'chunk' && data.delta) {
                   fullResponse += data.delta;
+                  quickAction.updateStreamedContent(fullResponse);
                 } else if (data.type === 'done') {
                   fullResponse = data.fullText || fullResponse;
                 } else if (data.type === 'error') {
@@ -138,6 +150,7 @@ ${currentEmail.fullConversation ? `\nFULL CONVERSATION:\n${currentEmail.fullConv
       }
 
       console.log('Save Point Response:', fullResponse);
+      quickAction.completeAction();
       setStatus({ 
         type: 'success', 
         message: 'Point sauvegardé avec succès! Vérifiez notes_database.json' 
@@ -145,12 +158,16 @@ ${currentEmail.fullConversation ? `\nFULL CONVERSATION:\n${currentEmail.fullConv
 
     } catch (error) {
       console.error('Error saving point:', error);
+      const errorMsg = error instanceof Error ? error.message : 'Erreur inconnue';
+      quickAction.setError(errorMsg);
       setStatus({ 
         type: 'error', 
-        message: `Erreur lors de la sauvegarde: ${error instanceof Error ? error.message : 'Erreur inconnue'}` 
+        message: `Erreur lors de la sauvegarde: ${errorMsg}` 
       });
     } finally {
       setIsSaving(false);
+      // Reset after a delay
+      setTimeout(() => quickAction.resetAction(), 3000);
     }
   };
 

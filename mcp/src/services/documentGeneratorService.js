@@ -5,7 +5,7 @@ import path from 'path';
 import os from 'os';
 import { fileURLToPath } from 'url';
 import logger from '../utils/logger.js';
-import config from '../utils/config.js';
+import config from '../config/index.js';
 import dataTransformerService from './dataTransformerService.js';
 import { PDFDocument } from 'pdf-lib';
 import { execa } from 'execa';
