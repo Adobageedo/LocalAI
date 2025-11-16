@@ -24,8 +24,8 @@ export const config = {
   // Document Configuration
   documents: {
     baseFolder: process.env.PDP_BASE_FOLDER || './data/pdp',
-    templateFolder: process.env.TEMPLATE_FOLDER || './templates',
-    defaultTemplate: 'test.docx',
+    templateFolder: process.env.TEMPLATE_FOLDER || './data/templates',
+    defaultTemplate: 'default_template.docx',
     annualBaseFolder: process.env.PDP_ANNUAL_BASE_FOLDER || './data/pdp_annual',
   },
 

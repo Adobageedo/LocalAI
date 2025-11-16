@@ -355,7 +355,7 @@ class DocumentGeneratorService {
     const fallbackBuffer = await fs.readFile(fallbackTemplatePath);
 
     logger.info('Fallback template loaded successfully', {
-      usedTemplate: 'template.docx',
+      usedTemplate: documents.defaultTemplate,
       size: fallbackBuffer.length,
     });
 
