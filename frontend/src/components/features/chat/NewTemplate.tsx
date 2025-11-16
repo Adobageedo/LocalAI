@@ -141,31 +141,34 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
       }
     }
     
-    // Only initialize if we don't have messages yet
+    // Initialize or reset conversation
+    // If coming from QuickAction, always start fresh with personalized message
+    if (quickActionKey) {
+      const actionConfig = QUICK_ACTIONS_DICTIONARY[quickActionKey];
+      if (actionConfig) {
+        setMessages([{
+          id: '1',
+          role: 'user',
+          content: actionConfig.userPrompt,
+          timestamp: new Date(),
+        }]);
+        // Clear localStorage for this conversation
+        // localStorage.removeItem(`chat_${conversationId}`);
+        return;
+      }
+    }
+    
+    // Only initialize if we don't have messages yet (for non-QuickAction flows)
     setMessages(prev => {
       if (prev.length > 1) {
         return prev; // Keep existing conversation
-      }
-      
-      // Initialize new conversation
-      // If coming from QuickAction, show user message instead of assistant greeting
-      if (quickActionKey) {
-        const actionConfig = QUICK_ACTIONS_DICTIONARY[quickActionKey];
-        if (actionConfig) {
-          return [{
-            id: '1',
-            role: 'user',
-            content: actionConfig.userPrompt,
-            timestamp: new Date(),
-          }];
-        }
       }
       
       // Default: assistant greeting
       return [{
         id: '1',
         role: 'assistant',
-        content: "Hello how can i help you",
+        content: "Bonjour, comment puis-je vous aider ?",
         timestamp: new Date(),
       }];
     });

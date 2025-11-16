@@ -102,7 +102,7 @@ IMPORTANT: Return a resume of what you have extracted as information to the user
     setStatus({ type: 'info', message: 'Extraction des données et génération du PDP en cours...' });
     
     // Start QuickAction with LLM and MCP
-    quickAction.startAction('generatePDP', true, true);
+    quickAction.startAction('createPDP', true, true);
 
     try {
       // Get attachments if available
