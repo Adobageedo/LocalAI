@@ -151,6 +151,31 @@ Requirements:
 IMPORTANT: If the user's instructions are vague or you need more information to write an appropriate email, ask specific questions like: "What is the main purpose of this email?" or "Who is the recipient?"`,
     icon: 'Sparkle',
     requiresEmail: false
+  },
+
+  // QuickAction buttons
+  savePoint: {
+    label: 'Sauvegarder point',
+    userPrompt: 'Extraction et sauvegarde des informations du point de l\'email en cours',
+    llmPrompt: `Extract and save key information from the email as a note/point.`,
+    icon: 'Save',
+    requiresEmail: true
+  },
+
+  createPDP: {
+    label: 'Générer PDP',
+    userPrompt: 'Génération du document PDP à partir de l\'email',
+    llmPrompt: `Generate a PDP (Prevention Plan) document from the email content.`,
+    icon: 'Document',
+    requiresEmail: true
+  },
+
+  notePoint: {
+    label: 'Sauvegarder point',
+    userPrompt: 'Extraction et sauvegarde des informations du point de l\'email en cours',
+    llmPrompt: `Extract and save key information from the email as a note/point.`,
+    icon: 'Save',
+    requiresEmail: true
   }
 };
 

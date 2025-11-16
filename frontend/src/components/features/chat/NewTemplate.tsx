@@ -76,6 +76,7 @@ interface TemplateChatInterfaceProps {
   conversationId: string;
   onTemplateUpdate: (newTemplate: string) => void;
   compose: boolean;
+  quickActionKey?: string | null; // QuickAction key to initialize with user message
   emailContext?: {
     subject?: string;
     from?: string;
@@ -92,6 +93,7 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
   conversationId,
   onTemplateUpdate,
   compose,
+  quickActionKey,
   emailContext,
   quickActions = [
     { actionKey: 'reply' },
@@ -149,6 +151,20 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
       }
       
       // Initialize new conversation
+      // If coming from QuickAction, show user message instead of assistant greeting
+      if (quickActionKey) {
+        const actionConfig = QUICK_ACTIONS_DICTIONARY[quickActionKey];
+        if (actionConfig) {
+          return [{
+            id: '1',
+            role: 'user',
+            content: actionConfig.userPrompt,
+            timestamp: new Date(),
+          }];
+        }
+      }
+      
+      // Default: assistant greeting
       return [{
         id: '1',
         role: 'assistant',
@@ -156,7 +172,7 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
         timestamp: new Date(),
       }];
     });
-  }, [conversationId]);
+  }, [conversationId, quickActionKey]);
   
   /** Update messages when QuickAction streams content */
   useEffect(() => {
