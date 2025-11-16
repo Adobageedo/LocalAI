@@ -24,19 +24,14 @@ export function useTemplateGeneration() {
   // Set conversation ID when email is ready
   useEffect(() => {
     if (!isOfficeReady) {
-      console.log('⏳ Office not ready yet...');
       return;
     }
 
     if (isLoadingEmail) {
-      console.log('📨 Waiting for email to finish loading...');
       return;
     }
 
     if (currentEmail) {
-      console.log('✅ Current email available:', currentEmail);
-
-      // Create a deterministic conversation ID
       const emailIdentifier =
         currentEmail.conversationId ||
         currentEmail.internetMessageId ||
@@ -44,9 +39,7 @@ export function useTemplateGeneration() {
         'email';
 
       setConversationId(emailIdentifier);
-      console.log('Conversation ID:', emailIdentifier);
     } else {
-      console.log('⚠️ No current email found');
       setConversationId(`random_${Date.now()}_${Math.random().toString(36).substring(7)}`);
     }
   }, [isOfficeReady, isLoadingEmail, currentEmail]);
@@ -57,7 +50,6 @@ export function useTemplateGeneration() {
       try {
         const attachmentsWithContent = await getAttachmentsWithContent();
         setAttachments(attachmentsWithContent);
-        console.log('📎 Attachments loaded:', attachmentsWithContent);
       } catch (error) {
         console.error('❌ Failed to load attachments:', error);
       }

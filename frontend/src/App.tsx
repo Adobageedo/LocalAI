@@ -3,8 +3,8 @@ import { initializeIcons } from '@fluentui/react/lib/Icons';
 import { AuthProvider } from './contexts/AuthContext';
 import { OfficeProvider } from './contexts/OfficeContext';
 import { useAuth } from './contexts/AuthContext';
-import { TemplateHub } from './components/features/email';
-import { EmailComposer } from './components/features/email';
+import EmailReaderPage from './pages/EmailReaderPage';
+import EmailComposerPage from './pages/EmailComposerPage';
 import { AuthSection } from './components/layout/Sidebar';
 import './App.css';
 
@@ -14,7 +14,7 @@ initializeIcons();
 function MainApp() {
   return (
     <div className="container">
-      <TemplateHub />
+      <EmailReaderPage />
     </div>
   );
 }
@@ -22,7 +22,7 @@ function MainApp() {
 function ComposerApp() {
   return (
     <div className="container">
-      <EmailComposer />
+      <EmailComposerPage />
     </div>
   );
 }
