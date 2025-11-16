@@ -156,7 +156,7 @@ IMPORTANT: If the user's instructions are vague or you need more information to 
   // QuickAction buttons
   savePoint: {
     label: 'Sauvegarder point',
-    userPrompt: 'Extraction et sauvegarde des informations du point de l\'email en cours',
+    userPrompt: 'Extrait les informations importantes de cet emails pour créer une note structurée avec date, parc éolien, type, topic, entreprise en bullet points.',
     llmPrompt: `Extract and save key information from the email as a note/point.`,
     icon: 'Save',
     requiresEmail: true
@@ -164,7 +164,7 @@ IMPORTANT: If the user's instructions are vague or you need more information to 
 
   createPDP: {
     label: 'Générer PDP',
-    userPrompt: 'Génération du document PDP à partir de l\'email',
+    userPrompt: 'Génère un Plan de Prévention en utilisant toutes les informations du mail et des pieces jointes.',
     llmPrompt: `Generate a PDP (Prevention Plan) document from the email content.`,
     icon: 'Document',
     requiresEmail: true
@@ -172,7 +172,7 @@ IMPORTANT: If the user's instructions are vague or you need more information to 
 
   notePoint: {
     label: 'Sauvegarder point',
-    userPrompt: 'Extraction et sauvegarde des informations du point de l\'email en cours',
+    userPrompt: 'Extrait les informations importantes de cet emails pour créer une note structurée avec date, parc éolien, type, topic, entreprise en bullet points.',
     llmPrompt: `Extract and save key information from the email as a note/point.`,
     icon: 'Save',
     requiresEmail: true
