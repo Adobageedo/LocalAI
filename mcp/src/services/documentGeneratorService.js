@@ -22,6 +22,7 @@ class DocumentGeneratorService {
     this.baseFolder = config.documents.baseFolder;
     this.templateFolder = config.documents.templateFolder;
     this.annualBaseFolder = config.documents.annualBaseFolder;
+    this.defaultTemplate = config.documents.defaultTemplate;
   }
 
   /**
@@ -323,9 +324,9 @@ class DocumentGeneratorService {
    * @param {string} templateName - Template filename
    * @returns {Promise<Buffer>} Template buffer
    */
-  async loadTemplate(templateName = config.documents.defaultTemplate) {
+  async loadTemplate(templateName = this.defaultTemplate) {
   const primaryTemplatePath = path.resolve(this.templateFolder, templateName);
-  const fallbackTemplatePath = path.resolve(this.templateFolder, 'template.docx');
+  const fallbackTemplatePath = path.resolve(this.templateFolder, this.defaultTemplate);
 
   logger.info('Loading template', {
     requestedTemplate: templateName,
@@ -355,7 +356,7 @@ class DocumentGeneratorService {
     const fallbackBuffer = await fs.readFile(fallbackTemplatePath);
 
     logger.info('Fallback template loaded successfully', {
-      usedTemplate: documents.defaultTemplate,
+      usedTemplate: this.defaultTemplate,
       size: fallbackBuffer.length,
     });
 
@@ -367,7 +368,7 @@ class DocumentGeneratorService {
     });
 
     throw new Error(
-      `No template could be loaded. Missing: ${templateName} and template.docx`
+      `No template could be loaded. Missing: ${templateName} and ${this.defaultTemplate} in ${this.templateFolder} and full path ${fallbackTemplatePath}`
     );
   }
 }
