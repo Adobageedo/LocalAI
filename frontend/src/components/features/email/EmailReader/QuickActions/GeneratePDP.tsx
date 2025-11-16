@@ -23,6 +23,7 @@ INSTRUCTIONS IMPORTANTES :
 - Si un PDF est marqué "[Scanned PDF - text extraction not possible]", utilise UNIQUEMENT les informations du filename
 - CHERCHE si un document "Analyse de Risques" ou "Risk Analysis" est mentionné ou présent
 - CHERCHE si un document "Mode Opératoire" ou "Operational Mode" est mentionné ou présent
+- Retourne a la fin un bilan, en format texte et non en JSON, des informations extraites et un bilan des formations de chaque intervenant avec la date d'expiration (ne donne pas d'information pour une catgorie si elle est nulle)
 
 Tu dois extraire les informations suivantes et les retourner sous forme de JSON valide :
 
@@ -88,7 +89,7 @@ Format attendu :
   "operational_mode": false
 }
 
-IMPORTANT: Return ONLY valid JSON, no markdown, no code blocks, no explanations.`;
+IMPORTANT: Return a resume of what you have extracted as information to the user.`;
   };
 
   const handleGeneratePDP = async () => {
@@ -187,14 +188,25 @@ ${attachments.length > 0 ? `\nATTACHMENTS:\n${attachments.map(att => `- ${att.na
           }
         }
       }
-
-      console.log('PDP Generation Response:', fullResponse);
-      quickAction.completeAction();
-      setStatus({ 
-        type: 'success', 
-        message: 'PDP généré avec succès! Vérifiez le dossier de sortie MCP.' 
-      });
-
+      
+      // Extract file path from response and trigger download
+      try {          
+        // Download the file
+        await downloadPDPFile();
+          
+        quickAction.completeAction();
+        setStatus({ 
+          type: 'success', 
+          message: 'PDP généré et téléchargé avec succès!' 
+        });
+      } catch (downloadError) {
+        console.error('Error downloading file:', downloadError);
+        quickAction.completeAction();
+        setStatus({ 
+          type: 'error', 
+          message: 'Erreur lors du téléchargement du PDP' 
+        });
+      }
     } catch (error) {
       console.error('Error generating PDP:', error);
       const errorMsg = error instanceof Error ? error.message : 'Erreur inconnue';
@@ -207,6 +219,36 @@ ${attachments.length > 0 ? `\nATTACHMENTS:\n${attachments.map(att => `- ${att.na
       setIsGenerating(false);
       // Reset after a delay
       setTimeout(() => quickAction.resetAction(), 3000);
+    }
+  };
+
+  const downloadPDPFile = async () => {
+    try {
+      const response = await fetch('/api/download-pdp', { method: 'GET' });
+
+      if (!response.ok) throw new Error(`Download failed: ${response.status} ${response.statusText}`);
+
+      const blob = await response.blob();
+
+      const disposition = response.headers.get('Content-Disposition');
+
+      let filename = disposition?.match(/filename\*\=UTF-8''(.+)/)?.[1] 
+        || disposition?.match(/filename="?(.+?)"?(\s|$|;)/)?.[1] 
+        || 'PDP_document.pdf';
+
+      filename = decodeURIComponent(filename);
+
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+
+    } catch (err) {
+      console.error('❌ Error downloading PDP file:', err);
     }
   };
 

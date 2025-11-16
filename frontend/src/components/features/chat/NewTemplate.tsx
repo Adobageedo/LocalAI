@@ -140,9 +140,6 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
         console.error('Erreur chargement conversation:', err);
       }
     }
-    else {
-      console.log('Conversation non trouvée');
-    }
     
     // Only initialize if we don't have messages yet
     setMessages(prev => {
@@ -222,9 +219,6 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
       ? `${buildUserPrompt(emailContext, currentMessage, compose)}`
       : currentMessage.trim();
       
-    console.log("Message from the user to llm initialcontent :",llmContent)
-    console.log("email context :",{emailContext})
-    
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
       role: 'user',
@@ -268,13 +262,11 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
             role: msg.role,
             content: llmContent
           });
-          console.log("Message from the user to llm llmContent :",llmContent)
         }else{
           conversationMessagesLLM.push({
             role: msg.role,
             content: msg.content
           });
-          console.log("Message from the user to llm message original :",msg.content)
         }
       });
     
@@ -287,7 +279,6 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
         : "gpt-4.1-nano-2025-04-14"; // default base model
 
 
-      console.log('Conversation :',conversationMessagesLLM)
       const response = await fetch(API_ENDPOINTS.PROMPT_LLM, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -391,7 +382,6 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
                       : m
                   );
                   localStorage.setItem(`chat_${conversationId}`, JSON.stringify(final));
-                  console.log('Final content:', finalContent);
                   return final;
                 });
                 onTemplateUpdate(finalContent);
