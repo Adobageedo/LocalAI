@@ -83,7 +83,7 @@ const GeneratePDP: React.FC = () => {
             },
             {
               role: 'user',
-              content: `Extrait les informations de cet email pour le parc éolien "${windfarmName}" et génère un PDP en utilisant l'outil generate_pdp_document:\n\n${emailContext}`
+              content: `Extrait les informations de cet email pour le parc éolien "${windfarmName}" et génère un PDP en utilisant l'outil generate_pdp_document et le modele "${windfarm.key}.docx":\n\n${emailContext}`
             }
           ]
         },
