@@ -16,11 +16,6 @@ const TemplateHubContent: React.FC = () => {
 
   // Auto-switch to Chat tab when QuickAction streaming starts
   useEffect(() => {
-    // if (quickAction.state.isActive && 
-    //     quickAction.state.status === 'streaming' && 
-    //     quickAction.state.usesLLM) {
-    //   setSelectedKey('chat');
-    // }
     if (quickAction.state.isActive && quickAction.state.usesLLM) {
       setSelectedKey('chat');
     }

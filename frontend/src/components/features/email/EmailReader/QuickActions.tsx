@@ -1,9 +1,7 @@
 import React from 'react';
 import { Stack, PrimaryButton, Text } from '@fluentui/react';
 import { theme } from '../../../../styles';
-import InfoPDP from './QuickActions/InfoPDP';
-import RequestInvoicePO from './QuickActions/RequestInvoicePO';
-import ProdInvoice from './QuickActions/ProdInvoice';
+import TemplateSelector from './QuickActions/TemplateSelector';
 import GeneratePDP from './QuickActions/GeneratePDP';
 import SavePoint from './QuickActions/SavePoint';
 import NewTemplate from '../../chat/NewTemplate';
@@ -22,12 +20,9 @@ const QuickActions: React.FC = () => {
   const actionsUsingLLM = ['createPDP', 'notePoint'];
   
   const actions = [
-    { key: 'infoPDP', label: 'Demander information PDP', component: <InfoPDP />, usesLLM: false },
-    { key: 'prodInvoice', label: 'Mail Facture Prod', component: <ProdInvoice />, usesLLM: false },
+    { key: 'templates', label: 'Templates Email', component: <TemplateSelector />, usesLLM: false },
     { key: 'createPDP', label: 'Generer PDP', component: <GeneratePDP />, usesLLM: true },
     { key: 'notePoint', label: 'Sauvegarder point', component: <SavePoint />, usesLLM: true },
-    { key: 'givePO', label: 'Donner PO', usesLLM: false },
-    { key: 'requestInvoicePO', label: 'Demander Facture avec PO', component: <RequestInvoicePO />, usesLLM: false },
   ];
   
   const showNewTemplate = quickActionContext.state.isActive && 
@@ -116,7 +111,7 @@ const QuickActions: React.FC = () => {
           }}
         >
           <NewTemplate
-            conversationId={`quickaction_${quickActionContext.state.actionKey}_${Date.now()}`}
+            conversationId={`quickaction_${quickActionContext.state.actionKey}`}
             onTemplateUpdate={(template) => {
               console.log('Template updated:', template);
             }}
