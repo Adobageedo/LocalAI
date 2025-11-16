@@ -1,30 +1,42 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Stack, Pivot, PivotItem } from '@fluentui/react';
 import { theme } from '../../../../styles';
 import TemplateGenerator from './TemplateGenerator';
 import QuickActions from './QuickActions';
 import { Header, Sidebar } from '../../../layout';
-import { QuickActionProvider } from '../../../../contexts/QuickActionContext';
+import { QuickActionProvider, useQuickAction } from '../../../../contexts/QuickActionContext';
 
 /**
- * TemplateHub - Intermediate layer between App and TemplateGenerator
- * Provides tab navigation between Chat and Quick Actions.
+ * Inner component that uses QuickAction context
  */
-const TemplateHub: React.FC = () => {
+const TemplateHubContent: React.FC = () => {
   const [selectedKey, setSelectedKey] = useState<string>('chat');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const quickAction = useQuickAction();
+
+  // Auto-switch to Chat tab when QuickAction streaming starts
+  useEffect(() => {
+    // if (quickAction.state.isActive && 
+    //     quickAction.state.status === 'streaming' && 
+    //     quickAction.state.usesLLM) {
+    //   setSelectedKey('chat');
+    // }
+    if (quickAction.state.isActive && quickAction.state.usesLLM) {
+      setSelectedKey('chat');
+    }
+
+  }, [quickAction.state.status, quickAction.state.isActive, quickAction.state.usesLLM]);
 
   return (
-    <QuickActionProvider>
-      <Stack
-        styles={{
-          root: {
-            height: '100vh',
-            width: '100%',
-            backgroundColor: theme.colors.white,
-          },
-        }}
-      >
+    <Stack
+      styles={{
+        root: {
+          height: '100vh',
+          width: '100%',
+          backgroundColor: theme.colors.white,
+        },
+      }}
+    >
           {/* Sidebar */}
           <Sidebar
             isOpen={sidebarOpen}
@@ -54,9 +66,20 @@ const TemplateHub: React.FC = () => {
         <PivotItem headerText="Quick Actions" itemKey="quick" />
       </Pivot>
 
-      {selectedKey === 'chat' && <TemplateGenerator />}
+      {selectedKey === 'chat' && <TemplateGenerator quickActionKey={quickAction.state.actionKey} />}
       {selectedKey === 'quick' && <QuickActions />}
       </Stack>
+  );
+};
+
+/**
+ * TemplateHub - Intermediate layer between App and TemplateGenerator
+ * Provides tab navigation between Chat and Quick Actions.
+ */
+const TemplateHub: React.FC = () => {
+  return (
+    <QuickActionProvider>
+      <TemplateHubContent />
     </QuickActionProvider>
   );
 };

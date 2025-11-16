@@ -5,11 +5,15 @@ import { ActionButtons, StatusMessages, LoadingIndicator } from '../../../common
 import { theme } from '../../../../styles';
 import TemplateChatInterface from '../../chat/NewTemplate';
 
+interface TemplateGeneratorProps {
+  quickActionKey?: string | null;
+}
+
 /**
  * Template Generator - Main container for email template generation
  * Modern, polished UI with theme system
  */
-const TemplateGenerator: React.FC = () => {  
+const TemplateGenerator: React.FC<TemplateGeneratorProps> = ({ quickActionKey }) => {  
   const {
     // User & context
     user,
@@ -93,6 +97,7 @@ const TemplateGenerator: React.FC = () => {
             conversationId={conversationId || Date.now().toString()}
             onTemplateUpdate={handleTemplateUpdate}
             compose={false}
+            quickActionKey={quickActionKey}
             emailContext={{
               subject: currentEmail?.subject,
               from: currentEmail?.from,
