@@ -20,11 +20,18 @@ export const STORAGE_KEYS = {
 // Windfarms Configuration
 export const WINDFARMS = [
   { key: 'unknown', text: 'Sélectionner un parc éolien', disabled: true },
-  { key: 'parc_alpha', text: 'Parc Alpha' },
-  { key: 'parc_beta', text: 'Parc Beta' },
-  { key: 'parc_gamma', text: 'Parc Gamma' },
-  { key: 'parc_delta', text: 'Parc Delta' },
-  { key: 'parc_epsilon', text: 'Parc Epsilon' },
+  { key: 'gati', text: 'Gatinais' },
+  { key: 'gat2', text: 'Gatinais 2' },
+  { key: 'foma', text: 'Fontaine Macon' },
+  { key: 'fom2', text: 'Fontaine Macon 2' },
+  { key: 'sage', text: 'Saint Germainmont' },
+  { key: 'sewa', text: 'Sevigny Waleppes' },
+  { key: 'vign', text: 'Les Vignes' },
+  { key: 'lham', text: 'Le Ham' },
+  { key: 'rull', text: 'Rully' },
+  { key: 'roy2', text: 'Roye 2' },
+  { key: 'yvig', text: 'Yvignac' },
+  { key: 'croi', text: 'Croix Benjamin' },
   { key: 'other', text: 'Autre' },
 ] as const;
 

@@ -1,13 +1,12 @@
 import React, { useState } from 'react';
 import { useOffice } from '../../../../../contexts/OfficeContext';
 import { 
-  PrimaryButton, 
+  DefaultButton,
+  IContextualMenuProps,
   Spinner, 
   SpinnerSize, 
   MessageBar, 
   MessageBarType,
-  Dropdown,
-  IDropdownOption,
   Stack
 } from '@fluentui/react';
 import { theme } from '../../../../../styles';
@@ -20,24 +19,26 @@ import {
   downloadPDPFile
 } from '../../../../../utils/quickActions';
 
+interface WindfarmOption {
+  key: string;
+  text: string;
+}
+
 const GeneratePDP: React.FC = () => {
   const { currentEmail } = useOffice();
   const [isGenerating, setIsGenerating] = useState(false);
   const [status, setStatus] = useState<{ type: 'success' | 'error' | 'info', message: string } | null>(null);
-  const [selectedWindfarm, setSelectedWindfarm] = useState<string>('unknown');
+  const [selectedWindfarm, setSelectedWindfarm] = useState<WindfarmOption | null>(null);
   const quickAction = useQuickAction();
 
 
-  const handleGeneratePDP = async () => {
+  const handleGeneratePDP = async (windfarm: WindfarmOption) => {
     if (!currentEmail) {
       setStatus({ type: 'error', message: 'Aucun email sélectionné' });
       return;
     }
 
-    if (selectedWindfarm === 'unknown') {
-      setStatus({ type: 'error', message: 'Veuillez sélectionner un parc éolien' });
-      return;
-    }
+    setSelectedWindfarm(windfarm);
 
     setIsGenerating(true);
     setStatus({ type: 'info', message: 'Extraction des données et génération du PDP en cours...' });
@@ -60,7 +61,7 @@ const GeneratePDP: React.FC = () => {
       );
 
       // Get windfarm name from selection
-      const windfarmName = WINDFARMS.find(wf => wf.key === selectedWindfarm)?.text || selectedWindfarm;
+      const windfarmName = windfarm.text;
 
       // Update status to using MCP
       quickAction.updateStatus('using_mcp', 'Utilisation de l\'outil MCP generate_pdp_document...');
@@ -158,38 +159,48 @@ const GeneratePDP: React.FC = () => {
     });
   };
 
-  const dropdownOptions: IDropdownOption[] = WINDFARMS.map(wf => ({
-    key: wf.key,
-    text: wf.text,
-    disabled: 'disabled' in wf ? wf.disabled : false,
-  }));
+  // Create menu items from windfarms (excluding the disabled placeholder)
+  const windfarmOptions = WINDFARMS.filter(wf => !('disabled' in wf && wf.disabled));
+  
+  const menuProps: IContextualMenuProps = {
+    items: windfarmOptions.map(wf => ({
+      key: wf.key,
+      text: wf.text,
+      onClick: () => {
+        handleGeneratePDP({ key: wf.key, text: wf.text });
+      },
+    })),
+  };
 
   return (
-    <Stack tokens={{ childrenGap: 12 }} styles={{ root: { width: 220 } }}>
-      <Dropdown
-        placeholder="Sélectionner un parc"
-        label="Parc éolien"
-        options={dropdownOptions}
-        selectedKey={selectedWindfarm}
-        onChange={(_, option) => option && setSelectedWindfarm(option.key as string)}
-        disabled={isGenerating}
-        styles={{
-          dropdown: { width: '100%' },
-          label: { fontWeight: 600, color: theme.colors.text },
-        }}
-      />
-      
-      <PrimaryButton
-        text="Générer PDP"
-        onClick={handleGeneratePDP}
-        disabled={!currentEmail || isGenerating || selectedWindfarm === 'unknown'}
+    <Stack tokens={{ childrenGap: 8 }} styles={{ root: { width: 220 } }}>
+      <DefaultButton
+        text={selectedWindfarm ? `PDP - ${selectedWindfarm.text}` : 'Générer PDP'}
+        menuProps={menuProps}
+        disabled={!currentEmail || isGenerating}
         styles={{
           root: {
-            width: '100%',
+            width: 220,
             height: 50,
             fontWeight: 600,
             borderRadius: theme.effects.roundedCorner2,
             boxShadow: theme.effects.elevation8,
+            backgroundColor: theme.colors.primary,
+            color: theme.colors.white,
+            border: 'none',
+            ':hover': {
+              backgroundColor: theme.colors.primaryDark,
+              color: theme.colors.white,
+            },
+            ':active': {
+              backgroundColor: theme.colors.primaryDark,
+            },
+          },
+          menuIcon: {
+            color: theme.colors.white,
+          },
+          label: {
+            fontWeight: 600,
           },
         }}
       />

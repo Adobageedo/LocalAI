@@ -135,7 +135,7 @@ const TemplateSelector: React.FC = () => {
 
   return (
     <DefaultButton
-      text={selectedTemplate ? selectedTemplate.text : 'Templates Email'}
+      text={selectedTemplate ? "Modele Email - " + selectedTemplate.text : 'Modele Email'}
       menuProps={menuProps}
       disabled={!currentEmail}
       styles={{
