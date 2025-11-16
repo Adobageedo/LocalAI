@@ -99,11 +99,16 @@ export function useTemplateGeneration() {
 
   // Start new conversation
   const handleNewTemplate = useCallback(() => {
+    // Clear current conversation from localStorage
+    if (conversationId) {
+      localStorage.removeItem(`chat_${conversationId}`);
+    }
+    
     setGeneratedTemplate('');
     setConversationId(Date.now().toString());
     setError('');
     setSuccess('');
-  }, []);
+  }, [conversationId]);
 
   // Update template from chat
   const handleTemplateUpdate = useCallback((newTemplate: string) => {
