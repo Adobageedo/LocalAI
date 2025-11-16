@@ -505,19 +505,16 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
           },
         }}
       >
-        <Text variant="medium" styles={{ root: { fontWeight: FontWeights.semibold } }}>
-          Assistant IA
-        </Text>
         <Stack horizontal tokens={{ childrenGap: 16 }}>
           <Toggle
-            label="RAG"
+            label="Utiliser emails"
             checked={useRag}
             onChange={(_, checked) => setUseRag(!!checked)}
             styles={{ root: { marginBottom: 0 } }}
             inlineLabel
           />
           <Toggle
-            label="Fine-tuned"
+            label="Utiliser mon style"
             checked={useFineTune}
             onChange={(_, checked) => setUseFineTune(!!checked)}
             styles={{ root: { marginBottom: 0 } }}
@@ -682,7 +679,6 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
       </Stack>      
       )}
 
-      {/* Input Area */}
       <Stack
         horizontal
         tokens={{ childrenGap: 8 }}

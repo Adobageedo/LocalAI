@@ -18,7 +18,7 @@ INSTRUCTIONS IMPORTANTES :
 - La date doit être au format YYYY-MM-DD (utilise la date de l'email si non spécifiée dans le contenu)
 - Le nom du parc éolien (windfarm) doit être extrait du sujet ou du corps de l'email
 - Le topic doit être un résumé court et précis (max 100 caractères)
-- Le comment doit contenir les détails importants de l'email
+- Le comment doit contenir les détails importants de l'email sous format bullet point, sois concis et exhaustif
 - Le type doit être l'une de ces catégories : "O&M", "operational", "invoice", "contract", "meeting", "incident", "maintenance", "other"
 - Le company doit être le nom de l'entreprise mentionnée (si applicable)
 
@@ -44,7 +44,7 @@ Tu dois retourner UNIQUEMENT un objet JSON valide avec cette structure :
   "date": "YYYY-MM-DD",
   "windfarm": "Nom du parc éolien",
   "topic": "Sujet court",
-  "comment": "Détails complets extraits de l'email",
+  "comment": "Détails complets extraits de l'email avec un format bullet point",
   "type": "O&M|operational|invoice|contract|meeting|incident|maintenance|other",
   "company": "Nom de l'entreprise (optionnel)"
 }
@@ -53,7 +53,8 @@ IMPORTANT:
 - Return ONLY valid JSON, no markdown, no code blocks, no explanations
 - Si tu ne trouves pas le nom du parc éolien, utilise "Unknown" pour windfarm
 - Si tu ne trouves pas la date, utilise la date du jour au format YYYY-MM-DD
-- Le type DOIT être l'une des valeurs listées ci-dessus`;
+- Le type DOIT être l'une des valeurs listées ci-dessus
+- Apres l'utilisation du tools, tu renverras un resume de ce que tu as extrait comme information a lutilisateur`;
   };
 
   const handleSavePoint = async () => {
