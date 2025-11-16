@@ -1,15 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { Stack, Pivot, PivotItem } from '@fluentui/react';
-import { theme } from '../../../../styles';
-import TemplateGenerator from './TemplateGenerator';
-import QuickActions from './QuickActions';
-import { Header, Sidebar } from '../../../layout';
-import { QuickActionProvider, useQuickAction } from '../../../../contexts/QuickActionContext';
+import { theme } from '../styles';
+import TemplateGenerator from '../components/features/email/EmailReader/TemplateGenerator';
+import QuickActions from '../components/features/email/EmailReader/QuickActions';
+import { Header, Sidebar } from '../components/layout';
+import { QuickActionProvider, useQuickAction } from '../contexts/QuickActionContext';
 
 /**
  * Inner component that uses QuickAction context
  */
-const TemplateHubContent: React.FC = () => {
+const EmailReaderPageContent: React.FC = () => {
   const [selectedKey, setSelectedKey] = useState<string>('chat');
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const quickAction = useQuickAction();
@@ -71,12 +71,12 @@ const TemplateHubContent: React.FC = () => {
  * TemplateHub - Intermediate layer between App and TemplateGenerator
  * Provides tab navigation between Chat and Quick Actions.
  */
-const TemplateHub: React.FC = () => {
+const EmailReaderPage: React.FC = () => {
   return (
     <QuickActionProvider>
-      <TemplateHubContent />
+      <EmailReaderPageContent />
     </QuickActionProvider>
   );
 };
 
-export default TemplateHub;
+export default EmailReaderPage;

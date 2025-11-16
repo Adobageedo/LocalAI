@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
 import { Stack } from '@fluentui/react';
-import { useEmailComposer } from '../../../../hooks';
-import { ActionButtons, StatusMessages, LoadingIndicator } from '../../../common';
-import { Header, Sidebar } from '../../../layout';
-import { theme } from '../../../../styles';
-import TemplateChatInterface from '../../chat/NewTemplate';
+import { useEmailComposer } from '../hooks';
+import { ActionButtons, StatusMessages, LoadingIndicator } from '../components/common';
+import { Header, Sidebar } from '../components/layout';
+import { theme } from '../styles';
+import TemplateChatInterface from '../components/features/chat/NewTemplate';
 
 /**
  * Email Composer - Main container for composing new emails
  * Modern, polished UI with theme system
  */
-const EmailComposer: React.FC = () => {
+const EmailComposerPage: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   
   const {
@@ -153,4 +153,4 @@ const EmailComposer: React.FC = () => {
   );
 };
 
-export default EmailComposer;
+export default EmailComposerPage;
