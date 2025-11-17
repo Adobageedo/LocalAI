@@ -13,15 +13,11 @@ import {
   SpinnerSize,
   IStackTokens,
   getTheme,
-  FontWeights,
   Icon,
-  ProgressIndicator,
 } from '@fluentui/react';
-import { Bot20Regular, Person20Regular, Sparkle20Regular } from '@fluentui/react-icons';
-import { authFetch } from '../../../utils/helpers';
 import { API_ENDPOINTS } from '../../../config/api';
 import { buildSystemPrompt, buildUserPrompt } from '../../../config/prompt';
-import { QUICK_ACTIONS_DICTIONARY, QuickActionConfig } from '../../../config/quickActions';
+import { QUICK_ACTIONS_DICTIONARY } from '../../../config/quickActions';
 import { Toggle } from '@fluentui/react';
 import { useQuickAction } from '../../../contexts/QuickActionContext';
 

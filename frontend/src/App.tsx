@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { initializeIcons } from '@fluentui/react/lib/Icons';
-import { AuthProvider } from './contexts/AuthContext';
-import { OfficeProvider } from './contexts/OfficeContext';
+import MainProvider from './contexts/MainContext';
 import { useAuth } from './contexts/AuthContext';
 import EmailReaderPage from './pages/EmailReaderPage';
 import EmailComposerPage from './pages/EmailComposerPage';
 import { AuthSection } from './components/layout/Sidebar';
+import { ErrorBoundary } from './components/common';
+import { validateEnvironment, logEnvironmentInfo } from './config/env';
+import { logger } from './services';
 import './App.css';
-import { QuickActionProvider } from './contexts/QuickActionContext';
 
 // Initialize Fluent UI icons
 initializeIcons();
@@ -65,14 +66,23 @@ function AppContent() {
 }
 
 function App() {
+  // Validate environment and log info on startup
+  useEffect(() => {
+    const validation = validateEnvironment();
+    if (!validation.isValid) {
+      logger.error('Environment validation failed', 'App', undefined, { errors: validation.errors });
+      validation.errors.forEach(error => console.error('❌', error));
+    }
+    
+    logEnvironmentInfo();
+  }, []);
+
   return (
-    <AuthProvider>
-      <OfficeProvider>
-        <QuickActionProvider>  
-          <AppContent />
-        </QuickActionProvider> 
-      </OfficeProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <MainProvider>
+        <AppContent />
+      </MainProvider>
+    </ErrorBoundary>
   );
 }
 
