@@ -1,13 +1,14 @@
-const path = require("path");
-const __dirname = path.dirname(new URL(import.meta.url).pathname);
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
-let mcpClient = null;
+// MCP is only available in local development
+const IS_LOCAL = false;//process.env.VERCEL !== '1' && process.env.NODE_ENV !== 'production';
 
-async function loadMcpModules() {
-  const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
-  const { StdioClientTransport } = await import("@modelcontextprotocol/sdk/client/stdio.js");
-  return { Client, StdioClientTransport };
-}
+// Configure your MCP server executable & env
+const mcpServerCommand = process.execPath || "node";
+// Use absolute path from environment variable or fallback
+const MCP_SERVER_PATH = process.env.MCP_SERVER_PATH || "/Users/edoardo/Documents/LocalAI/mcp/src/index.js";
+const mcpServerArgs = [MCP_SERVER_PATH];
 
 const mcpEnv = {
   RAG_API_URL: "http://localhost:8000",
@@ -19,6 +20,8 @@ const mcpEnv = {
   MCP_SERVER_NAME: "pdp-document-generator",
   MCP_SERVER_VERSION: "1.0.0",
 };
+
+let mcpClient: Client | null = null;
 
 /**
  * Convert MCP tool format to OpenAI tool format
@@ -36,13 +39,19 @@ function convertMcpToolsToOpenAI(mcpTools: any[]): any[] {
 
 /**
  * Initialize MCP client and return tools in OpenAI format
+ * Returns empty array in production (MCP not available in serverless)
  */
 export async function getMcpTools() {
-  const { Client, StdioClientTransport } = await loadMcpModules();
+  // MCP not available in production/Vercel
+  if (!IS_LOCAL) {
+    console.log("⚠️  MCP tools not available in production environment");
+    return [];
+  }
 
   if (mcpClient) {
     const toolList = await mcpClient.listTools();
-    return convertMcpToolsToOpenAI(toolList.tools);
+    const openAITools = convertMcpToolsToOpenAI(toolList.tools);
+    return openAITools;
   }
 
   const transport = new StdioClientTransport({
@@ -109,9 +118,3 @@ export async function shutdownMcp() {
     console.log("✅ MCP Client shutdown complete");
   }
 }
-
-module.exports = {
-  getMcpTools,
-  executeMcpTool,
-  shutdownMcp,
-};
