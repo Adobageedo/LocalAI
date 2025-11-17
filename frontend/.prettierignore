@@ -1,0 +1,17 @@
+# Dependencies
+node_modules
+
+# Production
+build
+dist
+
+# Misc
+.env
+.env.local
+.env.production
+coverage
+*.log
+
+# Lock files
+package-lock.json
+yarn.lock

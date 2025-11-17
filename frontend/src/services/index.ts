@@ -2,7 +2,7 @@
 
 // API Service Layer
 export * from './api';
-
+export * from './logger';
 // Legacy Services (kept for backward compatibility)
 export * from './composeService';
 export * from './userPreferencesService';

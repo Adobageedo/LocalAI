@@ -6,3 +6,4 @@
 export { ActionButtons } from './ActionButtons';
 export { StatusMessages } from './StatusMessages';
 export { LoadingIndicator } from './LoadingIndicator';
+export { default as ErrorBoundary } from './ErrorBoundary';
