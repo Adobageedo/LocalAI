@@ -118,7 +118,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let chunkNumber = 0;
 
     // Fetch MCP tools if enabled
-    const mcpTools = useMcpTools ? await getMcpTools() : undefined;
+    console.log("use mcp tool =",useMcpTools);
+    let mcpTools = null;
+    if (useMcpTools) {
+      // dynamic import — works in CommonJS, ESM, Vercel, Railway
+      const { getMcpTools } = await import("./utils/mcp.js");
+      mcpTools = await getMcpTools();
+    }
 
     // --- TWO-HOP FLOW: First non-streaming to detect tool calls ---
     if (mcpTools && mcpTools.length > 0) {
