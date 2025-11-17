@@ -1,12 +1,13 @@
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import path from "path";
+const path = require("path");
+const __dirname = path.dirname(new URL(import.meta.url).pathname);
 
-// Configure your MCP server executable & env
-// Use the exact Node binary running this process to avoid ENOENT in vercel dev
-const mcpServerCommand = process.execPath || "node";
-// Path to the MCP server - adjust relative to your project structure
-const mcpServerArgs = [path.resolve(__dirname, "../../../mcp/src/index.js")];
+let mcpClient = null;
+
+async function loadMcpModules() {
+  const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
+  const { StdioClientTransport } = await import("@modelcontextprotocol/sdk/client/stdio.js");
+  return { Client, StdioClientTransport };
+}
 
 const mcpEnv = {
   RAG_API_URL: "http://localhost:8000",
@@ -18,8 +19,6 @@ const mcpEnv = {
   MCP_SERVER_NAME: "pdp-document-generator",
   MCP_SERVER_VERSION: "1.0.0",
 };
-
-let mcpClient: Client | null = null;
 
 /**
  * Convert MCP tool format to OpenAI tool format
@@ -39,10 +38,11 @@ function convertMcpToolsToOpenAI(mcpTools: any[]): any[] {
  * Initialize MCP client and return tools in OpenAI format
  */
 export async function getMcpTools() {
+  const { Client, StdioClientTransport } = await loadMcpModules();
+
   if (mcpClient) {
     const toolList = await mcpClient.listTools();
-    const openAITools = convertMcpToolsToOpenAI(toolList.tools);
-    return openAITools;
+    return convertMcpToolsToOpenAI(toolList.tools);
   }
 
   const transport = new StdioClientTransport({
@@ -109,3 +109,9 @@ export async function shutdownMcp() {
     console.log("✅ MCP Client shutdown complete");
   }
 }
+
+module.exports = {
+  getMcpTools,
+  executeMcpTool,
+  shutdownMcp,
+};
