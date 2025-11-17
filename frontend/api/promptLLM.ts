@@ -1,6 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import llmClient, { ChatMessage, LLMRequest } from './utils/llmClient';
-import { getMcpTools } from "./utils/mcp";
 
 interface StreamRequest {
   prompt?: string;
@@ -51,7 +50,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       rag = false,
       ragCollection="edoardo",
       model = "gpt-4o-mini",
-      useMcpTools = true  // default to using MCP tools
+      useMcpTools = false  // default to using MCP tools
     } = req.body as StreamRequest;
 
     if (!messages && (!prompt || !prompt.trim())) {
