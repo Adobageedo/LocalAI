@@ -4,7 +4,7 @@ import { theme } from '../styles';
 import TemplateGenerator from '../components/features/email/EmailReader/TemplateGenerator';
 import QuickActions from '../components/features/email/EmailReader/QuickActions';
 import { Header, Sidebar } from '../components/layout';
-import { QuickActionProvider, useQuickAction } from '../contexts/QuickActionContext';
+import { useQuickAction } from '../contexts/QuickActionContext';
 
 /**
  * Inner component that uses QuickAction context
@@ -73,9 +73,7 @@ const EmailReaderPageContent: React.FC = () => {
  */
 const EmailReaderPage: React.FC = () => {
   return (
-    <QuickActionProvider>
       <EmailReaderPageContent />
-    </QuickActionProvider>
   );
 };
 

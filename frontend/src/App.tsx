@@ -7,6 +7,7 @@ import EmailReaderPage from './pages/EmailReaderPage';
 import EmailComposerPage from './pages/EmailComposerPage';
 import { AuthSection } from './components/layout/Sidebar';
 import './App.css';
+import { QuickActionProvider } from './contexts/QuickActionContext';
 
 // Initialize Fluent UI icons
 initializeIcons();
@@ -67,7 +68,9 @@ function App() {
   return (
     <AuthProvider>
       <OfficeProvider>
-        <AppContent />
+        <QuickActionProvider>  
+          <AppContent />
+        </QuickActionProvider> 
       </OfficeProvider>
     </AuthProvider>
   );
