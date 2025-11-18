@@ -121,6 +121,7 @@ class Logger {
     const prefix = entry.context ? `[${entry.context}]` : '';
     const timestamp = entry.timestamp.toISOString();
 
+    // eslint-disable-next-line no-console
     switch (entry.level) {
       case LogLevel.DEBUG:
         console.debug(`🐛 ${timestamp} ${prefix} ${entry.message}`, entry.data || '');
@@ -173,8 +174,8 @@ class Logger {
 // Export singleton instance
 export const logger = Logger.getInstance();
 
-// Export convenient functions
-export default {
+// Export convenient functions as named export
+const loggerHelpers = {
   debug: (message: string, context?: string, data?: any) => logger.debug(message, context, data),
   info: (message: string, context?: string, data?: any) => logger.info(message, context, data),
   warn: (message: string, context?: string, data?: any) => logger.warn(message, context, data),
@@ -184,3 +185,5 @@ export default {
   clearLogs: () => logger.clearLogs(),
   exportLogs: () => logger.exportLogs(),
 };
+
+export default loggerHelpers;

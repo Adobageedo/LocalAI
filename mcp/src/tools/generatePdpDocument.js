@@ -31,12 +31,12 @@ export async function handler(args) {
     data,
     templateName,
     surname,
-    mergeWithPDP = false,
+    mergeWithPDP = true,
     saveToFile = true,
   } = args;
 
   try {
-    logger.info('Generating PDP document', {
+    logger.debug('Generating PDP document', {
       pdpId,
       windfarmName,
       templateName,
@@ -44,7 +44,9 @@ export async function handler(args) {
       mergeWithPDP,
       saveToFile,
     });
-
+    if (!surname && templateName) {
+      surname = templateName.replace(/\.docx$/i, "");
+    }
     // Validate required parameters
     if (!pdpId || !windfarmName || !data) {
       throw new ToolExecutionError(
@@ -64,7 +66,7 @@ export async function handler(args) {
       saveToFile,
     });
 
-    logger.info('PDP document generated successfully', {
+    logger.debug('PDP document generated successfully', {
       pdpId,
       filePath: result.filePath,
       size: result.size,

@@ -46,9 +46,15 @@ const logger = winston.createLogger({
       level: 'error',
       maxsize: 5 * 1024 * 1024,
       maxFiles: 5,
+    }),
+    // 👉 Add this transport for info.log
+    new winston.transports.File({
+      filename: path.join(logsDir, 'info.log'),
+      level: 'info',
+      maxsize: 5 * 1024 * 1024,
+      maxFiles: 5,
     })
-  ]
-});
+  ]});
 
 //
 // 5. Optional console transport (TTY only)

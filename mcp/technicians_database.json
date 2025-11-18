@@ -1,0 +1,121 @@
+{
+  "technicians": [
+    {
+      "id": "elie_amour",
+      "first_name": "Elie",
+      "last_name": "Amour",
+      "phone": "06.44.34.06.88",
+      "email": "ea@supairvision.com",
+      "company": "Supairvision",
+      "certifications": [
+        {
+          "certification_type": "GWO",
+          "certification_name": "GWO Working at Heights",
+          "issue_date": "2023-05-15",
+          "expiry_date": "2025-05-15"
+        },
+        {
+          "certification_type": "H0B0",
+          "certification_name": "Habilitation Électrique H0B0",
+          "issue_date": null,
+          "expiry_date": "2025-12-31"
+        },
+        {
+          "certification_type": "First Aid",
+          "certification_name": "GWO First Aid",
+          "issue_date": null,
+          "expiry_date": null
+        }
+      ],
+      "created_at": "2025-11-18T13:49:33.516Z",
+      "updated_at": "2025-11-18T13:49:33.516Z",
+      "metadata": {}
+    },
+    {
+      "id": "alexis_franchomme",
+      "first_name": "Alexis",
+      "last_name": "Franchomme",
+      "phone": "06.65.33.11.59",
+      "email": "alexis.franchomme@dronevolt.com",
+      "company": "Supairvision",
+      "certifications": [
+        {
+          "certification_type": "IRATA",
+          "certification_name": "Attestation Aptitude télépilote DGAC S1.2 et 3",
+          "issue_date": null,
+          "expiry_date": null
+        }
+      ],
+      "created_at": "2025-11-18T13:49:33.516Z",
+      "updated_at": "2025-11-18T13:49:33.516Z",
+      "metadata": {}
+    },
+    {
+      "id": "rheese_nguyen",
+      "first_name": "Rheese",
+      "last_name": "Nguyen",
+      "phone": "07.69.61.69.99",
+      "email": "rn@supairvision.com",
+      "company": "Supairvision",
+      "certifications": [
+        {
+          "certification_type": "GWO",
+          "certification_name": "GWO Working at Heights",
+          "issue_date": null,
+          "expiry_date": null
+        },
+        {
+          "certification_type": "H0B0",
+          "certification_name": "Habilitation Électrique H0B0",
+          "issue_date": null,
+          "expiry_date": "2025-12-31"
+        },
+        {
+          "certification_type": "First Aid",
+          "certification_name": "GWO First Aid",
+          "issue_date": null,
+          "expiry_date": null
+        }
+      ],
+      "created_at": "2025-11-18T13:49:33.517Z",
+      "updated_at": "2025-11-18T13:49:33.517Z",
+      "metadata": {}
+    },
+    {
+      "id": "alexandre_zirn",
+      "first_name": "Alexandre",
+      "last_name": "Zirn",
+      "phone": "06.65.33.11.59",
+      "email": "az@supairvision.com",
+      "company": "Supairvision",
+      "certifications": [
+        {
+          "certification_type": "IRATA",
+          "certification_name": "Attestation Télépilote",
+          "issue_date": null,
+          "expiry_date": null
+        }
+      ],
+      "created_at": "2025-11-18T13:49:33.517Z",
+      "updated_at": "2025-11-18T13:49:33.517Z",
+      "metadata": {}
+    },
+    {
+      "id": "alain_temim",
+      "first_name": "Alain",
+      "last_name": "Temim",
+      "phone": "07 69 02 38 21",
+      "email": null,
+      "company": "RINCENT IDF NORD",
+      "certifications": [],
+      "created_at": "2025-11-18T16:27:26.035Z",
+      "updated_at": "2025-11-18T16:27:26.035Z",
+      "metadata": {}
+    }
+  ],
+  "metadata": {
+    "created": "2025-11-18T13:49:33.516Z",
+    "last_updated": "2025-11-18T16:27:26.035Z",
+    "version": "1.0.0"
+  }
+}

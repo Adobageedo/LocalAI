@@ -1,0 +1,41 @@
+# Railway Ignore File
+# Files and directories to exclude from deployment
+
+# Development
+node_modules/
+.env.local
+.env.development
+*.log
+
+# Build artifacts (will be rebuilt)
+build/
+
+# Testing
+coverage/
+.nyc_output/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+*.md
+!README.md
+
+# Vercel specific (not needed on Railway)
+.vercel/
+vercel.json
+
+# Source maps (optional - remove if you want them in production)
+# *.map

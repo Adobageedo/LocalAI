@@ -3,12 +3,12 @@
  * Centralized API call functions to avoid duplication
  */
 
-import { API_ENDPOINTS } from '../../config/api';
+import { llmService, ChatMessage } from '../../services/api';
 import { LLM_CONFIG } from '../../config/constants';
 
 export interface LLMRequestParams {
   prompt?: string;
-  messages?: Array<{ role: string; content: string }>;
+  messages?: ChatMessage[];
   systemPrompt?: string;
   maxTokens?: number;
   temperature?: number;
@@ -26,6 +26,7 @@ export interface LLMStreamResponse {
 
 /**
  * Call LLM API with streaming support
+ * Now uses the centralized llmService
  */
 export async function callLLMWithStreaming(
   params: LLMRequestParams,
@@ -33,61 +34,31 @@ export async function callLLMWithStreaming(
   onError: (error: Error) => void
 ): Promise<void> {
   try {
-    const response = await fetch(API_ENDPOINTS.PROMPT_LLM, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: params.model || LLM_CONFIG.DEFAULT_MODEL,
-        temperature: params.temperature || LLM_CONFIG.DEFAULT_TEMPERATURE,
-        maxTokens: params.maxTokens || LLM_CONFIG.DEFAULT_MAX_TOKENS,
-        ...params,
-      }),
-    });
+    const request = {
+      model: params.model || LLM_CONFIG.DEFAULT_MODEL,
+      temperature: params.temperature || LLM_CONFIG.DEFAULT_TEMPERATURE,
+      maxTokens: params.maxTokens || LLM_CONFIG.DEFAULT_MAX_TOKENS,
+      ...params,
+    };
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const reader = response.body?.getReader();
-    if (!reader) {
-      throw new Error('Response body is not readable');
-    }
-
-    const decoder = new TextDecoder();
-    let buffer = '';
-
-    while (true) {
-      const { done, value } = await reader.read();
-
-      if (done) {
-        break;
+    for await (const chunk of llmService.streamPrompt(request)) {
+      if (chunk.type === 'error') {
+        throw new Error(chunk.error || 'Stream error');
       }
 
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || '';
+      if (chunk.type === 'chunk' && chunk.delta) {
+        onChunk({
+          content: chunk.delta,
+          done: false,
+        });
+      }
 
-      for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const data = line.slice(6);
-          if (data === '[DONE]') {
-            onChunk({ content: '', done: true });
-            return;
-          }
-
-          try {
-            const parsed = JSON.parse(data);
-            onChunk({
-              content: parsed.content || '',
-              done: false,
-              toolCalls: parsed.toolCalls,
-            });
-          } catch (e) {
-            console.error('Error parsing SSE data:', e);
-          }
-        }
+      if (chunk.type === 'done') {
+        onChunk({
+          content: '',
+          done: true,
+        });
+        return;
       }
     }
   } catch (error) {

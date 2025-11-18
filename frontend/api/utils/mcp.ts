@@ -1,9 +1,5 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import path from "path";
-
-// MCP is only available in local development
-const IS_LOCAL = false;//process.env.VERCEL !== '1' && process.env.NODE_ENV !== 'production';
 
 // Configure your MCP server executable & env
 const mcpServerCommand = process.execPath || "node";
@@ -44,11 +40,6 @@ function convertMcpToolsToOpenAI(mcpTools: any[]): any[] {
  */
 export async function getMcpTools() {
   // MCP not available in production/Vercel
-  if (!IS_LOCAL) {
-    console.log("⚠️  MCP tools not available in production environment");
-    return [];
-  }
-
   if (mcpClient) {
     const toolList = await mcpClient.listTools();
     const openAITools = convertMcpToolsToOpenAI(toolList.tools);

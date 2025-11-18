@@ -6,7 +6,7 @@
 // Base API URL - can be overridden by environment variable
 // HTTPS required for Outlook add-ins
 // For Vercel deployment: will be https://your-app.vercel.app/api
-export const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || '/api';
+export const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'https://easier-snappily-ansley.ngrok-free.dev/api';
 
 // API Endpoints
 export const API_ENDPOINTS = {

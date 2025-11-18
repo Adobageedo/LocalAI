@@ -4,6 +4,8 @@ import MainProvider from './contexts/MainContext';
 import { useAuth } from './contexts/AuthContext';
 import EmailReaderPage from './pages/EmailReaderPage';
 import EmailComposerPage from './pages/EmailComposerPage';
+import Technicians from './pages/Technicians';
+import Records from './pages/Records';
 import { AuthSection } from './components/layout/Sidebar';
 import { ErrorBoundary } from './components/common';
 import { validateEnvironment, logEnvironmentInfo } from './config/env';
@@ -37,8 +39,9 @@ function AppContent() {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const modeParam = urlParams.get('mode');
-    
-    if (modeParam === 'compose' || modeParam === 'read') {
+    // Only respect compose/read via query param
+    const validModes = ['compose', 'read'];
+    if (modeParam && validModes.includes(modeParam)) {
       setMode(modeParam);
     } else {
       // Default to 'read' if no valid mode parameter
@@ -57,10 +60,21 @@ function AppContent() {
     );
   }
 
-  // When authenticated, show the appropriate app based on URL mode parameter
+  // When authenticated, choose page by pathname (for technicians/records) or mode (read/compose)
+  const renderPage = () => {
+    const path = window.location.pathname;
+    if (path === '/technicians') {
+      return <div className="container"><Technicians /></div>;
+    }
+    if (path === '/records') {
+      return <div className="container"><Records /></div>;
+    }
+    return mode === 'compose' ? <ComposerApp /> : <MainApp />;
+  };
+
   return (
     <div className="App">
-      {mode === 'compose' ? <ComposerApp /> : <MainApp />}
+      {renderPage()}
     </div>
   );
 }
