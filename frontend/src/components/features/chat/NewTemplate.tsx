@@ -14,6 +14,7 @@ import {
   IStackTokens,
   getTheme,
   Icon,
+  FontWeights,
 } from '@fluentui/react';
 import { buildSystemPrompt, buildUserPrompt } from '../../../config/prompt';
 import { QUICK_ACTIONS_DICTIONARY } from '../../../config/quickActions';
@@ -117,10 +118,15 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
   const [lastClickedButton, setLastClickedButton] = useState<string | null>(null);
   const [useRag, setUseRag] = useState(false);
   const [useFineTune, setUseFineTune] = useState(false);
+  const [includeAttachments, setIncludeAttachments] = useState(true);
   const quickActionContext = useQuickAction();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const theme = getTheme();
   const stackTokens: IStackTokens = { childrenGap: 16 };
+
+  // Check if email has attachments
+  const hasAttachments = emailContext?.attachments && emailContext.attachments.length > 0;
 
   /** Charger la conversation si elle existe */
   useEffect(() => {
@@ -200,11 +206,9 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
     }
   }, [quickActionContext.state.streamedContent, quickActionContext.state.isActive]);
 
-  /** Auto scroll vers le bas */
+  /** Auto scroll vers le bas with smooth behavior */
   useEffect(() => {
-    if (scrollableRef.current) {
-      scrollableRef.current.scrollTop = scrollableRef.current.scrollHeight;
-    }
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   /** Envoi du message utilisateur avec streaming */
@@ -213,9 +217,14 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
 
     const isFirstMessage = messages.length === 1;
 
+    // Build email context with or without attachments based on toggle
+    const contextToUse = includeAttachments 
+      ? emailContext 
+      : { ...emailContext, attachments: undefined };
+
     // ✅ If it's the first message, append email context to user's message
     const llmContent = isFirstMessage 
-      ? `${buildUserPrompt(emailContext, currentMessage, compose)}`
+      ? `${buildUserPrompt(contextToUse, currentMessage, compose)}`
       : currentMessage.trim();
       
     const userMessage: ChatMessage = {
@@ -248,10 +257,10 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
       // Build proper conversation messages array with system context
       const conversationMessagesLLM: Array<{role: 'system' | 'user' | 'assistant', content: string}> = [];
 
-      // Build system message with context and active quick action
+      // Build system message with context (including/excluding attachments based on toggle)
       conversationMessagesLLM.push({
         role: 'system',
-        content: buildSystemPrompt()
+        content: buildSystemPrompt(contextToUse)
       });
 
       // Add all conversation history (user and assistant messages)
@@ -502,6 +511,21 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
             styles={{ root: { marginBottom: 0 } }}
             inlineLabel
           />
+          {hasAttachments && (
+            <Toggle
+              label={`📎 Pièces jointes (${emailContext.attachments!.length})`}
+              checked={includeAttachments}
+              onChange={(_, checked) => setIncludeAttachments(!!checked)}
+              styles={{
+                root: { marginBottom: 0 },
+                label: {
+                  fontWeight: 600,
+                  color: includeAttachments ? theme.palette.themePrimary : theme.palette.neutralSecondary,
+                },
+              }}
+              inlineLabel
+            />
+          )}
         </Stack>
       </Stack>
 
@@ -539,42 +563,48 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
       )}
 
       {/* Zone messages */}
-      <div ref={scrollableRef} style={{ flex: 1, overflowY: 'auto', padding: 16, backgroundColor: '#fafafa' }}>
+      <div ref={scrollableRef} style={{ flex: 1, overflowY: 'auto', padding: 20, backgroundColor: '#f5f5f5' }}>
         {messages.map((m, msgIndex) => {
           // Find the last assistant message index
           const lastAssistantIndex = messages.map((msg, idx) => msg.role === 'assistant' ? idx : -1).filter(idx => idx !== -1).pop();
           const isLastAssistant = m.role === 'assistant' && msgIndex === lastAssistantIndex;
           
           return (
-          <div key={m.id} style={{ marginBottom: 12, textAlign: m.role === 'user' ? 'right' : 'left' }}>
+          <div key={m.id} style={{ marginBottom: 16, display: 'flex', flexDirection: m.role === 'user' ? 'row-reverse' : 'row', alignItems: 'flex-end', animation: 'fadeIn 0.3s ease-in' }}>
             <div
               style={{
-                display: 'inline-flex',          // change from inline-block to inline-flex
-                alignItems: 'center',            // vertical centering
-                justifyContent: 'center',        // horizontal centering
-                background: m.role === 'user' ? theme.palette.themePrimary : theme.palette.white,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: m.role === 'user' ? `linear-gradient(135deg, ${theme.palette.themePrimary} 0%, ${theme.palette.themeDark} 100%)` : theme.palette.white,
                 color: m.role === 'user' ? 'white' : theme.palette.neutralPrimary,
-                padding: '10px 14px',
-                borderRadius: 12,
-                maxWidth: '80%',
-                boxShadow: '0 1px 4px rgba(0,0,0,0.1)',
+                padding: '12px 16px',
+                borderRadius: m.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                maxWidth: '75%',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                marginLeft: m.role === 'assistant' ? 8 : 0,
+                marginRight: m.role === 'user' ? 8 : 0,
               }}
             >
-              {/* Show loading animation for empty assistant messages */}
+              {/* Show typing animation for empty assistant messages */}
               {!m.content && isLoading && m.role === 'assistant' ? (
-                <Stack horizontal tokens={{ childrenGap: 4 }} verticalAlign="center">
-                  <Spinner size={SpinnerSize.small} />
+                <Stack horizontal tokens={{ childrenGap: 8 }} verticalAlign="center">
+                  <div className="typing-indicator">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
                   <Text variant="small" styles={{ root: { color: theme.palette.neutralSecondary } }}>
-                    Génération en cours
+                    En train d'écrire
                   </Text>
                 </Stack>
               ) : (
                 <Text
-                  variant="small"
-                  style={{ color: m.role === 'user' ? 'white' : theme.palette.neutralPrimary, whiteSpace: 'pre-wrap' }}
+                  variant="medium"
+                  style={{ color: m.role === 'user' ? 'white' : theme.palette.neutralPrimary, whiteSpace: 'pre-wrap', lineHeight: 1.6 }}
                 >
                   {m.content}
-                  {isLoading && m.role === 'assistant' && m.content && ' ▌'}
+                  {isLoading && m.role === 'assistant' && m.content && <span className="cursor-blink">|</span>}
                 </Text>
               )}
             </div>
@@ -615,12 +645,20 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
                       }}
                       styles={{ 
                         root: { 
-                          borderRadius: 8,
+                          borderRadius: 16,
                           fontSize: 12,
-                          padding: '4px 12px',
+                          padding: '6px 14px',
                           height: 'auto',
-                          minHeight: 28,
-                          backgroundColor: lastClickedButton === buttonKey ? theme.palette.themeLighter : undefined
+                          minHeight: 32,
+                          border: `1px solid ${theme.palette.neutralLight}`,
+                          backgroundColor: lastClickedButton === buttonKey ? theme.palette.themeLighter : theme.palette.white,
+                          boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+                          transition: 'all 0.2s ease',
+                          ':hover': {
+                            backgroundColor: theme.palette.themeLighter,
+                            transform: 'translateY(-1px)',
+                            boxShadow: '0 2px 6px rgba(0,0,0,0.12)',
+                          },
                         } 
                       }}
                     />
@@ -637,6 +675,7 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
             <Spinner size={SpinnerSize.small} label="Réflexion en cours..." />
           </div>
         )}
+        <div ref={messagesEndRef} />
       </div>
 
       {/* Boutons actions rapides si nouvelle conversation */}
@@ -690,10 +729,77 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
             root: {
               minWidth: 100,
               height: 40,
+              borderRadius: 20,
+              fontWeight: 600,
+              transition: 'all 0.2s ease',
+              ':hover': {
+                transform: 'scale(1.05)',
+              },
             },
           }}
         />
       </Stack>
+      
+      {/* CSS Animations */}
+      <style>{`
+        @keyframes fadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .cursor-blink {
+          animation: blink 1s step-end infinite;
+          margin-left: 2px;
+        }
+
+        @keyframes blink {
+          from, to {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0;
+          }
+        }
+
+        .typing-indicator {
+          display: flex;
+          gap: 4px;
+          align-items: center;
+        }
+
+        .typing-indicator span {
+          width: 8px;
+          height: 8px;
+          border-radius: 50%;
+          background-color: ${theme.palette.neutralSecondary};
+          animation: typing 1.4s infinite;
+        }
+
+        .typing-indicator span:nth-child(2) {
+          animation-delay: 0.2s;
+        }
+
+        .typing-indicator span:nth-child(3) {
+          animation-delay: 0.4s;
+        }
+
+        @keyframes typing {
+          0%, 60%, 100% {
+            transform: translateY(0);
+            opacity: 0.7;
+          }
+          30% {
+            transform: translateY(-10px);
+            opacity: 1;
+          }
+        }
+      `}</style>
     </Stack>
   );
 };
