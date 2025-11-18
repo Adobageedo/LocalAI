@@ -7,7 +7,7 @@
   "installCommand": "cd frontend && npm install",
   "framework": null,
   "env": {
-    "REACT_APP_API_BASE_URL": "http://localhost:8000" 
+    "REACT_APP_API_BASE_URL": "https://easier-snappily-ansley.ngrok-free.dev/api" 
   },
   "rewrites": []
 }
