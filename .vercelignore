@@ -3,7 +3,7 @@ backend/
 docs/
 tests/
 *.md
-!frontend/
+!frontend/**
 
 # Ignore common files
 .git/
