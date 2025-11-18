@@ -15,11 +15,11 @@ import {
   getTheme,
   Icon,
 } from '@fluentui/react';
-import { API_ENDPOINTS } from '../../../config/api';
 import { buildSystemPrompt, buildUserPrompt } from '../../../config/prompt';
 import { QUICK_ACTIONS_DICTIONARY } from '../../../config/quickActions';
 import { Toggle } from '@fluentui/react';
 import { useQuickAction } from '../../../contexts/QuickActionContext';
+import { llmService } from '../../../services/api';
 
 interface SuggestedButton {
   label: string;
@@ -277,41 +277,23 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
         ? "ft:gpt-4.1-nano-2025-04-14:personal::CZcTZYzO" // <-- replace with your fine-tuned model
         : "gpt-4.1-nano-2025-04-14"; // default base model
 
-
-      const response = await fetch(API_ENDPOINTS.PROMPT_LLM, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          prompt,
-          messages: conversationMessagesLLM,
-          maxTokens: 800,
-          temperature: 0.7,
-          rag: useRag,   // <-- pass RAG flag
-          model: modelToUse
-        }),
-      });
-
-      if (!response.ok) throw new Error(`API failed: ${response.status}`);
-      if (!response.body) throw new Error('No response body');
-
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
+      // Use llmService for streaming
       let accumulatedText = '';
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n');
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6));
-              
-              if (data.type === 'chunk' && data.delta) {
-                accumulatedText += data.delta;
+      for await (const chunk of llmService.streamPrompt({
+        prompt,
+        messages: conversationMessagesLLM,
+        maxTokens: 800,
+        temperature: 0.7,
+        rag: useRag,
+        model: modelToUse
+      })) {
+        if (chunk.type === 'error') {
+          throw new Error(chunk.error || 'Stream error');
+        }
+        
+        if (chunk.type === 'chunk' && chunk.delta) {
+          accumulatedText += chunk.delta;
                 
                 // Try to extract just the response text during streaming
                 let displayText = accumulatedText;
@@ -348,49 +330,44 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
                   console.warn('Failed to extract response during streaming:', e);
                 }
                 
-                // Update assistant message in real-time
-                setMessages(prev => 
-                  prev.map(m => 
-                    m.id === aiMessageId 
-                      ? { ...m, content: displayText }
-                      : m
-                  )
-                );
-              } else if (data.type === 'done') {
-                // Parse JSON response to extract buttons
-                let finalContent = accumulatedText;
-                let suggestedButtons: SuggestedButton[] | undefined = undefined;
-                
-                try {
-                  // Try to parse as JSON
-                  const jsonResponse = JSON.parse(accumulatedText);
-                  if (jsonResponse.response && jsonResponse.buttons) {
-                    finalContent = jsonResponse.response;
-                    suggestedButtons = jsonResponse.buttons;
-                  }
-                } catch (e) {
-                  // If not JSON, use text as-is
-                  console.log('Response is not JSON, using as plain text');
-                }
-                
-                // Finalize and save
-                setMessages(prev => {
-                  const final = prev.map(m => 
-                    m.id === aiMessageId 
-                      ? { ...m, content: finalContent, suggestedButtons }
-                      : m
-                  );
-                  localStorage.setItem(`chat_${conversationId}`, JSON.stringify(final));
-                  return final;
-                });
-                onTemplateUpdate(finalContent);
-              } else if (data.type === 'error') {
-                throw new Error(data.error || 'Stream error');
-              }
-            } catch (e) {
-              console.warn('Failed to parse SSE data:', e);
+          // Update assistant message in real-time
+          setMessages(prev => 
+            prev.map(m => 
+              m.id === aiMessageId 
+                ? { ...m, content: displayText }
+                : m
+            )
+          );
+        }
+        
+        if (chunk.type === 'done') {
+          // Parse JSON response to extract buttons
+          let finalContent = accumulatedText;
+          let suggestedButtons: SuggestedButton[] | undefined = undefined;
+          
+          try {
+            // Try to parse as JSON
+            const jsonResponse = JSON.parse(accumulatedText);
+            if (jsonResponse.response && jsonResponse.buttons) {
+              finalContent = jsonResponse.response;
+              suggestedButtons = jsonResponse.buttons;
             }
+          } catch (e) {
+            // If not JSON, use text as-is
+            console.log('Response is not JSON, using as plain text');
           }
+          
+          // Finalize and save
+          setMessages(prev => {
+            const final = prev.map(m => 
+              m.id === aiMessageId 
+                ? { ...m, content: finalContent, suggestedButtons }
+                : m
+            );
+            localStorage.setItem(`chat_${conversationId}`, JSON.stringify(final));
+            return final;
+          });
+          onTemplateUpdate(finalContent);
         }
       }
     } catch (err: any) {

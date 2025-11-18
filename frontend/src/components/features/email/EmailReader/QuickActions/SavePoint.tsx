@@ -3,6 +3,7 @@ import { useOffice } from '../../../../../contexts/OfficeContext';
 import { PrimaryButton, Spinner, SpinnerSize, MessageBar, MessageBarType } from '@fluentui/react';
 import { theme } from '../../../../../styles';
 import { useQuickAction } from '../../../../../contexts/QuickActionContext';
+import { llmService } from '../../../../../services/api';
 
 const SavePoint: React.FC = () => {
   const { currentEmail } = useOffice();
@@ -85,68 +86,39 @@ ${currentEmail.fullConversation ? `\nFULL CONVERSATION:\n${currentEmail.fullConv
       // Update status to using MCP
       quickAction.updateStatus('using_mcp', 'Utilisation de l\'outil MCP save_note...');
       
-      // Call the API with MCP tools enabled
-      const response = await fetch('/api/promptLLM', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          model: 'gpt-4o-mini',
-          temperature: 0.2,
-          maxTokens: 1000,
-          useMcpTools: true,
-          messages: [
-            {
-              role: 'system',
-              content: buildExtractionPrompt()
-            },
-            {
-              role: 'user',
-              content: `Extrait les informations de cet email et sauvegarde la note en utilisant l'outil save_note:\n\n${emailContext}`
-            }
-          ]
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`Erreur API: ${response.status} ${response.statusText}`);
-      }
-      
       // Update status to streaming
       quickAction.updateStatus('streaming', 'Sauvegarde de la note...');
 
-      // Read the SSE stream
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
       let fullResponse = '';
 
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          const chunk = decoder.decode(value);
-          const lines = chunk.split('\n');
-
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              try {
-                const data = JSON.parse(line.slice(6));
-                
-                if (data.type === 'chunk' && data.delta) {
-                  fullResponse += data.delta;
-                  quickAction.updateStreamedContent(fullResponse);
-                } else if (data.type === 'done') {
-                  fullResponse = data.fullText || fullResponse;
-                } else if (data.type === 'error') {
-                  throw new Error(data.error);
-                }
-              } catch (parseError) {
-                console.error('Error parsing SSE:', parseError);
-              }
-            }
+      // Use llmService for streaming
+      for await (const chunk of llmService.streamPrompt({
+        model: 'gpt-4o-mini',
+        temperature: 0.2,
+        maxTokens: 1000,
+        useMcpTools: true,
+        messages: [
+          {
+            role: 'system',
+            content: buildExtractionPrompt()
+          },
+          {
+            role: 'user',
+            content: `Extrait les informations de cet email et sauvegarde la note en utilisant l'outil save_note:\n\n${emailContext}`
           }
+        ]
+      })) {
+        if (chunk.type === 'error') {
+          throw new Error(chunk.error || 'Stream error');
+        }
+        
+        if (chunk.type === 'chunk' && chunk.delta) {
+          fullResponse += chunk.delta;
+          quickAction.updateStreamedContent(fullResponse);
+        }
+        
+        if (chunk.type === 'done') {
+          fullResponse = chunk.fullText || fullResponse;
         }
       }
 

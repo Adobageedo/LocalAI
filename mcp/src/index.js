@@ -214,21 +214,21 @@ class MCPServer {
     try {
       // Validate configuration
       validateConfig();
-      logger.info('Configuration validated');
+      logger.debug('Configuration validated');
 
       // Check RAG API health
       const ragHealthy = await ragService.healthCheck();
       if (!ragHealthy) {
         logger.warn('RAG API health check failed, but continuing startup');
       } else {
-        logger.info('RAG API health check passed');
+        logger.debug('RAG API health check passed');
       }
 
       // Connect server with stdio transport
       const transport = new StdioServerTransport();
       await this.server.connect(transport);
 
-      logger.info('MCP Server started successfully', {
+      logger.debug('MCP Server started successfully', {
         name: config.server.name,
         version: config.server.version,
         toolCount: TOOL_REGISTRY.length,

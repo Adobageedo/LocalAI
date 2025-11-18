@@ -10,6 +10,7 @@ import dataTransformerService from './dataTransformerService.js';
 import { PDFDocument } from 'pdf-lib';
 import { execa } from 'execa';
 import JsonDatabase from './dbService.js';
+import technicianDbService from './technicianDbService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -32,7 +33,7 @@ class DocumentGeneratorService {
    * @returns {Promise<Buffer>} Generated document buffer
    */
   async generateDocument(templateBuffer, data) {
-    logger.info('Generating document from template', {
+    logger.debug('Generating document from template', {
       dataKeys: Object.keys(data),
       templateSize: templateBuffer.length,
     });
@@ -58,7 +59,7 @@ class DocumentGeneratorService {
         compression: 'DEFLATE',
       });
 
-      logger.info('Document generated successfully', {
+      logger.debug('Document generated successfully', {
         outputSize: buffer.length,
       });
 
@@ -104,7 +105,7 @@ class DocumentGeneratorService {
       const pdfPath = path.join(outDir, `${base}.pdf`);
       // Ensure file exists
       await fs.access(pdfPath);
-      logger.info('DOCX converted to PDF', { pdfPath });
+      logger.debug('DOCX converted to PDF', { pdfPath });
       return pdfPath;
     } catch (error) {
       throw new Error(`DOCX->PDF conversion failed: ${error.message}`);
@@ -152,32 +153,31 @@ class DocumentGeneratorService {
   }
 
   /**
-   * Save (upsert) worker data directly into the JSON database (no Python call)
-   * @param {Object} workerData - Worker data in JSON format
-   * @param {string} dbPath - Path to database file (default: database.json)
-   * @returns {Promise<boolean>} Success status
+   * Save technician to the technician database
+   * Uses the new dedicated technician database service
+   * @param {Object} technicianData - Technician data with certifications
+   * @returns {Promise<Object>} Result with action and technician
    */
-  async saveWorkerToDatabase(workerData, dbPath = 'database.json') {
+  async saveTechnicianToDatabase(technicianData) {
     try {
-      const projectRoot = path.resolve(__dirname, '../..');
-      const absoluteDbPath = path.isAbsolute(dbPath)
-        ? dbPath
-        : path.join(projectRoot, dbPath);
-
-      const db = new JsonDatabase(path.dirname(absoluteDbPath), path.basename(absoluteDbPath));
-      await db.load();
-      const res = await db.upsertWorker(workerData);
-      await db.save();
-
-      logger.info('Worker saved using JsonDatabase', {
-        dbPath: absoluteDbPath,
-        action: res.action,
-        index: res.index,
+      const result = await technicianDbService.upsertTechnician(technicianData);
+      
+      logger.info('Technician saved to database', {
+        action: result.action,
+        name: `${result.technician.first_name} ${result.technician.last_name}`,
+        certificationsCount: result.technician.certifications.length
       });
-      return true;
+      
+      return result;
     } catch (error) {
-      logger.error('Failed to save worker to database', { error: error.message });
-      return false;
+      logger.error('Failed to save technician to database', {
+        error: error.message,
+        technician: {
+          first_name: technicianData?.first_name,
+          last_name: technicianData?.last_name
+        }
+      });
+      throw error;
     }
   }
 
@@ -293,7 +293,7 @@ class DocumentGeneratorService {
     const filename = `PDP_${sanitizedPdpId}_${sanitizedWindfarm}_${timestamp}.docx`;
     const filePath = path.join(folderPath, filename);
 
-    logger.info('Saving generated document', {
+    logger.debug('Saving generated document', {
       pdpId,
       windfarmName,
       folderPath,
@@ -303,7 +303,7 @@ class DocumentGeneratorService {
     try {
       await fs.writeFile(filePath, documentBuffer);
 
-      logger.info('Document saved successfully', {
+      logger.debug('Document saved successfully', {
         path: filePath,
         size: documentBuffer.length,
       });
@@ -325,53 +325,53 @@ class DocumentGeneratorService {
    * @returns {Promise<Buffer>} Template buffer
    */
   async loadTemplate(templateName = this.defaultTemplate) {
-  const primaryTemplatePath = path.resolve(this.templateFolder, templateName);
-  const fallbackTemplatePath = path.resolve(this.templateFolder, this.defaultTemplate);
+    const primaryTemplatePath = path.resolve(this.templateFolder, templateName);
+    const fallbackTemplatePath = path.resolve(this.templateFolder, this.defaultTemplate);
 
-  logger.info('Loading template', {
-    requestedTemplate: templateName,
-    primaryTemplatePath,
-  });
-
-  try {
-    // Try to read the requested template file
-    const buffer = await fs.readFile(primaryTemplatePath);
-
-    logger.info('Template loaded successfully', {
-      usedTemplate: templateName,
-      size: buffer.length,
-    });
-
-    return buffer;
-  } catch (error) {
-    logger.warn('Requested template not found, falling back to template.docx', {
+    logger.debug('Loading template', {
       requestedTemplate: templateName,
-      error: error.message,
-      fallbackTemplatePath,
+      primaryTemplatePath,
     });
+
+    try {
+      // Try to read the requested template file
+      const buffer = await fs.readFile(primaryTemplatePath);
+
+      logger.info('Template loaded successfully', {
+        usedTemplate: templateName,
+        size: buffer.length,
+      });
+
+      return buffer;
+    } catch (error) {
+      logger.warn('Requested template not found, falling back to template.docx', {
+        requestedTemplate: templateName,
+        error: error.message,
+        fallbackTemplatePath,
+      });
+    }
+
+    // Try loading the fallback template
+    try {
+      const fallbackBuffer = await fs.readFile(fallbackTemplatePath);
+
+      logger.info('Fallback template loaded successfully', {
+        usedTemplate: this.defaultTemplate,
+        size: fallbackBuffer.length,
+      });
+
+      return fallbackBuffer;
+    } catch (fallbackError) {
+      logger.error('Fallback template also missing!', {
+        error: fallbackError.message,
+        attemptedPaths: [primaryTemplatePath, fallbackTemplatePath],
+      });
+
+      throw new Error(
+        `No template could be loaded. Missing: ${templateName} and ${this.defaultTemplate} in ${this.templateFolder} and full path ${fallbackTemplatePath}`
+      );
+    }
   }
-
-  // Try loading the fallback template
-  try {
-    const fallbackBuffer = await fs.readFile(fallbackTemplatePath);
-
-    logger.info('Fallback template loaded successfully', {
-      usedTemplate: this.defaultTemplate,
-      size: fallbackBuffer.length,
-    });
-
-    return fallbackBuffer;
-  } catch (fallbackError) {
-    logger.error('Fallback template also missing!', {
-      error: fallbackError.message,
-      attemptedPaths: [primaryTemplatePath, fallbackTemplatePath],
-    });
-
-    throw new Error(
-      `No template could be loaded. Missing: ${templateName} and ${this.defaultTemplate} in ${this.templateFolder} and full path ${fallbackTemplatePath}`
-    );
-  }
-}
 
   /**
    * Generate PDP document from template and data
@@ -406,7 +406,7 @@ class DocumentGeneratorService {
       // Transform data if it has company/workers structure
       let processedData = data;
       if (data.company || data.workers) {
-        logger.info('Detected company/workers structure, transforming data');
+        logger.info('Detected company/workers structure, transforming data surname: ' + surname);
         
         const validation = dataTransformerService.validateInputData(data);
         if (!validation.valid) {
@@ -443,6 +443,7 @@ class DocumentGeneratorService {
         // If requested, convert to PDF and merge into annual PDF
         if (mergeWithPDP && surname) {
           try {
+            logger.info('Converting to PDF and merging into annual document', { filePath, surname });
             const generatedPdfPath = await this.convertDocxToPdf(filePath);
             annualPdfPath = await this.mergeIntoAnnualPdf(generatedPdfPath, surname);
           } catch (mergeErr) {
@@ -450,6 +451,53 @@ class DocumentGeneratorService {
             // Do not fail the whole operation; include error info
           }
         }
+      }
+      logger.info('Document generation completed');
+      
+      // Persist technicians to dedicated technician database if present in data
+      if (data && Array.isArray(data.workers) && data.workers.length > 0) {
+        logger.info('Persisting technicians to dedicated database', { count: data.workers.length });
+        let added = 0;
+        let updated = 0;
+        let failed = 0;
+        
+        // Extract company name from data if available
+        const companyName = data.company?.name || null;
+        
+        for (const technician of data.workers) {
+          try {
+            // Add company to technician data
+            const technicianWithCompany = {
+              ...technician,
+              company: technician.company || companyName
+            };
+            
+            const result = await this.saveTechnicianToDatabase(technicianWithCompany);
+            if (result.action === 'added') {
+              added += 1;
+            } else if (result.action === 'updated') {
+              updated += 1;
+            }
+          } catch (dbErr) {
+            failed += 1;
+            logger.warn('Failed to save technician to database', {
+              error: dbErr?.message || String(dbErr),
+              technician: {
+                first_name: technician?.first_name,
+                last_name: technician?.last_name
+              }
+            });
+          }
+        }
+        
+        logger.info('Technician database update complete', {
+          total: data.workers.length,
+          added,
+          updated,
+          failed
+        });
+      }else   {
+        logger.info('No technicians to persist to database',data);
       }
 
       return {

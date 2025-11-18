@@ -21,6 +21,12 @@ DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data")
 # from .router.user_router import router as user_router
 from .router.rag.search import router as rag_router
 
+# LLM routers
+from .router.llm.prompt_llm import router as prompt_llm_router
+from .router.llm.technicians import router as technicians_router
+from .router.llm.records import router as records_router
+from .router.llm.download_pdp import router as download_pdp_router
+
 # Configuration des préfixes API centralisée
 # app.include_router(outlook_router, prefix="/api")
 # app.include_router(outlook_auth_router, prefix="/api")
@@ -29,6 +35,12 @@ from .router.rag.search import router as rag_router
 # app.include_router(gmail_auth_router, prefix="/api")
 # app.include_router(user_router, prefix="/api")
 app.include_router(rag_router, prefix="/api")
+
+# LLM API routes
+app.include_router(prompt_llm_router, prefix="/api/promptLLM", tags=["LLM"])
+app.include_router(technicians_router, prefix="/api/technicians", tags=["Technicians"])
+app.include_router(records_router, prefix="/api/records", tags=["Records"])
+app.include_router(download_pdp_router, prefix="/api/download-pdp", tags=["Documents"])
 
 # Add middleware
 # 1. Compression for better network performance
