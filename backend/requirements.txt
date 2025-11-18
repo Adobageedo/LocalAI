@@ -66,3 +66,4 @@ email-validator
 # pandas  # CSV and data processing
 loguru
 supabase
+Pillow  # Image processing for GPT Vision
