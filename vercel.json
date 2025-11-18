@@ -1,10 +1,10 @@
 {
   "version": 2,
   "name": "localai-frontend",
-  "buildCommand": "npm install --prefix frontend && npm run build --prefix frontend",
+  "buildCommand": "echo 'PWD: ' $(pwd) && echo 'Listing files:' && ls -la && npm install --prefix frontend && npm run build --prefix frontend",
   "outputDirectory": "frontend/build",
-  "devCommand": "npm start --prefix frontend",
-  "installCommand": "npm install --prefix frontend",
+  "devCommand": "echo 'PWD: ' $(pwd) && ls -la && npm start --prefix frontend",
+  "installCommand": "echo 'PWD: ' $(pwd) && ls -la && npm install --prefix frontend",
   "framework": null,
   "env": {
     "REACT_APP_API_BASE_URL": "https://easier-snappily-ansley.ngrok-free.dev/api"
