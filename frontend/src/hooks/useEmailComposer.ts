@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useOffice } from '../contexts/OfficeContext';
-import { AttachmentInfo, getAttachmentsWithContent } from '../utils/helpers';
+import { getAttachmentInfo, type AttachmentInfo } from '../utils/helpers/attachmentBackend.helpers';
 
 /**
  * Custom hook for email composer logic
@@ -36,13 +36,13 @@ export function useEmailComposer() {
     }
   }, [currentEmail?.conversationId, currentEmail?.subject, currentEmail?.internetMessageId]);
   
-  // Load email attachments
+  // Load email attachments (metadata only, content fetched when sending)
   useEffect(() => {
-    const loadAttachments = async () => {
+    const loadAttachments = () => {
       try {
-        const attachmentsWithContent = await getAttachmentsWithContent();
-        setAttachments(attachmentsWithContent);
-        console.log('📎 Attachments loaded:', attachmentsWithContent);
+        const attachmentInfo = getAttachmentInfo();
+        setAttachments(attachmentInfo);
+        console.log('📎 Attachments loaded:', attachmentInfo);
       } catch (error) {
         console.error('❌ Failed to load attachments:', error);
       }

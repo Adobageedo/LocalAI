@@ -1,5 +1,13 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import llmClient, { ChatMessage, LLMRequest } from './utils/llmClient';
+import { processAttachments } from './utils/attachmentPipeline';
+
+interface Attachment {
+  filename: string;
+  content: string;  // Base64 encoded
+  mime_type?: string;
+  size?: number;
+}
 
 interface StreamRequest {
   prompt?: string;
@@ -12,6 +20,7 @@ interface StreamRequest {
   topK?: number;           // optional top_k for RAG
   model?: string;
   useMcpTools?: boolean;   // <-- flag to enable/disable MCP tools (default: true)
+  attachments?: Attachment[];  // <-- File attachments for backend processing
 }
 
 interface RagDoc {
@@ -50,8 +59,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       rag = false,
       ragCollection="edoardo",
       model = "gpt-4o-mini",
-      useMcpTools = false  // default to using MCP tools
+      useMcpTools = false,  // default to using MCP tools
+      attachments  // File attachments
     } = req.body as StreamRequest;
+    
+    // Use a mutable variable for model selection downstream
+    let modelToUse = model;
 
     if (!messages && (!prompt || !prompt.trim())) {
       res.status(400).json({ error: 'Either messages array or prompt is required' });
@@ -62,6 +75,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt + DEFAULT_USER_STYLE }] : []),
       { role: 'user' as const, content: prompt! }
     ];
+
+    // =====================
+    // Attachment processing
+    // =====================
+
+    if (attachments && attachments.length > 0) {
+      const result = await processAttachments({
+        attachments,
+        conversationMessages,
+        systemPrompt,
+        defaultUserStyle: DEFAULT_USER_STYLE,
+        model: modelToUse,
+      });
+      conversationMessages = result.conversationMessages;
+      modelToUse = result.modelToUse;
+    }
 
     // --- RAG Integration ---
     if (rag) {
@@ -117,8 +146,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let chunkNumber = 0;
 
     // Fetch MCP tools if enabled
-    console.log("use mcp tool =",useMcpTools);
-    let mcpTools = null;
+    console.log("use mcp tool =", useMcpTools);
+    let mcpTools: any[] | null = null;
     if (useMcpTools) {
       // dynamic import — works in CommonJS, ESM, Vercel, Railway
       const { getMcpTools } = await import("./utils/mcp.js");
@@ -130,7 +159,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       console.log('🔍 First hop: checking for tool calls...');
       
       const firstResponse = await llmClient.generateWithTools({
-        model,
+        model: modelToUse,
         messages: conversationMessages,
         temperature,
         maxTokens,
@@ -184,7 +213,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     // --- SECOND HOP: Stream the final response ---
     for await (const chunk of llmClient.generateStream({
-      model,
+      model: modelToUse,
       messages: conversationMessages,
       temperature,
       maxTokens,

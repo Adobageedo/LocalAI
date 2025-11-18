@@ -117,13 +117,9 @@ const EmailComposerPage: React.FC = () => {
               from: currentEmail?.from,
               additionalInfo,
               tone,
-              body: currentEmail?.body,
-              attachments: attachments.map(att => ({
-                name: att.name,
-                content: att.content
-              }))
+              body: currentEmail?.body
             }}
-            quickActions={[
+            llmActionProposal={[
               { actionKey: 'generate' },
               { actionKey: 'correct' },
               { actionKey: 'reformulate' }

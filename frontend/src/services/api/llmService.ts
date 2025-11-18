@@ -6,9 +6,16 @@ import { API_ENDPOINTS } from '../../config/api';
  */
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
-  content: string;
+  content: string | any[];  // Support multimodal content
   tool_call_id?: string;
   name?: string;
+}
+
+export interface Attachment {
+  filename: string;
+  content: string;  // Base64 encoded
+  mime_type?: string;
+  size?: number;
 }
 
 export interface PromptLLMRequest {
@@ -22,6 +29,7 @@ export interface PromptLLMRequest {
   topK?: number;
   model?: string;
   useMcpTools?: boolean;
+  attachments?: Attachment[];  // File attachments
 }
 
 export interface StreamChunk {

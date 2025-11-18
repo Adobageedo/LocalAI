@@ -1,5 +1,18 @@
 /**
- * Utility functions for handling email attachments in Outlook
+ * DEPRECATED: Utility functions for handling email attachments in Outlook
+ * 
+ * ⚠️ This file is deprecated. Use attachmentBackend.helpers.ts instead.
+ * 
+ * The old approach extracted text from attachments on the frontend.
+ * The new approach sends attachments to the backend for processing.
+ * 
+ * Backend processing supports:
+ * - Images (GPT Vision)
+ * - Office documents (Word, Excel, PowerPoint)
+ * - PDFs
+ * - Text files
+ * 
+ * @deprecated Use attachmentBackend.helpers.ts
  */
 
 export interface AttachmentInfo {
@@ -124,6 +137,7 @@ export function isTextBasedFile(filename: string): boolean {
 /**
  * Get attachments with their text content (for supported file types)
  * @returns Promise with attachments including content where possible
+ * @deprecated Use getEmailAttachmentsForBackend() from attachmentBackend.helpers.ts instead
  */
 export async function getAttachmentsWithContent(): Promise<AttachmentInfo[]> {
   try {
