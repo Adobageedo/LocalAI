@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useOffice } from '../contexts/OfficeContext';
-import { AttachmentInfo, getAttachmentsWithContent } from '../utils/helpers';
+import { getAttachmentInfo, type AttachmentInfo } from '../utils/helpers/attachmentBackend.helpers';
 
 /**
  * Custom hook for template generation logic
@@ -44,12 +44,12 @@ export function useTemplateGeneration() {
     }
   }, [isOfficeReady, isLoadingEmail, currentEmail]);
 
-  // Load attachments when email is ready
+  // Load attachments when email is ready (metadata only, content fetched when sending)
   useEffect(() => {
-    const loadAttachments = async () => {
+    const loadAttachments = () => {
       try {
-        const attachmentsWithContent = await getAttachmentsWithContent();
-        setAttachments(attachmentsWithContent);
+        const attachmentInfo = getAttachmentInfo();
+        setAttachments(attachmentInfo);
       } catch (error) {
         console.error('❌ Failed to load attachments:', error);
       }

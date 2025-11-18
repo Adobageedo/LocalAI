@@ -3,19 +3,21 @@ Prompt LLM API Router
 Streaming LLM responses with MCP tool support
 """
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, UploadFile, File, Form
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-from typing import List, Dict, Any, Optional, AsyncGenerator
+from typing import List, Dict, Any, Optional, AsyncGenerator, Union
 import json
 import asyncio
 import os
 import sys
+import base64
 from openai import AsyncOpenAI
 
 # Add the project root so we can import src
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..', '..')))
 from src.core.logger import log
+from src.utils.file_processors import AttachmentProcessor, ImageProcessor
 
 logger = log.bind(name="api.router.llm.prompt_llm")
 
@@ -29,7 +31,13 @@ client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 class Message(BaseModel):
     role: str
-    content: str
+    content: Union[str, List[Dict[str, Any]]]  # Support text or multimodal content
+
+
+class Attachment(BaseModel):
+    filename: str
+    content: str  # Base64 encoded
+    mime_type: Optional[str] = None
 
 
 class PromptRequest(BaseModel):
@@ -38,6 +46,7 @@ class PromptRequest(BaseModel):
     max_tokens: int = 4000
     messages: List[Message]
     use_mcp_tools: bool = Field(default=False, alias="useMcpTools")
+    attachments: Optional[List[Attachment]] = None
     
     class Config:
         populate_by_name = True
@@ -171,7 +180,7 @@ async def execute_mcp_tool(tool_name: str, arguments: Dict[str, Any]) -> Dict[st
 
 
 async def stream_llm_response(
-    messages: List[Dict[str, str]],
+    messages: List[Dict[str, Any]],
     model: str,
     temperature: float,
     max_tokens: int,
@@ -245,6 +254,78 @@ async def stream_llm_response(
         yield f"data: {error_data}\n\n"
 
 
+def process_attachments_for_llm(attachments: List[Attachment], messages: List[Dict]) -> List[Dict]:
+    """
+    Process attachments and integrate them into messages
+    For images: Add to message content for GPT Vision
+    For text/office/pdf: Add as context to system message
+    """
+    if not attachments:
+        return messages
+    
+    # Process all attachments
+    attachments_data = [{
+        'filename': att.filename,
+        'content': att.content
+    } for att in attachments]
+    
+    processed = AttachmentProcessor.process_multiple_attachments(attachments_data)
+    
+    # Build context from text-based files
+    text_context_parts = []
+    
+    # Add text files
+    for text_file in processed['text_files']:
+        text_context_parts.append(f"\n--- Content from {text_file['filename']} ---\n{text_file['content']}")
+    
+    # Add office files
+    for office_file in processed['office_files']:
+        text_context_parts.append(f"\n--- Content from {office_file['filename']} ---\n{office_file['content']}")
+    
+    # Add PDFs
+    for pdf_file in processed['pdfs']:
+        text_context_parts.append(f"\n--- Content from {pdf_file['filename']} ---\n{pdf_file['content']}")
+    
+    # Add text context to first message (usually system message)
+    if text_context_parts and messages:
+        context_text = "\n\n## Attached Documents:\n" + "\n".join(text_context_parts)
+        messages[0]['content'] = messages[0]['content'] + context_text
+    
+    # Handle images for GPT Vision
+    if processed['images']:
+        # Find the last user message to add images
+        for i in range(len(messages) - 1, -1, -1):
+            if messages[i]['role'] == 'user':
+                # Convert content to multimodal format
+                current_content = messages[i]['content']
+                
+                # Create multimodal content
+                multimodal_content = [{
+                    "type": "text",
+                    "text": current_content if isinstance(current_content, str) else str(current_content)
+                }]
+                
+                # Add images
+                for img in processed['images']:
+                    multimodal_content.append({
+                        "type": "image_url",
+                        "image_url": {
+                            "url": img['data_url'],
+                            "detail": "high"
+                        }
+                    })
+                
+                messages[i]['content'] = multimodal_content
+                logger.info(f"Added {len(processed['images'])} images to user message for GPT Vision")
+                break
+    
+    # Log errors if any
+    if processed['errors']:
+        logger.warning(f"Attachment processing errors: {processed['errors']}")
+    
+    return messages
+
+
 # ==================== ROUTES ====================
 
 @router.post("/")
@@ -255,10 +336,19 @@ async def prompt_llm(request: PromptRequest):
     This endpoint supports Server-Sent Events (SSE) for streaming responses
     """
     try:
-        logger.info(f"Prompt LLM request: model={request.model}, use_mcp={request.use_mcp_tools}")
+        logger.info(f"Prompt LLM request: model={request.model}, use_mcp={request.use_mcp_tools}, attachments={len(request.attachments) if request.attachments else 0}")
         
         # Convert messages to dict format
         messages = [{"role": msg.role, "content": msg.content} for msg in request.messages]
+        
+        # Process attachments if present
+        if request.attachments:
+            messages = process_attachments_for_llm(request.attachments, messages)
+            # Use GPT-4 Vision if images are present
+            if any('image_url' in str(msg.get('content', '')) for msg in messages):
+                if 'gpt-4' not in request.model:
+                    request.model = 'gpt-4o'  # Use GPT-4o for vision
+                    logger.info(f"Switched to {request.model} for image processing")
         
         # Prepare tools if requested
         tools = MCP_TOOLS if request.use_mcp_tools else None

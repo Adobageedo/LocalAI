@@ -3,7 +3,7 @@
  * Maps action labels to user display text and LLM system prompts
  */
 
-export interface QuickActionConfig {
+export interface LLMQuickActionConfig {
   label: string;
   userPrompt: string;        // Text shown to user
   llmPrompt: string;          // Detailed instruction sent to LLM
@@ -12,7 +12,7 @@ export interface QuickActionConfig {
   requiresAttachments?: boolean; // Requires attachments
 }
 
-export const QUICK_ACTIONS_DICTIONARY: Record<string, QuickActionConfig> = {
+export const LLM_QUICK_ACTIONS_DICTIONARY: Record<string, LLMQuickActionConfig> = {
   reply: {
     label: 'Répondre',
     userPrompt: 'Rédiger une réponse avec mon style d\'écriture',
@@ -182,22 +182,22 @@ IMPORTANT: If the user's instructions are vague or you need more information to 
 /**
  * Get quick action configuration by label key
  */
-export function getQuickAction(key: string): QuickActionConfig | undefined {
-  return QUICK_ACTIONS_DICTIONARY[key];
+export function getLLMQuickAction(key: string): LLMQuickActionConfig | undefined {
+  return LLM_QUICK_ACTIONS_DICTIONARY[key];
 }
 
 /**
  * Get all available quick actions as an array
  */
-export function getAllQuickActions(): QuickActionConfig[] {
-  return Object.values(QUICK_ACTIONS_DICTIONARY);
+export function getAllLLMQuickActions(): LLMQuickActionConfig[] {
+  return Object.values(LLM_QUICK_ACTIONS_DICTIONARY);
 }
 
 /**
  * Get quick actions filtered by requirements
  */
-export function getQuickActionsByContext(hasEmail: boolean, hasAttachments: boolean): QuickActionConfig[] {
-  return getAllQuickActions().filter(action => {
+export function getLLMQuickActionsByContext(hasEmail: boolean, hasAttachments: boolean): LLMQuickActionConfig[] {
+  return getAllLLMQuickActions().filter(action => {
     if (action.requiresEmail && !hasEmail) return false;
     if (action.requiresAttachments && !hasAttachments) return false;
     return true;

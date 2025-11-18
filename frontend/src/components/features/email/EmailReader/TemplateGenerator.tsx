@@ -104,23 +104,11 @@ const TemplateGenerator: React.FC<TemplateGeneratorProps> = ({ quickActionKey })
               additionalInfo,
               tone,
               body: currentEmail?.body,
-              attachments: attachments.map(att => ({
-                name: att.name,
-                content: att.content
-              }))
+              // Attachments are now fetched and sent to backend when needed
             }}
-            quickActions={[
+            llmActionProposal={[
               { actionKey: 'reply' },
-              { 
-                actionKey: 'summarize', 
-                email: true, 
-                attachment: attachments.map(att => ({
-                  name: att.name,
-                  id: att.id,
-                  content: att.content,
-                  contentType: att.contentType
-                }))
-              },
+              { actionKey: 'summarize', email: true },
             ]}
           />
         </Stack>

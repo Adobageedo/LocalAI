@@ -5,6 +5,7 @@ import {
   TextField,
   PrimaryButton,
   DefaultButton,
+  IconButton,
   IContextualMenuProps,
   IContextualMenuItem,
   MessageBar,
@@ -15,12 +16,16 @@ import {
   getTheme,
   Icon,
   FontWeights,
+  Callout,
+  DirectionalHint,
 } from '@fluentui/react';
 import { buildSystemPrompt, buildUserPrompt } from '../../../config/prompt';
-import { QUICK_ACTIONS_DICTIONARY } from '../../../config/quickActions';
+import { LLM_QUICK_ACTIONS_DICTIONARY } from '../../../config/llmQuickActions';
 import { Toggle } from '@fluentui/react';
 import { useQuickAction } from '../../../contexts/QuickActionContext';
 import { llmService } from '../../../services/api';
+import type { Attachment } from '../../../services/api/llmService';
+import { getEmailAttachmentsForBackend, getAttachmentCount, getAttachmentInfo, hasEmailAttachments } from '../../../utils/helpers/attachmentBackend.helpers';
 
 interface SuggestedButton {
   label: string;
@@ -82,7 +87,7 @@ interface TemplateChatInterfaceProps {
     body?: string;  // Current email body content
     attachments?: { name: string; content?: string; }[];  // Attachments with content
   };
-  quickActions?: QuickAction[]; // List of quick action buttons
+  llmActionProposal?: QuickAction[]; // List of quick action buttons
   activeActionKey?: string | null; // Currently active quick action for LLM context
 }
 
@@ -92,7 +97,7 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
   compose,
   quickActionKey,
   emailContext,
-  quickActions = [
+  llmActionProposal = [
     { actionKey: 'reply' },
     { actionKey: 'generate' },
     { actionKey: 'correct' },
@@ -119,20 +124,21 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
   const [useRag, setUseRag] = useState(false);
   const [useFineTune, setUseFineTune] = useState(false);
   const [includeAttachments, setIncludeAttachments] = useState(true);
+  const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const settingsButtonRef = useRef<HTMLDivElement>(null);
   const quickActionContext = useQuickAction();
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const theme = getTheme();
   const stackTokens: IStackTokens = { childrenGap: 16 };
 
-  // Check if email has attachments
-  const hasAttachments = emailContext?.attachments && emailContext.attachments.length > 0;
-
+  // Check if email has attachments (directly from Office.js, not emailContext)
+  const hasAttachments = hasEmailAttachments();
+  
   /** Charger la conversation si elle existe */
   useEffect(() => {
     const saved = localStorage.getItem(`chat_${conversationId}`);
     if (saved) {
-      console.log('Chargement conversation:', saved);
       try {
         const parsed = JSON.parse(saved);
         const msgs = parsed.map((m: any) => ({ ...m, timestamp: new Date(m.timestamp) }));
@@ -146,7 +152,7 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
     // Initialize or reset conversation
     // If coming from QuickAction, always start fresh with personalized message
     if (quickActionKey) {
-      const actionConfig = QUICK_ACTIONS_DICTIONARY[quickActionKey];
+      const actionConfig = LLM_QUICK_ACTIONS_DICTIONARY[quickActionKey];
       if (actionConfig) {
         setMessages([{
           id: '1',
@@ -217,10 +223,23 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
 
     const isFirstMessage = messages.length === 1;
 
-    // Build email context with or without attachments based on toggle
-    const contextToUse = includeAttachments 
-      ? emailContext 
-      : { ...emailContext, attachments: undefined };
+    // Get attachments from email if toggle is enabled
+    let attachments: Attachment[] | undefined;
+    if (includeAttachments && hasAttachments) {
+      try {
+        attachments = await getEmailAttachmentsForBackend();
+        console.log(`✅ [handleSendMessage] Sending ${attachments.length} attachments to backend for processing`);
+        console.log('🔍 [handleSendMessage] Attachments details:', attachments);
+      } catch (error) {
+        console.error('❌ [handleSendMessage] Failed to get attachments:', error);
+        setError('Échec du chargement des pièces jointes');
+      }
+    } else {
+      console.log('🔍 [handleSendMessage] Skipping attachments (toggle off or no attachments detected)');
+    }
+
+    // Build email context WITHOUT attachments (backend will handle them separately)
+    const contextToUse = { ...emailContext, attachments: undefined };
 
     // ✅ If it's the first message, append email context to user's message
     const llmContent = isFirstMessage 
@@ -295,7 +314,8 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
         maxTokens: 800,
         temperature: 0.7,
         rag: useRag,
-        model: modelToUse
+        model: modelToUse,
+        attachments: attachments  // Send attachments to backend
       })) {
         if (chunk.type === 'error') {
           throw new Error(chunk.error || 'Stream error');
@@ -393,7 +413,7 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
     if (!action.attachment && !action.email) return undefined;
   
     const items: IContextualMenuItem[] = [];
-    const actionConfig = QUICK_ACTIONS_DICTIONARY[action.actionKey];
+    const actionConfig = LLM_QUICK_ACTIONS_DICTIONARY[action.actionKey];
   
     // Add email item first if requested
     if (action.email) {
@@ -434,7 +454,7 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
   
   /** Handle quick action button click */
   const handleQuickAction = (actionKey: string, customPrompt?: string, additionalContext?: string) => {
-    const actionConfig = QUICK_ACTIONS_DICTIONARY[actionKey];
+    const actionConfig = LLM_QUICK_ACTIONS_DICTIONARY[actionKey];
     if (!actionConfig) return;
     
     const displayPrompt = customPrompt || actionConfig.userPrompt;
@@ -481,54 +501,6 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
 
   return (
     <Stack tokens={stackTokens} styles={{ root: { width: '100%', borderRadius: 12, height: '100%', display: 'flex', flexDirection: 'column' } }}>
-      {/* Top Bar with Toggles */}
-      <Stack
-        horizontal
-        horizontalAlign="space-between"
-        verticalAlign="center"
-        styles={{
-          root: {
-            padding: '12px 16px',
-            backgroundColor: theme.palette.neutralLighter,
-            borderBottom: `1px solid ${theme.palette.neutralLight}`,
-            borderTopLeftRadius: 12,
-            borderTopRightRadius: 12,
-          },
-        }}
-      >
-        <Stack horizontal tokens={{ childrenGap: 16 }}>
-          <Toggle
-            label="Utiliser emails"
-            checked={useRag}
-            onChange={(_, checked) => setUseRag(!!checked)}
-            styles={{ root: { marginBottom: 0 } }}
-            inlineLabel
-          />
-          <Toggle
-            label="Utiliser mon style"
-            checked={useFineTune}
-            onChange={(_, checked) => setUseFineTune(!!checked)}
-            styles={{ root: { marginBottom: 0 } }}
-            inlineLabel
-          />
-          {hasAttachments && (
-            <Toggle
-              label={`📎 Pièces jointes (${emailContext.attachments!.length})`}
-              checked={includeAttachments}
-              onChange={(_, checked) => setIncludeAttachments(!!checked)}
-              styles={{
-                root: { marginBottom: 0 },
-                label: {
-                  fontWeight: 600,
-                  color: includeAttachments ? theme.palette.themePrimary : theme.palette.neutralSecondary,
-                },
-              }}
-              inlineLabel
-            />
-          )}
-        </Stack>
-      </Stack>
-
       {/* Status Indicator */}
       {quickActionContext.state.isActive && quickActionContext.state.status !== 'idle' && (
         <Stack
@@ -570,102 +542,105 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
           const isLastAssistant = m.role === 'assistant' && msgIndex === lastAssistantIndex;
           
           return (
-          <div key={m.id} style={{ marginBottom: 16, display: 'flex', flexDirection: m.role === 'user' ? 'row-reverse' : 'row', alignItems: 'flex-end', animation: 'fadeIn 0.3s ease-in' }}>
-            <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                background: m.role === 'user' ? `linear-gradient(135deg, ${theme.palette.themePrimary} 0%, ${theme.palette.themeDark} 100%)` : theme.palette.white,
-                color: m.role === 'user' ? 'white' : theme.palette.neutralPrimary,
-                padding: '12px 16px',
-                borderRadius: m.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
-                maxWidth: '75%',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-                marginLeft: m.role === 'assistant' ? 8 : 0,
-                marginRight: m.role === 'user' ? 8 : 0,
-              }}
-            >
-              {/* Show typing animation for empty assistant messages */}
-              {!m.content && isLoading && m.role === 'assistant' ? (
-                <Stack horizontal tokens={{ childrenGap: 8 }} verticalAlign="center">
-                  <div className="typing-indicator">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                  </div>
-                  <Text variant="small" styles={{ root: { color: theme.palette.neutralSecondary } }}>
-                    En train d'écrire
-                  </Text>
-                </Stack>
-              ) : (
-                <Text
-                  variant="medium"
-                  style={{ color: m.role === 'user' ? 'white' : theme.palette.neutralPrimary, whiteSpace: 'pre-wrap', lineHeight: 1.6 }}
-                >
-                  {m.content}
-                  {isLoading && m.role === 'assistant' && m.content && <span className="cursor-blink">|</span>}
-                </Text>
-              )}
-            </div>
-            
-            {/* Suggested action buttons - only show for last assistant message */}
-            {isLastAssistant && m.suggestedButtons && m.suggestedButtons.length > 0 && !isLoading && (
-              <Stack 
-                horizontal 
-                wrap 
-                tokens={{ childrenGap: 8 }} 
-                styles={{ 
-                  root: { 
-                    marginTop: 8, 
-                    marginLeft: m.role === 'assistant' ? 0 : 'auto',
-                    maxWidth: '80%'
-                  } 
+          <div key={m.id} style={{ marginBottom: 16, display: 'flex', flexDirection: m.role === 'user' ? 'row-reverse' : 'row', alignItems: 'flex-start', animation: 'fadeIn 0.3s ease-in' }}>
+            {/* Wrapper for message bubble + buttons (stacked vertically) */}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: m.role === 'user' ? 'flex-end' : 'flex-start', maxWidth: '80%' }}>
+              <div
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: m.role === 'user' ? `linear-gradient(135deg, ${theme.palette.themePrimary} 0%, ${theme.palette.themeDark} 100%)` : theme.palette.white,
+                  color: m.role === 'user' ? 'white' : theme.palette.neutralPrimary,
+                  padding: '12px 16px',
+                  borderRadius: m.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+                  maxWidth: '100%',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                  marginLeft: m.role === 'assistant' ? 8 : 0,
+                  marginRight: m.role === 'user' ? 8 : 0,
                 }}
               >
-                {m.suggestedButtons.map((btn, idx) => {
-                  const buttonKey = `${btn.label}-${btn.action}`;
-                  return (
-                    <DefaultButton
-                      key={idx}
-                      text={btn.label}
-                      onClick={() => {
-                        if (lastClickedButton === buttonKey) {
-                          // Second click - send message
-                          setCurrentMessage(btn.action);
-                          setTimeout(() => {
-                            handleSendMessage();
-                            setLastClickedButton(null);
-                          }, 50);
-                        } else {
-                          // First click - populate input
-                          setCurrentMessage(btn.action);
-                          setLastClickedButton(buttonKey);
-                        }
-                      }}
-                      styles={{ 
-                        root: { 
-                          borderRadius: 16,
-                          fontSize: 12,
-                          padding: '6px 14px',
-                          height: 'auto',
-                          minHeight: 32,
-                          border: `1px solid ${theme.palette.neutralLight}`,
-                          backgroundColor: lastClickedButton === buttonKey ? theme.palette.themeLighter : theme.palette.white,
-                          boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
-                          transition: 'all 0.2s ease',
-                          ':hover': {
-                            backgroundColor: theme.palette.themeLighter,
-                            transform: 'translateY(-1px)',
-                            boxShadow: '0 2px 6px rgba(0,0,0,0.12)',
-                          },
-                        } 
-                      }}
-                    />
-                  );
-                })}
-              </Stack>
-            )}
+                {/* Show typing animation for empty assistant messages */}
+                {!m.content && isLoading && m.role === 'assistant' ? (
+                  <Stack horizontal tokens={{ childrenGap: 8 }} verticalAlign="center">
+                    <div className="typing-indicator">
+                      <span></span>
+                      <span></span>
+                      <span></span>
+                    </div>
+                    <Text variant="small" styles={{ root: { color: theme.palette.neutralSecondary } }}>
+                      En train d'écrire
+                    </Text>
+                  </Stack>
+                ) : (
+                  <Text
+                    variant="medium"
+                    style={{ color: m.role === 'user' ? 'white' : theme.palette.neutralPrimary, whiteSpace: 'pre-wrap', lineHeight: 1.6 }}
+                  >
+                    {m.content}
+                    {isLoading && m.role === 'assistant' && m.content && <span className="cursor-blink">|</span>}
+                  </Text>
+                )}
+              </div>
+              
+              {/* Suggested action buttons - only show for last assistant message */}
+              {isLastAssistant && m.suggestedButtons && m.suggestedButtons.length > 0 && !isLoading && (
+                <Stack 
+                  horizontal 
+                  wrap 
+                  tokens={{ childrenGap: 8 }} 
+                  styles={{ 
+                    root: { 
+                      marginTop: 8,
+                      marginLeft: m.role === 'assistant' ? 8 : 0,
+                      marginRight: m.role === 'user' ? 8 : 0,
+                    } 
+                  }}
+                >
+                  {m.suggestedButtons.map((btn, idx) => {
+                    const buttonKey = `${btn.label}-${btn.action}`;
+                    return (
+                      <DefaultButton
+                        key={idx}
+                        text={btn.label}
+                        onClick={() => {
+                          if (lastClickedButton === buttonKey) {
+                            // Second click - send message
+                            setCurrentMessage(btn.action);
+                            setTimeout(() => {
+                              handleSendMessage();
+                              setLastClickedButton(null);
+                            }, 50);
+                          } else {
+                            // First click - populate input
+                            setCurrentMessage(btn.action);
+                            setLastClickedButton(buttonKey);
+                          }
+                        }}
+                        styles={{ 
+                          root: { 
+                            borderRadius: 16,
+                            fontSize: 12,
+                            padding: '6px 14px',
+                            height: 'auto',
+                            minHeight: 32,
+                            border: `1px solid ${theme.palette.neutralLight}`,
+                            backgroundColor: lastClickedButton === buttonKey ? theme.palette.themeLighter : theme.palette.white,
+                            boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+                            transition: 'all 0.2s ease',
+                            ':hover': {
+                              backgroundColor: theme.palette.themeLighter,
+                              transform: 'translateY(-1px)',
+                              boxShadow: '0 2px 6px rgba(0,0,0,0.12)',
+                            },
+                          } 
+                        }}
+                      />
+                    );
+                  })}
+                </Stack>
+              )}
+            </div>
           </div>
         );
         })}
@@ -679,10 +654,10 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
       </div>
 
       {/* Boutons actions rapides si nouvelle conversation */}
-      {messages.every(m => m.role !== 'user') && quickActions.length > 0 && (
+      {messages.every(m => m.role !== 'user') && llmActionProposal.length > 0 && (
         <Stack horizontal wrap tokens={{ childrenGap: 8 }}>
-        {quickActions.map((action) => {
-          const actionConfig = QUICK_ACTIONS_DICTIONARY[action.actionKey];
+        {llmActionProposal.map((action) => {
+          const actionConfig = LLM_QUICK_ACTIONS_DICTIONARY[action.actionKey];
           if (!actionConfig) return null;
           
           const menuProps = buildMenuProps(action);
@@ -700,6 +675,7 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
       </Stack>      
       )}
 
+      {/* Input area with settings */}
       <Stack
         horizontal
         tokens={{ childrenGap: 8 }}
@@ -719,6 +695,80 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
             }
           }}
         />
+
+        {/* Settings Button */}
+        <div ref={settingsButtonRef}>
+          <IconButton
+            iconProps={{ iconName: 'Settings' }}
+            title="Paramètres"
+            ariaLabel="Paramètres"
+            onClick={() => setShowSettingsMenu(!showSettingsMenu)}
+            styles={{
+              root: {
+                height: 40,
+                width: 40,
+                borderRadius: 20,
+                border: `1px solid ${theme.palette.neutralLight}`,
+                backgroundColor: showSettingsMenu ? theme.palette.themeLighter : theme.palette.white,
+              },
+              icon: {
+                fontSize: 16,
+                color: showSettingsMenu ? theme.palette.themePrimary : theme.palette.neutralSecondary,
+              },
+            }}
+          />
+        </div>
+
+        {/* Settings Callout */}
+        {showSettingsMenu && settingsButtonRef.current && (
+          <Callout
+            target={settingsButtonRef.current}
+            onDismiss={() => setShowSettingsMenu(false)}
+            directionalHint={DirectionalHint.topRightEdge}
+            styles={{ root: { padding: 16, minWidth: 280 } }}
+          >
+            <Text variant="mediumPlus" styles={{ root: { fontWeight: 600, marginBottom: 12, display: 'block' } }}>
+              ⚙️ Paramètres
+            </Text>
+            <Stack tokens={{ childrenGap: 12 }}>
+              <Toggle
+                label="📧 Utiliser emails (RAG)"
+                checked={useRag}
+                onChange={(_, checked) => setUseRag(!!checked)}
+                styles={{
+                  root: { marginBottom: 0 },
+                  label: { fontWeight: 500 },
+                }}
+              />
+              <Toggle
+                label="✍️ Utiliser mon style"
+                checked={useFineTune}
+                onChange={(_, checked) => setUseFineTune(!!checked)}
+                styles={{
+                  root: { marginBottom: 0 },
+                  label: { fontWeight: 500 },
+                }}
+              />
+              {hasAttachments && (
+                <Toggle
+                  label={`📎 Envoyer pièces jointes (${getAttachmentCount()})`}
+                  checked={includeAttachments}
+                  onChange={(_, checked) => setIncludeAttachments(!!checked)}
+                  styles={{
+                    root: { marginBottom: 0 },
+                    label: {
+                      fontWeight: 500,
+                      color: includeAttachments ? theme.palette.themePrimary : theme.palette.neutralSecondary,
+                    },
+                  }}
+                />
+              )}
+              <Text variant="small" styles={{ root: { color: theme.palette.neutralSecondary, fontStyle: 'italic' } }}>
+                Les pièces jointes sont traitées par le backend
+              </Text>
+            </Stack>
+          </Callout>
+        )}
 
         <PrimaryButton
           text="Envoyer"
