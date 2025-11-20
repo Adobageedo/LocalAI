@@ -3,7 +3,7 @@ import fs from 'fs/promises';
 import path from 'path';
 
 // Path to technicians database
-const TECHNICIANS_DB_PATH = path.resolve(process.cwd(), 'mcp/technicians_database.json');
+const TECHNICIANS_DB_PATH = path.resolve(process.cwd(), '..', 'mcp/data/technicians_database.json');
 
 interface Technician {
   id: string;

@@ -4,6 +4,7 @@ import { PrimaryButton, Spinner, SpinnerSize, MessageBar, MessageBarType } from 
 import { theme } from '../../../../../styles';
 import { useQuickAction } from '../../../../../contexts/QuickActionContext';
 import { llmService } from '../../../../../services/api';
+import { getEmailAttachmentsForBackend } from '../../../../../utils/helpers/attachmentBackend.helpers';
 
 const SavePoint: React.FC = () => {
   const { currentEmail } = useOffice();
@@ -71,6 +72,15 @@ IMPORTANT:
     quickAction.startAction('savePoint', true, true);
 
     try {
+      // Get attachments if available
+      let attachments: any[] = [];
+      try {
+        attachments = await getEmailAttachmentsForBackend();
+        console.log(`📎 [SavePoint] Fetched ${attachments.length} attachment(s)`);
+      } catch (attError) {
+        console.warn('⚠️ [SavePoint] Failed to fetch attachments:', attError);
+      }
+
       // Build the email context for the LLM
       const emailContext = `
 EMAIL SUBJECT: ${currentEmail.subject}
@@ -91,12 +101,13 @@ ${currentEmail.fullConversation ? `\nFULL CONVERSATION:\n${currentEmail.fullConv
 
       let fullResponse = '';
 
-      // Use llmService for streaming
+      // Use llmService for streaming with attachments
       for await (const chunk of llmService.streamPrompt({
         model: 'gpt-4o-mini',
         temperature: 0.2,
         maxTokens: 1000,
         useMcpTools: true,
+        attachments: attachments.length > 0 ? attachments : undefined,
         messages: [
           {
             role: 'system',
