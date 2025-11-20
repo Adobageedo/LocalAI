@@ -15,9 +15,10 @@ import { WINDFARMS } from '../../../../../config/constants';
 import { 
   buildPDPExtractionPrompt, 
   buildEmailContext,
-  callLLMWithStreaming,
   downloadPDPFile
 } from '../../../../../utils/quickActions';
+import { llmService } from '../../../../../services/api';
+import { getEmailAttachmentsForBackend } from '../../../../../utils/helpers/attachmentBackend.helpers';
 
 interface WindfarmOption {
   key: string;
@@ -47,8 +48,14 @@ const GeneratePDP: React.FC = () => {
     quickAction.startAction('createPDP', true, true);
 
     try {
-      // Get attachments if available
-      const attachments = await getAttachments();
+      // Get attachments with full content
+      let attachments: any[] = [];
+      try {
+        attachments = await getEmailAttachmentsForBackend();
+        console.log(`📎 [GeneratePDP] Fetched ${attachments.length} attachment(s)`);
+      } catch (attError) {
+        console.warn('⚠️ [GeneratePDP] Failed to fetch attachments:', attError);
+      }
 
       // Build the email context using shared utility
       const emailContext = buildEmailContext(
@@ -57,7 +64,7 @@ const GeneratePDP: React.FC = () => {
           from: currentEmail.from,
           body: currentEmail.body + (currentEmail.fullConversation ? `\n\nFULL CONVERSATION:\n${currentEmail.fullConversation}` : ''),
         },
-        attachments.map((att: { name: string; size: number }) => ({ name: att.name, content: `Size: ${att.size} bytes` }))
+        attachments.map((att: any) => ({ name: att.filename, content: `[Content included in request]` }))
       );
 
       // Get windfarm name from selection
@@ -69,34 +76,37 @@ const GeneratePDP: React.FC = () => {
       
       let fullResponse = '';
       
-      // Use shared API helper for streaming
-      await callLLMWithStreaming(
-        {
-          model: 'gpt-4o-mini',
-          temperature: 0.2,
-          maxTokens: 2000,
-          useMcpTools: true,
-          messages: [
-            {
-              role: 'system',
-              content: buildPDPExtractionPrompt()
-            },
-            {
-              role: 'user',
-              content: `Extrait les informations de cet email pour le parc éolien "${windfarmName}" et génère un PDP en utilisant l'outil generate_pdp_document et le modele "${windfarm.key}.docx":\n\n${emailContext}`
-            }
-          ]
-        },
-        (chunk) => {
-          if (!chunk.done && chunk.content) {
-            fullResponse += chunk.content;
-            quickAction.updateStreamedContent(fullResponse);
+      // Use llmService for streaming with attachments
+      for await (const chunk of llmService.streamPrompt({
+        model: 'gpt-4o-mini',
+        temperature: 0.2,
+        maxTokens: 2000,
+        useMcpTools: true,
+        attachments: attachments.length > 0 ? attachments : undefined,
+        messages: [
+          {
+            role: 'system',
+            content: buildPDPExtractionPrompt()
+          },
+          {
+            role: 'user',
+            content: `Extrait les informations de cet email pour le parc éolien "${windfarmName}" et génère un PDP en utilisant l'outil generate_pdp_document et le modele "${windfarm.key}.docx":\n\n${emailContext}`
           }
-        },
-        (error) => {
-          throw error;
+        ]
+      })) {
+        if (chunk.type === 'error') {
+          throw new Error(chunk.error || 'Stream error');
         }
-      );
+        
+        if (chunk.type === 'chunk' && chunk.delta) {
+          fullResponse += chunk.delta;
+          quickAction.updateStreamedContent(fullResponse);
+        }
+        
+        if (chunk.type === 'done') {
+          fullResponse = chunk.fullText || fullResponse;
+        }
+      }
       
       // Download the generated PDP file
       try {          
@@ -130,34 +140,6 @@ const GeneratePDP: React.FC = () => {
     }
   };
 
-  const getAttachments = async (): Promise<Array<{ name: string; size: number; contentType: string }>> => {
-    if (typeof Office === 'undefined') {
-      return [];
-    }
-
-    return new Promise((resolve) => {
-      try {
-        const item = Office.context.mailbox.item;
-        
-        if (item && item.attachments && item.attachments.length > 0) {
-          const attachmentInfo = item.attachments.map(att => ({
-            name: att.name,
-            size: att.size || 0,
-            contentType: att.contentType || 'unknown'
-          }));
-          
-          console.log('Attachments found:', attachmentInfo);
-          resolve(attachmentInfo);
-        } else {
-          console.log('No attachments found');
-          resolve([]);
-        }
-      } catch (error) {
-        console.error('Error getting attachments:', error);
-        resolve([]);
-      }
-    });
-  };
 
   // Create menu items from windfarms (excluding the disabled placeholder)
   const windfarmOptions = WINDFARMS.filter(wf => !('disabled' in wf && wf.disabled));

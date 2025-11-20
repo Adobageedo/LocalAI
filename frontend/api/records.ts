@@ -3,7 +3,7 @@ import fs from 'fs/promises';
 import path from 'path';
 
 // Path to records database
-const RECORDS_DB_PATH = path.resolve(process.cwd(), 'mcp/data/PDP/notes_database.json');
+const RECORDS_DB_PATH = path.resolve(process.cwd(), '..', 'mcp/data/notes_database.json');
 
 interface Record {
   id: string;

@@ -1,6 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import llmClient, { ChatMessage, LLMRequest } from './utils/llmClient';
-import { processAttachments } from './utils/attachmentPipeline';
 
 interface Attachment {
   filename: string;
@@ -79,17 +78,189 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // =====================
     // Attachment processing
     // =====================
+    // Helpers for optional parsing of PDF and DOCX
+    const extractPdfText = async (b64: string): Promise<string> => {
+      try {
+        // Dynamic import so function works even if dependency isn't present locally
+        const pdfParse = await import('pdf-parse').catch(() => null as any);
+        if (!pdfParse) {
+          console.warn('ℹ️ [Vercel promptLLM] pdf-parse not installed, skipping PDF extraction');
+          return '';
+        }
+        const buffer = Buffer.from(b64, 'base64');
+        const res: any = await (pdfParse as any).default(buffer);
+        return (res && res.text) ? String(res.text) : '';
+      } catch (err) {
+        console.warn('⚠️ [Vercel promptLLM] PDF extraction failed:', err);
+        return '';
+      }
+    };
+
+    // Optional: Convert PDF (base64) to PNG base64 images using pdf2pic
+    const convertPdfToPngBase64 = async (b64: string): Promise<string[]> => {
+      try {
+        const pdf2pic = await import('pdf2pic').catch(() => null as any);
+        if (!pdf2pic) {
+          console.warn('ℹ️ [Vercel promptLLM] pdf2pic not installed, skipping PDF->image conversion');
+          return [];
+        }
+        const { fromBuffer } = (pdf2pic as any);
+        const buffer = Buffer.from(b64, 'base64');
+        const options = {
+          density: 200,
+          format: 'png',
+          width: 1600,
+          height: 1600,
+          savePath: undefined,
+        };
+        const convert = fromBuffer(buffer, options);
+        // Convert only first page to minimize cost/time; extend to more if needed
+        const result = await convert(1, { responseType: 'base64' }).catch(() => null as any);
+        if (result?.base64) {
+          const base64 = String(result.base64).replace(/\s/g, '');
+          console.log('✅ [Vercel promptLLM] PDF->image conversion succeeded (page 1)');
+          return [base64];
+        }
+        console.warn('⚠️ [Vercel promptLLM] PDF->image conversion returned no base64');
+        return [];
+      } catch (err) {
+        console.warn('⚠️ [Vercel promptLLM] PDF->image conversion failed:', (err as any)?.message || err);
+        return [];
+      }
+    };
+
+    const extractDocxText = async (b64: string): Promise<string> => {
+      try {
+        const mammoth = await import('mammoth').catch(() => null as any);
+        if (!mammoth) {
+          console.warn('ℹ️ [Vercel promptLLM] mammoth not installed, skipping DOCX extraction');
+          return '';
+        }
+        const buffer = Buffer.from(b64, 'base64');
+        const result: any = await (mammoth as any).extractRawText({ buffer });
+        return (result && result.value) ? String(result.value) : '';
+      } catch (err) {
+        console.warn('⚠️ [Vercel promptLLM] DOCX extraction failed:', err);
+        return '';
+      }
+    };
+
+    const isTextBased = (filename?: string, mime?: string) => {
+      const ext = (filename || '').toLowerCase();
+      const m = (mime || '').toLowerCase();
+      const textExts = ['.txt', '.md', '.csv', '.json', '.xml', '.log', '.rtf'];
+      const textMimes = ['text/plain', 'text/markdown', 'text/csv', 'application/json', 'application/xml', 'text/xml'];
+      return textExts.some(e => ext.endsWith(e)) || textMimes.includes(m);
+    };
+
+    const isImage = (filename?: string, mime?: string) => {
+      const ext = (filename || '').toLowerCase();
+      const m = (mime || '').toLowerCase();
+      const imageExts = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp'];
+      return imageExts.some(e => ext.endsWith(e)) || m.startsWith('image/');
+    };
+
+    const base64ToUtf8 = (b64: string) => {
+      try {
+        return Buffer.from(b64, 'base64').toString('utf8');
+      } catch (e) {
+        console.warn('⚠️ [Vercel promptLLM] Failed to decode base64 to UTF-8');
+        return '';
+      }
+    };
 
     if (attachments && attachments.length > 0) {
-      const result = await processAttachments({
-        attachments,
-        conversationMessages,
-        systemPrompt,
-        defaultUserStyle: DEFAULT_USER_STYLE,
-        model: modelToUse,
-      });
-      conversationMessages = result.conversationMessages;
-      modelToUse = result.modelToUse;
+      console.log('🔄 [Vercel promptLLM] Processing attachments on Node side...');
+
+      const textParts: string[] = [];
+      const imageDataUrls: string[] = [];
+
+      for (const att of attachments) {
+        const fname = att.filename || 'unknown-file';
+        const mime = att.mime_type || '';
+
+        if (isTextBased(fname, mime)) {
+          const decoded = base64ToUtf8(att.content || '');
+          if (decoded) {
+            textParts.push(`\n--- Content from ${fname} ---\n${decoded}`);
+            console.log(`📄 [Vercel promptLLM] Added text from ${fname} (${decoded.length} chars)`);
+          } else {
+            console.log(`⚠️ [Vercel promptLLM] Empty/undecodable text for ${fname}`);
+          }
+        } else if (fname.toLowerCase().endsWith('.pdf') || mime === 'application/pdf') {
+          const pdfText = await extractPdfText(att.content || '');
+          if (pdfText) {
+            textParts.push(`\n--- Content from ${fname} (PDF) ---\n${pdfText}`);
+            console.log(`📄 [Vercel promptLLM] Extracted PDF text from ${fname} (${pdfText.length} chars)`);
+          } else {
+            console.log(`ℹ️ [Vercel promptLLM] PDF had no extractable text: ${fname}. Trying PDF->image conversion...`);
+            const images = await convertPdfToPngBase64(att.content || '');
+            if (images.length > 0) {
+              // Push as PNG data URLs for Vision
+              for (const img of images) {
+                imageDataUrls.push(`data:image/png;base64,${img}`);
+              }
+              console.log(`✅ [Vercel promptLLM] Attached ${images.length} image(s) converted from PDF`);
+            } else {
+              console.log(`ℹ️ [Vercel promptLLM] PDF->image conversion not available/failed for ${fname}`);
+              textParts.push(`\n--- Attachment notice ---\nA PDF named "${fname}" was attached but could not be rendered as an image for Vision. Consider providing a renderable image or a text-based version.`);
+            }
+          }
+        } else if (fname.toLowerCase().endsWith('.docx') || mime === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+          const docxText = await extractDocxText(att.content || '');
+          if (docxText) {
+            textParts.push(`\n--- Content from ${fname} (DOCX) ---\n${docxText}`);
+            console.log(`📄 [Vercel promptLLM] Extracted DOCX text from ${fname} (${docxText.length} chars)`);
+          } else {
+            console.log(`ℹ️ [Vercel promptLLM] DOCX had no extractable text: ${fname}`);
+          }
+        } else if (isImage(fname, mime)) {
+          const dataUrl = `data:${mime || 'image/jpeg'};base64,${att.content}`;
+          imageDataUrls.push(dataUrl);
+          console.log(`🖼️ [Vercel promptLLM] Prepared image for GPT-Vision: ${fname}`);
+        } else {
+          console.log(`ℹ️ [Vercel promptLLM] Unsupported file type for inline processing: ${fname} (${mime}). Skipping extraction.`);
+        }
+      }
+
+      // Inject text parts into system message (prepend or create one)
+      if (textParts.length > 0) {
+        const contextText = `\n\n## Attached Documents:\n${textParts.join('\n')}`;
+        const sysIdx = conversationMessages.findIndex(m => m.role === 'system');
+        if (sysIdx >= 0) {
+          const original = typeof conversationMessages[sysIdx].content === 'string' ? conversationMessages[sysIdx].content as string : '';
+          conversationMessages[sysIdx] = {
+            role: 'system',
+            content: `${original}${contextText}`,
+          } as ChatMessage;
+        } else {
+          conversationMessages.unshift({ role: 'system', content: (systemPrompt || '') + DEFAULT_USER_STYLE + contextText } as ChatMessage);
+        }
+        console.log(`✅ [Vercel promptLLM] Injected ${textParts.length} text file(s) into system context`);
+      }
+
+      // Attach images to the last user message as multimodal for GPT-Vision
+      if (imageDataUrls.length > 0) {
+        // find last user message
+        for (let i = conversationMessages.length - 1; i >= 0; i--) {
+          if (conversationMessages[i].role === 'user') {
+            const currentContent = conversationMessages[i].content;
+            const multimodal: any[] = [
+              { type: 'text', text: typeof currentContent === 'string' ? currentContent : JSON.stringify(currentContent) },
+              ...imageDataUrls.map(url => ({ type: 'image_url', image_url: { url, detail: 'high' } }))
+            ];
+            (conversationMessages[i] as any).content = multimodal;
+            console.log(`✅ [Vercel promptLLM] Attached ${imageDataUrls.length} image(s) to last user message for GPT-Vision`);
+            break;
+          }
+        }
+
+        // Ensure a Vision-capable model (only if we actually attached images)
+        if (!String(modelToUse).includes('gpt-4')) {
+          console.log(`🔄 [Vercel promptLLM] Switching model to gpt-4o for Vision support`);
+          modelToUse = 'gpt-4o';
+        }
+      }
     }
 
     // --- RAG Integration ---
@@ -150,7 +321,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     let mcpTools: any[] | null = null;
     if (useMcpTools) {
       // dynamic import — works in CommonJS, ESM, Vercel, Railway
-      const { getMcpTools } = await import("./utils/mcp.js");
+      const { getMcpTools } = await import("./utils/mcp");
       mcpTools = await getMcpTools();
     }
 
