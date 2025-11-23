@@ -92,6 +92,7 @@ async def rag_search(
                 path=d.metadata.get("path")
             ) for d in docs
         ]
+        logger.info(f"Found {len(doc_responses)} documents", extra={"documents": [d.path for d in doc_responses]})
 
         return SearchResponse(
             success=True,

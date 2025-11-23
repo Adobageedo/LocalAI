@@ -12,15 +12,13 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '.
 from typing import Optional, Dict, List, Any
 from src.services.ingestion.core.ingest_core import flush_batch
 from src.services.storage.file_registry import FileRegistry
-import hashlib
-from src.services.db.models import SyncStatus
 from src.core.logger import log
 
 # Utiliser le logger centralisé avec un nom spécifique pour ce module
 logger = log.bind(name="src.services.ingestion.services.ingest_personal_documents")
 
 def batch_ingest_user_documents(user_id: str, storage_path: str = None, limit: int = 200, 
-                          force_reingest: bool = False, batch_size: int = 20, syncstatus: SyncStatus = None) -> Dict[str, Any]:
+                          force_reingest: bool = False, batch_size: int = 20) -> Dict[str, Any]:
     """
     Ingest all documents in the user's storage directory in batches for improved performance.
     
@@ -73,7 +71,6 @@ def batch_ingest_user_documents(user_id: str, storage_path: str = None, limit: i
     if limit and len(files) > limit:
         files = files[:limit]
         logger.info(f"Limiting ingestion to {limit} files")
-    syncstatus.total_documents = len(files)
     # Initialize result tracking
     result = {
         "success": False,
@@ -122,7 +119,7 @@ def batch_ingest_user_documents(user_id: str, storage_path: str = None, limit: i
             
             # Process batch when it reaches the batch size
             if len(batch_documents) >= batch_size:
-                flush_batch(batch_documents, user_id, result, file_registry, syncstatus)
+                flush_batch(batch_documents, user_id, result, file_registry)
                 result["batches"] += 1
                 
         except Exception as e:
@@ -133,7 +130,7 @@ def batch_ingest_user_documents(user_id: str, storage_path: str = None, limit: i
     
     # Process any remaining documents in the batch
     if batch_documents:
-        flush_batch(batch_documents, user_id, result, file_registry, syncstatus)
+        flush_batch(batch_documents, user_id, result, file_registry)
         result["batches"] += 1
     
     # Calculate elapsed time
@@ -149,8 +146,8 @@ def batch_ingest_user_documents(user_id: str, storage_path: str = None, limit: i
 
 def main():
     parser = argparse.ArgumentParser(description='Ingest documents from a user\'s storage directory')
-    parser.add_argument('--user_id', default= "TEST_NEW_ARCHITECTURE", help='User ID for which to ingest documents')
-    parser.add_argument('--storage_path', default= "/Users/edoardo/Documents/LocalAI/rag-backend/data/storage", help='Path to the storage directory (defaults to data/storage)')
+    parser.add_argument('--user_id', default= "TEST_BAUX", help='User ID for which to ingest documents')
+    parser.add_argument('--storage_path', default= "/Users/edoardo/Documents/LocalAI/backend/data/baux", help='Path to the storage directory (defaults to data/baux)')
     parser.add_argument('--batch_size', type=int, default=20, help='Number of documents to process in each batch')
     parser.add_argument('--limit', type=int, default=None, help='Maximum number of files to process')
     parser.add_argument('--force_reingest', action='store_true', help='Force reingestion of documents already in Qdrant')
@@ -164,6 +161,11 @@ def main():
     
     if result["success"]:
         print(f"Successfully ingested {result['items_ingested']} documents for user {args.user_id}")
+        print(f"Processed {result['files_processed']} files in {result['batches']} batches")
+        print(f"Elapsed time: {result['elapsed_time']:.2f} seconds")
+        if result["errors"]:
+            print(f"Errors: {len(result['errors'])}")
+        print(f"Elapsed time: {result['elapsed_time']:.2f} seconds")
         sys.exit(0)
     else:
         print(f"Error: {result.get('error', 'Unknown error during ingestion')}")

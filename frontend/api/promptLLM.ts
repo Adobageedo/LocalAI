@@ -267,7 +267,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     if (rag) {
       try {
         console.log(`📨 rag: Received ${prompt}`);
-        let topK=10
+        let topK = 100;
         const ragResponse = await fetch(
           `${process.env.RAG_API_URL || 'https://easier-snappily-ansley.ngrok-free.dev/api/rag/search'}`,
           {
@@ -279,9 +279,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             body: JSON.stringify({
               query: prompt || "default query",
-              collection: ragCollection || "edoardo",
+              collection: "TEST_BAUX", //ragCollection || "edoardo",
               top_k: topK,
-              split_prompt: true,
+              split_prompt: false,
               rerank: false,
               use_hyde: false
             })
