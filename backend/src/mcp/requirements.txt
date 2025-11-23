@@ -1,0 +1,13 @@
+# MCP SDK Requirements
+# Model Context Protocol for AI Assistant Integration
+# Official SDK: https://github.com/modelcontextprotocol/python-sdk
+
+# Core MCP SDK (Official)
+mcp>=1.0.0
+
+# Optional: For testing and development
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+
+# Note: Backend dependencies (Qdrant, embeddings, etc.) are managed
+# in the main project requirements.txt

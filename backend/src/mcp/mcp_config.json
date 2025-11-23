@@ -1,0 +1,22 @@
+{
+  "mcpServers": {
+    "rag-retrieval": {
+      "command": "python",
+      "args": [
+        "-m",
+        "src.mcp.retrieval_server"
+      ],
+      "cwd": "/Users/edoardo/Documents/LocalAI/backend",
+      "env": {
+        "PYTHONPATH": "/Users/edoardo/Documents/LocalAI/backend",
+        "COLLECTION_NAME": "TEST_BAUX"
+      },
+      "metadata": {
+        "name": "RAG Document Retrieval",
+        "description": "Semantic search and retrieval from vector database",
+        "version": "1.0.0",
+        "author": "LocalAI Team"
+      }
+    }
+  }
+}
