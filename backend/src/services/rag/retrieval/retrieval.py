@@ -1,12 +1,18 @@
 from .base import BaseRetriever
 from typing import List, Dict, Optional
+import os
+import sys
+
+# Add the backend directory to the path so we can import src modules
+backend_path = os.path.join(os.path.dirname(__file__), '..', '..', '..', '..')
+sys.path.insert(0, backend_path)
+
 from src.services.embeddings.embedding_service import EmbeddingService
 from src.services.vectorstore.qdrant_manager import VectorStoreManager
 from langchain_qdrant import QdrantVectorStore
 from langchain_core.documents import Document
 from src.services.rag.retrieval.llm_router import LLM
 from src.core.config import load_config
-import os
 
 
 def retrieve_documents_advanced(
@@ -156,13 +162,14 @@ class Retriever(BaseRetriever):
 
 if __name__ == "__main__":
     import sys
-    question = sys.argv[1] if len(sys.argv) > 1 else "What is quantum entanglement?"
+    question = sys.argv[1] if len(sys.argv) > 1 else "Decris le bail de madame moreau?"
     docs = retrieve_documents_advanced(
         prompt=question,
-        top_k=5,
-        split_prompt=True,
-        rerank=True,
-        use_hyde=True
+        top_k=50,
+        split_prompt=False,
+        rerank=False,
+        use_hyde=False,
+        collection="TEST_BAUX"
     )
     for i, d in enumerate(docs, 1):
         print(f"\n--- Document {i} ---")
