@@ -13,11 +13,7 @@ import { useOffice } from '../../../../contexts/OfficeContext';
  * Displays a set of predefined business actions.
  */
 const QuickActions: React.FC = () => {
-  const quickActionContext = useQuickAction();
-  const { currentEmail } = useOffice();
-  
-  // Define which actions use LLM/MCP (will show NewTemplate)
-  const actionsUsingLLM = ['createPDP', 'notePoint'];
+  const quickActionContext = useQuickAction();  
   
   const actions = [
     { key: 'templates', label: 'Templates Email', component: <TemplateSelector />, usesLLM: false },
@@ -98,32 +94,6 @@ const QuickActions: React.FC = () => {
           ))}
         </Stack>
       </Stack>
-      
-      {/* Conditionally show NewTemplate when LLM action is active */}
-      {showNewTemplate && (
-        <Stack
-          styles={{
-            root: {
-              flex: 1,
-              height: '100%',
-              backgroundColor: theme.colors.backgroundAlt,
-            },
-          }}
-        >
-          <NewTemplate
-            conversationId={`quickaction_${quickActionContext.state.actionKey}`}
-            onTemplateUpdate={(template) => {
-              console.log('Template updated:', template);
-            }}
-            compose={false}
-            emailContext={{
-              subject: currentEmail?.subject,
-              from: currentEmail?.from,
-              body: currentEmail?.body,
-            }}
-          />
-        </Stack>
-      )}
     </Stack>
   );
 };

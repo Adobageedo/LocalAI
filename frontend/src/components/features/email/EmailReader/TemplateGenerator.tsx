@@ -17,23 +17,16 @@ const TemplateGenerator: React.FC<TemplateGeneratorProps> = ({ quickActionKey })
   const {
     // User & context
     user,
-    currentEmail,
     
     // State
-    attachments,
-    additionalInfo,
-    tone,
-    generatedTemplate,
     isStreaming,
     error,
     success,
-    conversationId,
     
     // Actions
     handleInsertTemplate,
-    handleCopyTemplate,
     handleNewTemplate,
-    handleTemplateUpdate,
+    hasAssistantMessage,
     clearError,
     clearSuccess,
   } = useTemplateGeneration();
@@ -94,18 +87,8 @@ const TemplateGenerator: React.FC<TemplateGeneratorProps> = ({ quickActionKey })
           }}
         >
           <TemplateChatInterface
-            conversationId={conversationId || Date.now().toString()}
-            onTemplateUpdate={handleTemplateUpdate}
             compose={false}
             quickActionKey={quickActionKey}
-            emailContext={{
-              subject: currentEmail?.subject,
-              from: currentEmail?.from,
-              additionalInfo,
-              tone,
-              body: currentEmail?.body,
-              // Attachments are now fetched and sent to backend when needed
-            }}
             llmActionProposal={[
               { actionKey: 'reply' },
               { actionKey: 'summarize', email: true },
@@ -127,8 +110,7 @@ const TemplateGenerator: React.FC<TemplateGeneratorProps> = ({ quickActionKey })
         <ActionButtons
           onNewTemplate={handleNewTemplate}
           onInsertTemplate={() => handleInsertTemplate(true)}
-          onCopyTemplate={handleCopyTemplate}
-          hasTemplate={!!generatedTemplate}
+          hasTemplate={hasAssistantMessage()}
         />
       </Stack>
     </Stack>

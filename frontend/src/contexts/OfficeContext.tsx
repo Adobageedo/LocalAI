@@ -15,6 +15,7 @@ interface OfficeContextType {
   isLoadingEmail: boolean;
   loadEmailContext: () => void;
   insertTemplate: (template: string, includeHistory?: boolean) => Promise<void>;
+  setBodyContent: (content: string) => Promise<void>;
   error: string | null;
 }
 
@@ -307,12 +308,52 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
     }
   };
 
+  // Set body content for compose mode (replaces current email body)
+  const setBodyContent = async (content: string) => {
+    if (typeof Office === 'undefined') {
+      console.log('Would set body content:', content);
+      return;
+    }
+
+    try {
+      const item = Office.context.mailbox.item;
+      if (item && item.body) {
+        // Format content with proper HTML
+        const formattedContent = `<p>${content.replace(/\n/g, '</p><p>')}</p>`;
+        
+        // Set body in compose mode
+        await new Promise<void>((resolve, reject) => {
+          item.body.setAsync(
+            formattedContent,
+            { coercionType: Office.CoercionType.Html },
+            (asyncResult) => {
+              if (asyncResult.status === Office.AsyncResultStatus.Failed) {
+                console.error('Error setting email body:', asyncResult.error);
+                reject(new Error(asyncResult.error.message));
+              } else {
+                console.log('Email body set successfully');
+                resolve();
+              }
+            }
+          );
+        });
+      } else {
+        console.error('No email item or body available');
+        throw new Error('No email item available');
+      }
+    } catch (error) {
+      console.error('Error setting body content:', error);
+      throw error;
+    }
+  };
+
   const value = {
     isOfficeReady,
     currentEmail,
     isLoadingEmail,
     loadEmailContext,
     insertTemplate,
+    setBodyContent,
     error
   };
 
