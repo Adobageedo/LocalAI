@@ -3,13 +3,39 @@ import { useAuth } from '../contexts/AuthContext';
 import { useOffice } from '../contexts/OfficeContext';
 import { getAttachmentInfo, type AttachmentInfo } from '../utils/helpers/attachmentBackend.helpers';
 
+// Helper to get last assistant message from chat localStorage
+function getLastAssistantMessage(conversationId: string): string | null {
+  if (!conversationId) return null;
+  
+  const saved = localStorage.getItem(`chat_${conversationId}`);
+  if (!saved) return null;
+  
+  try {
+    const messages = JSON.parse(saved);
+    // Find last assistant message after at least one user message
+    const hasUserMessage = messages.some((m: any) => m.role === 'user');
+    if (!hasUserMessage) return null;
+    
+    // Get last assistant message
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'assistant' && messages[i].content) {
+        return messages[i].content;
+      }
+    }
+  } catch (err) {
+    console.error('Error reading chat messages:', err);
+  }
+  
+  return null;
+}
+
 /**
  * Custom hook for email composer logic
  * Handles state management, email context, and attachments for compose mode
  */
 export function useEmailComposer() {
   const { user } = useAuth();
-  const { currentEmail, insertTemplate } = useOffice();
+  const { currentEmail, setBodyContent } = useOffice();
   
   // State
   const [attachments, setAttachments] = useState<AttachmentInfo[]>([]);
@@ -53,20 +79,23 @@ export function useEmailComposer() {
     }
   }, [currentEmail]);
 
-  // Insert template into email
-  const handleInsertTemplate = useCallback(async (includeHistory: boolean = false) => {
-    if (!generatedTemplate) {
-      setError('No template to insert');
+  // Insert template into email (compose mode - sets body)
+  const handleInsertTemplate = useCallback(async () => {
+    // Get last assistant message from chat
+    const template = getLastAssistantMessage(conversationId);
+    
+    if (!template) {
+      setError('No assistant message to insert');
       return;
     }
 
     try {
-      await insertTemplate(generatedTemplate, includeHistory);
-      setSuccess('Template inserted into new email!');
+      await setBodyContent(template);
+      setSuccess('Template inserted into email!');
     } catch (error: any) {
       setError('Failed to insert template: ' + error.message);
     }
-  }, [generatedTemplate, insertTemplate]);
+  }, [conversationId, setBodyContent]);
 
   // Copy template to clipboard
   const handleCopyTemplate = useCallback(() => {
@@ -84,11 +113,17 @@ export function useEmailComposer() {
 
   // Start new conversation
   const handleNewTemplate = useCallback(() => {
+    // Clear current conversation from localStorage
+    if (conversationId) {
+      localStorage.removeItem(`chat_${conversationId}`);
+    }
+    
+    // Trigger re-render by updating conversationId
     setGeneratedTemplate('');
     setConversationId(Date.now().toString());
     setError('');
     setSuccess('');
-  }, []);
+  }, [conversationId]);
 
   // Update template from chat
   const handleTemplateUpdate = useCallback((newTemplate: string) => {
@@ -99,6 +134,11 @@ export function useEmailComposer() {
   // Clear messages
   const clearError = useCallback(() => setError(''), []);
   const clearSuccess = useCallback(() => setSuccess(''), []);
+
+  // Check if there's an assistant message available
+  const hasAssistantMessage = useCallback(() => {
+    return getLastAssistantMessage(conversationId) !== null;
+  }, [conversationId]);
 
   return {
     // User & context
@@ -126,6 +166,7 @@ export function useEmailComposer() {
     handleCopyTemplate,
     handleNewTemplate,
     handleTemplateUpdate,
+    hasAssistantMessage,
     clearError,
     clearSuccess,
   };

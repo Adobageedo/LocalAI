@@ -1,4 +1,3 @@
-import React from 'react';
 import { Stack, PrimaryButton, DefaultButton } from '@fluentui/react';
 import { useTranslations } from '../../utils/i18n';
 import { theme, compactButtonStyles } from '../../styles';
@@ -6,7 +5,6 @@ import { theme, compactButtonStyles } from '../../styles';
 interface ActionButtonsProps {
   onNewTemplate: () => void;
   onInsertTemplate: () => void;
-  onCopyTemplate: () => void;
   hasTemplate: boolean;
 }
 
@@ -17,7 +15,6 @@ interface ActionButtonsProps {
 export function ActionButtons({
   onNewTemplate,
   onInsertTemplate,
-  onCopyTemplate,
   hasTemplate
 }: ActionButtonsProps) {
   const t = useTranslations();
@@ -46,13 +43,6 @@ export function ActionButtons({
           text={t.insertTemplate || 'Insérer'}
           onClick={onInsertTemplate}
           iconProps={{ iconName: 'Mail' }}
-          styles={compactButtonStyles}
-          disabled={!hasTemplate}
-        />
-        <DefaultButton
-          text="Copier"
-          onClick={onCopyTemplate}
-          iconProps={{ iconName: 'Copy' }}
           styles={compactButtonStyles}
           disabled={!hasTemplate}
         />

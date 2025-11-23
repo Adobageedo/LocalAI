@@ -19,20 +19,14 @@ const EmailComposerPage: React.FC = () => {
     currentEmail,
     
     // State
-    attachments,
-    additionalInfo,
-    tone,
-    generatedTemplate,
     isStreaming,
     error,
     success,
-    conversationId,
     
     // Actions
     handleInsertTemplate,
-    handleCopyTemplate,
     handleNewTemplate,
-    handleTemplateUpdate,
+    hasAssistantMessage,
     clearError,
     clearSuccess,
   } = useEmailComposer();
@@ -109,16 +103,7 @@ const EmailComposerPage: React.FC = () => {
           }}
         >
           <TemplateChatInterface
-            conversationId={conversationId || Date.now().toString()}
-            onTemplateUpdate={handleTemplateUpdate}
             compose={true}
-            emailContext={{
-              subject: currentEmail?.subject,
-              from: currentEmail?.from,
-              additionalInfo,
-              tone,
-              body: currentEmail?.body
-            }}
             llmActionProposal={[
               { actionKey: 'generate' },
               { actionKey: 'correct' },
@@ -140,9 +125,8 @@ const EmailComposerPage: React.FC = () => {
       >
         <ActionButtons
           onNewTemplate={handleNewTemplate}
-          onInsertTemplate={() => handleInsertTemplate(true)}
-          onCopyTemplate={handleCopyTemplate}
-          hasTemplate={!!generatedTemplate}
+          onInsertTemplate={handleInsertTemplate}
+          hasTemplate={hasAssistantMessage()}
         />
       </Stack>
     </Stack>

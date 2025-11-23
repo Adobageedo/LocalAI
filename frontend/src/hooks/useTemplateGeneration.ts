@@ -3,6 +3,32 @@ import { useAuth } from '../contexts/AuthContext';
 import { useOffice } from '../contexts/OfficeContext';
 import { getAttachmentInfo, type AttachmentInfo } from '../utils/helpers/attachmentBackend.helpers';
 
+// Helper to get last assistant message from chat localStorage
+function getLastAssistantMessage(conversationId: string): string | null {
+  if (!conversationId) return null;
+  
+  const saved = localStorage.getItem(`chat_${conversationId}`);
+  if (!saved) return null;
+  
+  try {
+    const messages = JSON.parse(saved);
+    // Find last assistant message after at least one user message
+    const hasUserMessage = messages.some((m: any) => m.role === 'user');
+    if (!hasUserMessage) return null;
+    
+    // Get last assistant message
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'assistant' && messages[i].content) {
+        return messages[i].content;
+      }
+    }
+  } catch (err) {
+    console.error('Error reading chat messages:', err);
+  }
+  
+  return null;
+}
+
 /**
  * Custom hook for template generation logic
  * Handles state management, email context, and attachments
@@ -60,34 +86,23 @@ export function useTemplateGeneration() {
     }
   }, [isOfficeReady, isLoadingEmail, currentEmail]);
 
-  // Insert template into email
+  // Insert template into email (reader mode - creates reply)
   const handleInsertTemplate = useCallback(async (includeHistory: boolean = false) => {
-    if (!generatedTemplate) {
-      setError('No template to insert');
+    // Get last assistant message from chat
+    const template = getLastAssistantMessage(conversationId);
+    
+    if (!template) {
+      setError('No assistant message to insert');
       return;
     }
 
     try {
-      await insertTemplate(generatedTemplate, includeHistory);
-      setSuccess('Template inserted into new email!');
+      await insertTemplate(template, includeHistory);
+      setSuccess('Template inserted into reply!');
     } catch (error: any) {
       setError('Failed to insert template: ' + error.message);
     }
-  }, [generatedTemplate, insertTemplate]);
-
-  // Copy template to clipboard
-  const handleCopyTemplate = useCallback(() => {
-    if (!generatedTemplate) {
-      setError('No template to copy');
-      return;
-    }
-
-    navigator.clipboard.writeText(generatedTemplate).then(() => {
-      setSuccess('Template copied to clipboard!');
-    }).catch(() => {
-      setError('Failed to copy template to clipboard');
-    });
-  }, [generatedTemplate]);
+  }, [conversationId, insertTemplate]);
 
   // Start new conversation
   const handleNewTemplate = useCallback(() => {
@@ -96,21 +111,21 @@ export function useTemplateGeneration() {
       localStorage.removeItem(`chat_${conversationId}`);
     }
     
+    // Trigger re-render by updating conversationId
     setGeneratedTemplate('');
     setConversationId(Date.now().toString());
     setError('');
     setSuccess('');
   }, [conversationId]);
 
-  // Update template from chat
-  const handleTemplateUpdate = useCallback((newTemplate: string) => {
-    setGeneratedTemplate(newTemplate);
-    setSuccess('Template refined successfully!');
-  }, []);
-
   // Clear messages
   const clearError = useCallback(() => setError(''), []);
   const clearSuccess = useCallback(() => setSuccess(''), []);
+
+  // Check if there's an assistant message available
+  const hasAssistantMessage = useCallback(() => {
+    return getLastAssistantMessage(conversationId) !== null;
+  }, [conversationId]);
 
   return {
     // User & context
@@ -137,9 +152,8 @@ export function useTemplateGeneration() {
     
     // Actions
     handleInsertTemplate,
-    handleCopyTemplate,
     handleNewTemplate,
-    handleTemplateUpdate,
+    hasAssistantMessage,
     clearError,
     clearSuccess,
   };
