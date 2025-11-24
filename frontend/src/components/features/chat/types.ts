@@ -30,6 +30,7 @@ export interface EmailContext {
   subject?: string;
   from?: string;
   body?: string;
+  date?: string;
 }
 
 export interface ChatSettings {

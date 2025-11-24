@@ -16,10 +16,12 @@ import {
   IStackTokens,
   getTheme,
 } from '@fluentui/react';
+import { ActionButtons } from '../../common';
 import { useOffice } from '../../../contexts/OfficeContext';
 import { useQuickAction } from '../../../contexts/QuickActionContext';
 import { hasEmailAttachments, getAttachmentCount } from '../../../utils/helpers/attachmentBackend.helpers';
 import { LLM_QUICK_ACTIONS_DICTIONARY } from '../../../config/llmQuickActions';
+import { useTemplateGeneration } from '../../../hooks';
 
 // Types
 import { TemplateChatInterfaceProps, ChatSettings } from './types';
@@ -58,25 +60,34 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
   // Context
   const { currentEmail } = useOffice();
   const quickActionContext = useQuickAction();
-  
+  const {
+    // Actions
+  } = useTemplateGeneration();
   // Refs
   const scrollableRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const settingsButtonRef = useRef<HTMLDivElement>(null);
-  
+  const today = new Date().toISOString().split('T')[0];
   // Theme & Tokens
   const theme = getTheme();
   const stackTokens: IStackTokens = { childrenGap: 16 };
+  const diyconversationID = currentEmail?.conversationId 
+    ? `${currentEmail.conversationId}` 
+    : currentEmail?.subject && currentEmail?.date 
+      ? `${currentEmail.subject}-${currentEmail.date.toISOString()}` 
+      : `today-${today}`;
 
-  // Generate conversationId and emailContext
-  const conversationId = currentEmail?.conversationId || 
-                        currentEmail?.internetMessageId || 
-                        'default-conversation';
+      // Generate conversationId and emailContext
+  const conversationId = diyconversationID;
+  // const conversationId = currentEmail?.conversationId || 
+  //                       (currentEmail?.subject ? currentEmail.subject + new Date().getTime().toString() : undefined) || 
+  //                       'default-conversation';
   
   const emailContext = {
     subject: currentEmail?.subject,
     from: currentEmail?.from,
     body: currentEmail?.body,
+    date: currentEmail?.date?.toISOString(),
   };
 
   // State
@@ -84,6 +95,7 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
   const [lastQuickAction, setLastQuickAction] = useState<string | null>(null);
   const [lastClickedButton, setLastClickedButton] = useState<string | null>(null);
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
+  const [showScrollButton, setShowScrollButton] = useState(false);
   const [settings, setSettings] = useState<ChatSettings>({
     useRag: false,
     useFineTune: false,
@@ -91,9 +103,10 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
   });
 
   // Custom hooks
-  const { messages, setMessages } = useChatMessages({
+  const { messages, setMessages, handleNewTemplate, hasAssistantMessage, handleInsertTemplate } = useChatMessages({
     conversationId,
-    quickActionKey
+    quickActionKey,
+    compose
   });
 
   useQuickActionSync({
@@ -113,9 +126,33 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
     setMessages
   });
 
-  // Auto scroll to bottom
+  // Detect scroll position and show/hide scroll button
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const container = scrollableRef.current;
+    if (!container) return;
+
+    const handleScroll = () => {
+      const isNearBottom = 
+        container.scrollHeight - container.scrollTop - container.clientHeight < 150;
+      setShowScrollButton(!isNearBottom);
+    };
+
+    container.addEventListener('scroll', handleScroll);
+    return () => container.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Smart auto-scroll: only scroll if user is near bottom
+  useEffect(() => {
+    if (!scrollableRef.current) return;
+    
+    const container = scrollableRef.current;
+    const isNearBottom = 
+      container.scrollHeight - container.scrollTop - container.clientHeight < 150;
+    
+    // Only auto-scroll if user is already near the bottom (not scrolling up to read)
+    if (isNearBottom) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages]);
 
   // Handle quick action button click
@@ -177,6 +214,16 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
     setSettings(prev => ({ ...prev, ...newSettings }));
   };
 
+  // Handle insert template with error handling
+  const handleInsertTemplateClick = async () => {
+    try {
+      await handleInsertTemplate(true); // includeHistory = true
+      // Success - could show a success message if needed
+    } catch (err: any) {
+      setError(err.message || 'Failed to insert template');
+    }
+  };
+
   const lastAssistantIndex = findLastAssistantMessageIndex(messages);
   const isNew = isNewConversation(messages);
 
@@ -217,7 +264,8 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
           flex: 1,
           overflowY: 'auto',
           padding: 20,
-          backgroundColor: '#f5f5f5'
+          backgroundColor: '#f5f5f5',
+          position: 'relative'
         }}
       >
         {messages.map((m, msgIndex) => (
@@ -275,32 +323,68 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
           }}
         />
 
-        {/* Settings Button */}
-        <div ref={settingsButtonRef}>
+        {/* Right side buttons - vertical stack */}
+        <Stack tokens={{ childrenGap: 4 }} verticalAlign="space-between">
+          {/* Send Button - Top */}
           <IconButton
-            iconProps={{ iconName: 'Settings' }}
-            title="Paramètres"
-            ariaLabel="Paramètres"
-            onClick={() => setShowSettingsMenu(!showSettingsMenu)}
+            iconProps={{ iconName: 'Send' }}
+            title="Envoyer"
+            ariaLabel="Envoyer le message"
+            onClick={handleSendMessage}
+            disabled={!currentMessage.trim() || isLoading}
             styles={{
               root: {
                 height: 40,
                 width: 40,
                 borderRadius: 20,
-                border: `1px solid ${theme.palette.neutralLight}`,
-                backgroundColor: showSettingsMenu
-                  ? theme.palette.themeLighter
-                  : theme.palette.white,
+                backgroundColor: (!currentMessage.trim() || isLoading)
+                  ? theme.palette.neutralLight
+                  : theme.palette.themePrimary,
+                border: 'none',
+                transition: 'all 0.2s ease',
+                ':hover': {
+                  backgroundColor: (!currentMessage.trim() || isLoading)
+                    ? theme.palette.neutralLight
+                    : theme.palette.themeDark,
+                  transform: (!currentMessage.trim() || isLoading) ? 'none' : 'scale(1.05)',
+                },
               },
               icon: {
                 fontSize: 16,
-                color: showSettingsMenu
-                  ? theme.palette.themePrimary
-                  : theme.palette.neutralSecondary,
+                color: (!currentMessage.trim() || isLoading)
+                  ? theme.palette.neutralTertiary
+                  : theme.palette.white,
               },
             }}
           />
-        </div>
+
+          {/* Settings Button - Bottom */}
+          <div ref={settingsButtonRef}>
+            <IconButton
+              iconProps={{ iconName: 'Settings' }}
+              title="Paramètres"
+              ariaLabel="Paramètres"
+              onClick={() => setShowSettingsMenu(!showSettingsMenu)}
+              styles={{
+                root: {
+                  height: 40,
+                  width: 40,
+                  borderRadius: 20,
+                  border: `1px solid ${theme.palette.neutralLight}`,
+                  backgroundColor: showSettingsMenu
+                    ? theme.palette.themeLighter
+                    : theme.palette.white,
+                },
+                icon: {
+                  fontSize: 16,
+                  color: showSettingsMenu
+                    ? theme.palette.themePrimary
+                    : theme.palette.neutralSecondary,
+                },
+              }}
+            />
+          </div>
+        </Stack>
 
         {/* Settings Menu */}
         <SettingsMenu
@@ -312,25 +396,21 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
           onDismiss={() => setShowSettingsMenu(false)}
           onSettingsChange={handleSettingsChange}
         />
-
-        {/* Send Button */}
-        <PrimaryButton
-          text="Envoyer"
-          onClick={handleSendMessage}
-          disabled={!currentMessage.trim() || isLoading}
-          iconProps={{ iconName: 'Send' }}
-          styles={{
-            root: {
-              minWidth: 100,
-              height: 40,
-              borderRadius: 20,
-              fontWeight: 600,
-              transition: 'all 0.2s ease',
-              ':hover': {
-                transform: 'scale(1.05)',
-              },
-            },
-          }}
+      </Stack>
+      {/* Compact Action Bar at Bottom */}
+      <Stack
+        styles={{
+          root: {
+            borderTop: `1px solid ${theme.palette.neutralLight}`,
+            padding: `${theme.spacing.s1}px ${theme.spacing.m}px`,
+            backgroundColor: theme.palette.neutralLighter,
+          }
+        }}
+      >
+        <ActionButtons
+          onNewTemplate={handleNewTemplate}
+          onInsertTemplate={() => handleInsertTemplate(true)}
+          hasTemplate={hasAssistantMessage()}
         />
       </Stack>
     </Stack>
