@@ -4,6 +4,7 @@ interface EmailData {
   subject: string;
   from: string;
   body: string;
+  date?: Date;
   conversationId?: string;
   fullConversation?: string;
   internetMessageId?: string;
@@ -71,7 +72,8 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
       setCurrentEmail({
         subject: 'Sample Email Subject',
         from: 'sender@example.com',
-        body: 'This is a sample email body for development purposes.'
+        body: 'This is a sample email body for development purposes.',
+        date: new Date()
       });
     }
   }, []);
@@ -166,6 +168,7 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
       if (mailboxItem) {
         let emailSubject = '';
         let emailFrom = '';
+        let emailDate: Date | undefined = undefined;
         
         // Handle both read and compose modes for subject
         if (typeof mailboxItem.subject === 'string') {
@@ -187,6 +190,13 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
           emailFrom = mailboxItem.organizer.displayName || mailboxItem.organizer.emailAddress || '';
         }
 
+        // Get email date/time
+        if (mailboxItem.dateTimeCreated) {
+          emailDate = mailboxItem.dateTimeCreated;
+        } else if (mailboxItem.dateTimeModified) {
+          emailDate = mailboxItem.dateTimeModified;
+        }
+
         // Try to get basic body without token (limited functionality)
         if (mailboxItem.body && typeof (mailboxItem.body as any).getAsync === 'function') {
           (mailboxItem.body as any).getAsync('text', function(result: any) {
@@ -194,15 +204,15 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
               const rawEmailBody = result.value || '';
               // Apply extractLatestReply to clean the email body
               const emailParts = extractLatestReply(rawEmailBody);
-              updateEmailData(emailSubject, emailFrom, emailParts.mainBody, undefined, emailParts.conversationHistory);
+              updateEmailData(emailSubject, emailFrom, emailParts.mainBody, emailDate, undefined, emailParts.conversationHistory);
             } else {
               // If body fails, still update with available data
-              updateEmailData(emailSubject, emailFrom, 'Email body unavailable in corporate environment');
+              updateEmailData(emailSubject, emailFrom, 'Email body unavailable in corporate environment', emailDate);
             }
           });
         } else {
           // Update with available data even without body
-          updateEmailData(emailSubject, emailFrom, 'Email body unavailable in corporate environment');
+          updateEmailData(emailSubject, emailFrom, 'Email body unavailable in corporate environment', emailDate);
         }
       } else {
         console.log('No email item available in basic context');
@@ -219,11 +229,12 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
   // Create a shared loading manager that can be accessed outside of loadEmailContext
   let activeLoadingManager: LoadingManager | null = null;
   
-  const updateEmailData = (subject: string, from: string, body: string, conversationId?: string, fullConversation?: string, internetMessageId?: string) => {
+  const updateEmailData = (subject: string, from: string, body: string, date?: Date, conversationId?: string, fullConversation?: string, internetMessageId?: string) => {
     setCurrentEmail({ 
       subject, 
       from, 
       body,
+      date,
       conversationId,
       fullConversation,
       internetMessageId
@@ -239,7 +250,8 @@ export const OfficeProvider: React.FC<OfficeProviderProps> = ({ children }) => {
     console.log('Email context loaded:', { 
       subject, 
       from, 
-      bodyLength: body.length, 
+      bodyLength: body.length,
+      date,
       conversationId, 
       fullConversationLength: fullConversation?.length || 0,
       internetMessageId 

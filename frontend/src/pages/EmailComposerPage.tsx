@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Stack } from '@fluentui/react';
 import { useEmailComposer } from '../hooks';
-import { ActionButtons, StatusMessages, LoadingIndicator } from '../components/common';
 import { Header, Sidebar } from '../components/layout';
 import { theme } from '../styles';
 import TemplateChatInterface from '../components/features/chat/NewTemplate';
@@ -17,18 +16,6 @@ const EmailComposerPage: React.FC = () => {
     // User & context
     user,
     currentEmail,
-    
-    // State
-    isStreaming,
-    error,
-    success,
-    
-    // Actions
-    handleInsertTemplate,
-    handleNewTemplate,
-    hasAssistantMessage,
-    clearError,
-    clearSuccess,
   } = useEmailComposer();
 
   
@@ -64,69 +51,24 @@ const EmailComposerPage: React.FC = () => {
         onMenuClick={() => setSidebarOpen(!sidebarOpen)}
       />
 
-      {/* Status Messages */}
-      {(error || success) && (
-        <Stack styles={{ root: { padding: `${theme.spacing.xs}px ${theme.spacing.md}px` } }}>
-          <StatusMessages
-            error={error}
-            success={success}
-            onDismissError={clearError}
-            onDismissSuccess={clearSuccess}
-          />
-        </Stack>
-      )}
-
-      {/* Main Chat Area - Takes full remaining space */}
+      {/* Chat Interface - Takes remaining space */}
       <Stack
         styles={{
           root: {
-            height: '100%',
+            flex: 1,
+            overflow: 'hidden',
             display: 'flex',
             flexDirection: 'column',
           }
         }}
       >
-        {/* Loading Indicator */}
-        {isStreaming && (
-          <Stack styles={{ root: { padding: `${theme.spacing.xs}px ${theme.spacing.md}px` } }}>
-            <LoadingIndicator isLoading={isStreaming} />
-          </Stack>
-        )}
-
-        {/* Chat Interface - Full height */}
-        <Stack
-          styles={{
-            root: {
-              flex: 1,
-              overflow: 'auto',
-            }
-          }}
-        >
-          <TemplateChatInterface
-            compose={true}
-            llmActionProposal={[
-              { actionKey: 'generate' },
-              { actionKey: 'correct' },
-              { actionKey: 'reformulate' }
-            ]}
-          />
-        </Stack>
-      </Stack>
-
-      {/* Compact Action Bar at Bottom */}
-      <Stack
-        styles={{
-          root: {
-            borderTop: `1px solid ${theme.colors.borderLight}`,
-            padding: `${theme.spacing.sm}px ${theme.spacing.md}px`,
-            backgroundColor: theme.colors.backgroundAlt,
-          }
-        }}
-      >
-        <ActionButtons
-          onNewTemplate={handleNewTemplate}
-          onInsertTemplate={handleInsertTemplate}
-          hasTemplate={hasAssistantMessage()}
+        <TemplateChatInterface
+          compose={true}
+          llmActionProposal={[
+            { actionKey: 'generate' },
+            { actionKey: 'correct' },
+            { actionKey: 'reformulate' }
+          ]}
         />
       </Stack>
     </Stack>

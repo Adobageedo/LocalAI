@@ -4,7 +4,6 @@ import { theme } from '../../../../styles';
 import TemplateSelector from './QuickActions/TemplateSelector';
 import GeneratePDP from './QuickActions/GeneratePDP';
 import SavePoint from './QuickActions/SavePoint';
-import NewTemplate from '../../chat/NewTemplate';
 import { useQuickAction } from '../../../../contexts/QuickActionContext';
 import { useOffice } from '../../../../contexts/OfficeContext';
 

@@ -8,6 +8,8 @@ interface HeaderProps {
   subtitle?: string;
   onMenuClick?: () => void;
   showMenu?: boolean;
+  showQuickActions?: boolean;
+  onQuickActionsClick?: () => void;
 }
 
 /**
@@ -18,7 +20,9 @@ export function Header({
   title = 'AI Assistant', 
   subtitle,
   onMenuClick,
-  showMenu = false
+  showMenu = false,
+  showQuickActions = false,
+  onQuickActionsClick
 }: HeaderProps) {
   return (
     <Stack 
@@ -93,9 +97,27 @@ export function Header({
         </Stack>
       </Stack>
 
-      {/* Right side: Actions placeholder */}
+      {/* Right side: Actions */}
       <Stack horizontal tokens={{ childrenGap: theme.spacing.xs }}>
-        {/* Add any global actions here (notifications, user menu, etc.) */}
+        {showQuickActions && (
+          <IconButton
+            iconProps={{ iconName: 'LightningBolt' }}
+            title="Quick Actions"
+            ariaLabel="Open quick actions"
+            onClick={onQuickActionsClick}
+            styles={{
+              root: {
+                color: theme.colors.primary,
+                '&:hover': {
+                  backgroundColor: theme.colors.primaryLighter,
+                }
+              },
+              icon: {
+                fontSize: 20,
+              }
+            }}
+          />
+        )}
       </Stack>
     </Stack>
   );
