@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, Header, HTTPException, status
+from io import StringIO
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 from datetime import datetime
@@ -75,6 +76,9 @@ async def rag_search(
         # user_id = current_user.get("uid") if current_user else "anonymous"
         # logger.info("RAG search requested", query=request.query, user_id=user_id)
 
+        # -------------------------------------------------
+        # 1. RETRIEVE RAW CHUNKS
+        # -------------------------------------------------
         docs = retrieve_documents_advanced(
             prompt=request.query,
             top_k=request.top_k,
@@ -85,19 +89,74 @@ async def rag_search(
             metadata_filter=request.metadata_filter
         )
 
-        doc_responses = [
-            DocumentResponse(
-                page_content=d.page_content,  # preview first 500 chars
-                # metadata=d.metadata
-                path=d.metadata.get("path")
-            ) for d in docs
-        ]
-        logger.info(f"Found {len(doc_responses)} documents", extra={"documents": [d.path for d in doc_responses]})
+        # -------------------------------------------------
+        # 2. GROUP CHUNKS BY doc_id
+        # -------------------------------------------------
+        grouped: Dict[str, Dict] = {}
 
+        for d in docs:
+            doc_id = d.metadata.get("doc_id", "unknown")
+
+            if doc_id not in grouped:
+                grouped[doc_id] = {
+                    "path": d.metadata.get("path"),
+                    "chunks": []
+                }
+
+            grouped[doc_id]["chunks"].append(d)
+
+        # -------------------------------------------------
+        # 3. SORT CHUNKS INSIDE EACH DOCUMENT
+        # -------------------------------------------------
+        final_docs: List[DocumentResponse] = []
+
+        for doc_id, doc_data in grouped.items():
+            chunks = doc_data["chunks"]
+
+            # Best sorting strategy (if provided by splitter)
+            chunks_sorted = sorted(
+                chunks,
+                key=lambda x: (
+                    x.metadata.get("start_index", 0),
+                    x.metadata.get("chunk_id", 0)
+                )
+            )
+
+            # -------------------------------------------------
+            # 4. MERGE TEXT USING StringIO (ultra-fast)
+            # -------------------------------------------------
+            buffer = StringIO()
+            for chunk in chunks_sorted:
+                buffer.write(chunk.page_content)
+                buffer.write("\n")
+
+            merged_text = buffer.getvalue()
+
+            # -------------------------------------------------
+            # 5. BUILD FINAL OUTPUT ITEM
+            # -------------------------------------------------
+            final_docs.append(
+                DocumentResponse(
+                    page_content=merged_text,
+                    path=doc_data["path"]
+                )
+            )
+
+        # Sort by path (for stable deterministic API responses)
+        final_docs = sorted(final_docs, key=lambda x: x.path or "")
+
+        logger.info(
+            f"Merged {len(final_docs)} documents from {len(docs)} chunks",
+            extra={"paths": [d.path for d in final_docs]}
+        )
+
+        # -------------------------------------------------
+        # 6. RETURN RESPONSE
+        # -------------------------------------------------
         return SearchResponse(
             success=True,
-            message=f"{len(doc_responses)} documents retrieved",
-            documents=doc_responses
+            message=f"{len(final_docs)} documents merged",
+            documents=final_docs
         )
 
     except Exception as e:

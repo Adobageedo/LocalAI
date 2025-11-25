@@ -1,0 +1,2 @@
+This is a sample text file used to test load_and_split_document.
+It contains several lines of text to ensure chunking works properly.
