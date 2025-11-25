@@ -93,7 +93,7 @@ class Retriever(BaseRetriever):
         """
         Given a user prompt, generate a hypothetical answer (HYDE) using the LLM.
         """
-        router = LLM()
+        router = LLM(model="gpt-5-nano", temperature=1)
         llm = router.rag_llm(prompt)
         hyde_instruction = (
             "Given the following query, generate a plausible and detailed answer as if you were an expert on the topic. "
@@ -117,7 +117,7 @@ class Retriever(BaseRetriever):
         """
         Use the LLM to split a complex prompt into subquestions.
         """
-        router = LLM()
+        router = LLM(model="gpt-5-nano", temperature=1)
         llm = router.rag_llm(prompt)
         system_prompt = (
             "Tu es un assistant qui reçoit une question complexe ou un prompt utilisateur. "
@@ -140,7 +140,7 @@ class Retriever(BaseRetriever):
         Rerank documents according to their relevance to the prompt using the LLM as a cross-encoder.
         Returns the top_k unique documents by doc_id.
         """
-        router = LLM()
+        router = LLM(model="gpt-5-nano", temperature=1)
         llm = router.rag_llm(prompt)
         scored_docs = []
         for d in docs:

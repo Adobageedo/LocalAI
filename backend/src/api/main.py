@@ -23,9 +23,6 @@ from .router.rag.search import router as rag_router
 
 # LLM routers
 from .router.llm.prompt_llm import router as prompt_llm_router
-from .router.llm.technicians import router as technicians_router
-from .router.llm.records import router as records_router
-from .router.llm.download_pdp import router as download_pdp_router
 
 # Configuration des préfixes API centralisée
 # app.include_router(outlook_router, prefix="/api")
@@ -38,9 +35,6 @@ app.include_router(rag_router, prefix="/api")
 
 # LLM API routes
 app.include_router(prompt_llm_router, prefix="/api/promptLLM", tags=["LLM"])
-app.include_router(technicians_router, prefix="/api/technicians", tags=["Technicians"])
-app.include_router(records_router, prefix="/api/records", tags=["Records"])
-app.include_router(download_pdp_router, prefix="/api/download-pdp", tags=["Documents"])
 
 # Add middleware
 # 1. Compression for better network performance

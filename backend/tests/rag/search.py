@@ -7,16 +7,16 @@ from src.services.rag.retrieval.retrieval import retrieve_documents_advanced
 
 def main():
     # Get the prompt from command line, default to a sample question
-    prompt = sys.argv[1] if len(sys.argv) > 1 else "Explain the theory of relativity in simple terms."
+    prompt = sys.argv[1] if len(sys.argv) > 1 else "Renvoie le bail de Moreau."
 
     # Retrieve documents
     docs = retrieve_documents_advanced(
         prompt=prompt,
-        top_k=5,
-        split_prompt=True,  # split complex prompts into subquestions
+        top_k=50,
+        split_prompt=False,  # split complex prompts into subquestions
         rerank=False,        # rerank retrieved documents
         use_hyde=False,      # generate hypothetical answers for better embeddings
-        collection="test_user"     # default collection from config
+        collection="TEST_BAUX"     # default collection from config
     )
 
     # Print results
