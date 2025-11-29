@@ -63,8 +63,8 @@ All responses must be valid JSON:
 {
   "response": "only the email draft",
   "buttons": [
-    {"label": "Short label", "action": "Likely next user message"},
-    {"label": "Another label", "action": "Another likely next user message"}
+    {"label": "Short label", "action": "Likely next user message, written as if I (the user) had written it myself"},
+    {"label": "Another label", "action": "Another likely next user message, written as if I (the user) had written it myself"}
   ]
 }
 
@@ -139,8 +139,8 @@ Toutes les réponses doivent être au format JSON valide :
 {
   "response": "seulement le brouillon de l'email",
   "buttons": [
-    {"label": "Petit libellé", "action": "Prochaine action probable de l'utilisateur"},
-    {"label": "Un autre libellé", "action": "Une autre action probable de l'utilisateur"}
+    {"label": "Petit libellé", "action": "Prochaine action probable de l'utilisateur, formulée comme si l'utilisateur lui-même l'avait écrite"},
+    {"label": "Un autre libellé", "action": "Une autre action probable de l'utilisateur, formulée comme si l'utilisateur lui-même l'avait écrite"}
   ]
 }
 
@@ -155,8 +155,8 @@ Exemple :
 {
   "response": "Voici le brouillon de votre email concernant la réunion...",
   "buttons": [
-    {"label": "Ajouter l'ordre du jour", "action": "Pouvez-vous inclure l'ordre du jour de la réunion ?"},
-    {"label": "Rendre plus formel", "action": "Merci de rendre ce message plus formel."}
+    {"label": "Ajouter l'ordre du jour", "action": "Peux-tu inclure l'ordre du jour de la réunion ?"},
+    {"label": "Rendre plus formel", "action": "Peux-tu rendre ce message plus formel ?"}
   ]
 }
 `;

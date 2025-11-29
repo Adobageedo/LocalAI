@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Extension Debug</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      min-width: 400px;
+    }
+    h1 { color: #0078d4; }
+    .status { padding: 10px; margin: 10px 0; border-radius: 5px; }
+    .success { background: #d4edda; color: #155724; }
+    .error { background: #f8d7da; color: #721c24; }
+    .info { background: #d1ecf1; color: #0c5460; }
+    pre { background: #f5f5f5; padding: 10px; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <h1>🔍 Extension Debug Info</h1>
+  
+  <div id="status"></div>
+  
+  <h2>Environment</h2>
+  <pre id="env"></pre>
+  
+  <h2>Chrome APIs</h2>
+  <pre id="chrome-apis"></pre>
+  
+  <h2>Console Logs</h2>
+  <div id="logs"></div>
+  
+  <script>
+    const statusDiv = document.getElementById('status');
+    const envPre = document.getElementById('env');
+    const chromePre = document.getElementById('chrome-apis');
+    const logsDiv = document.getElementById('logs');
+    
+    // Check environment
+    const env = {
+      userAgent: navigator.userAgent,
+      location: window.location.href,
+      hasChrome: typeof chrome !== 'undefined',
+      hasRuntime: typeof chrome?.runtime !== 'undefined',
+      extensionId: chrome?.runtime?.id || 'N/A',
+      platform: navigator.platform,
+    };
+    
+    envPre.textContent = JSON.stringify(env, null, 2);
+    
+    // Check Chrome APIs
+    const apis = {
+      runtime: typeof chrome?.runtime !== 'undefined',
+      tabs: typeof chrome?.tabs !== 'undefined',
+      storage: typeof chrome?.storage !== 'undefined',
+      action: typeof chrome?.action !== 'undefined',
+    };
+    
+    chromePre.textContent = JSON.stringify(apis, null, 2);
+    
+    // Status
+    if (chrome?.runtime?.id) {
+      statusDiv.innerHTML = '<div class="status success">✅ Extension context detected!</div>';
+    } else {
+      statusDiv.innerHTML = '<div class="status error">❌ Not in extension context</div>';
+    }
+    
+    // Intercept console
+    const originalLog = console.log;
+    const originalError = console.error;
+    
+    console.log = function(...args) {
+      originalLog.apply(console, args);
+      logsDiv.innerHTML += `<div class="status info">LOG: ${args.join(' ')}</div>`;
+    };
+    
+    console.error = function(...args) {
+      originalError.apply(console, args);
+      logsDiv.innerHTML += `<div class="status error">ERROR: ${args.join(' ')}</div>`;
+    };
+    
+    console.log('Debug page loaded');
+    console.log('Extension ID:', chrome?.runtime?.id);
+    
+    // Try to load main app
+    setTimeout(() => {
+      console.log('Attempting to redirect to main app...');
+      window.location.href = 'index.html';
+    }, 3000);
+  </script>
+</body>
+</html>
