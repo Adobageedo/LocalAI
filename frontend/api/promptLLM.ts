@@ -279,7 +279,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             body: JSON.stringify({
               query: prompt || "default query",
-              collection: "TEST_BAUX", //ragCollection || "edoardo",
+              collection: "TEST_BAUX_Vincent", //ragCollection || "edoardo",
               top_k: topK,
               split_prompt: false,
               rerank: false,

@@ -16,7 +16,7 @@ def main():
         split_prompt=False,  # split complex prompts into subquestions
         rerank=False,        # rerank retrieved documents
         use_hyde=False,      # generate hypothetical answers for better embeddings
-        collection="TEST_BAUX"     # default collection from config
+        collection="TEST_BAUX_Vincent"     # default collection from config
     )
 
     # Print results

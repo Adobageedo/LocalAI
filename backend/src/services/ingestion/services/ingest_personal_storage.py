@@ -146,8 +146,8 @@ def batch_ingest_user_documents(user_id: str, storage_path: str = None, limit: i
 
 def main():
     parser = argparse.ArgumentParser(description='Ingest documents from a user\'s storage directory')
-    parser.add_argument('--user_id', default= "TEST_BAUX", help='User ID for which to ingest documents')
-    parser.add_argument('--storage_path', default= "/Users/edoardo/Documents/LocalAI/backend/data/baux", help='Path to the storage directory (defaults to data/baux)')
+    parser.add_argument('--user_id', default= "TEST_BAUX_Vincent", help='User ID for which to ingest documents')
+    parser.add_argument('--storage_path', default= "/Users/edoardo/Documents/LocalAI/backend/data/baux/vincent", help='Path to the storage directory (defaults to data/baux)')
     parser.add_argument('--batch_size', type=int, default=20, help='Number of documents to process in each batch')
     parser.add_argument('--limit', type=int, default=None, help='Maximum number of files to process')
     parser.add_argument('--force_reingest', action='store_true', help='Force reingestion of documents already in Qdrant')

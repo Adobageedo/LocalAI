@@ -19,7 +19,7 @@ DEFAULT_ARGS = {
     "split_prompt": "false",
     "rerank": "false",
     "use_hyde": "false",
-    "collection": "TEST_BAUX",#"edoardo",
+    "collection": "TEST_BAUX_Vincent",#"edoardo",
 }
 # =====================================================
 
