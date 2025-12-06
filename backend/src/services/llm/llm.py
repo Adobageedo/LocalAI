@@ -149,6 +149,73 @@ class LLM:
         except Exception as e:
             logger.error(f"Error streaming chat completion: {str(e)}")
             raise
+    
+    async def vision(
+        self,
+        image_base64: str,
+        prompt: str,
+        system_prompt: Optional[str] = None
+    ) -> str:
+        """
+        Analyze an image using GPT-4 Vision.
+        
+        Args:
+            image_base64: Base64 encoded image (without data URL prefix)
+            prompt: Text prompt describing what to extract from the image
+            system_prompt: Optional system prompt
+            
+        Returns:
+            The vision model's response
+        """
+        try:
+            from openai import AsyncOpenAI
+            
+            # Initialize OpenAI client
+            api_key = os.getenv("OPENAI_API_KEY")
+            if not api_key:
+                raise ValueError("OPENAI_API_KEY environment variable not set")
+            
+            client = AsyncOpenAI(api_key=api_key)
+            
+            # Prepare messages
+            messages = []
+            
+            if system_prompt:
+                messages.append({"role": "system", "content": system_prompt})
+            
+            # Add user message with image
+            messages.append({
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": prompt
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/jpeg;base64,{image_base64}",
+                            "detail": "high"
+                        }
+                    }
+                ]
+            })
+            
+            logger.debug(f"Calling GPT-4 Vision with prompt: {prompt[:100]}...")
+            
+            # Call GPT-4 Vision
+            response = await client.chat.completions.create(
+                model="gpt-4o",
+                messages=messages,
+                max_tokens=4096,
+                temperature=0
+            )
+            
+            return response.choices[0].message.content
+            
+        except Exception as e:
+            logger.error(f"Error in vision analysis: {str(e)}")
+            raise
 
 
 # Example usage

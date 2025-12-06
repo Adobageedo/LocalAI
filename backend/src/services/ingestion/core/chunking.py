@@ -32,6 +32,7 @@ from langchain_community.document_loaders import (
 )
 from unstructured.partition.email import partition_email
 import pandas as pd
+from src.services.ingestion.core.pdf_fallback_processor import get_pdf_fallback_processor
 
 # Configuration du logger
 logger = log.bind(name="src.services.ingestion.core.chunking")
@@ -76,10 +77,22 @@ def load_and_split_document(filepath: str, metadata: Dict[str, Any], chunk_size:
         try:
             loader = PyPDFLoader(filepath)
             docs = loader.load()
+            
+            # Check if extraction was successful (not empty or too short)
+            if not docs or all(len(doc.page_content.strip()) < 10 for doc in docs):
+                raise ValueError("PyPDFLoader extraction insufficient")
+                
         except Exception as e:
-            logger.warning(f"Erreur avec PyPDFLoader: {str(e)}. Utilisation de UnstructuredPDFLoader comme fallback.")
-            loader = UnstructuredPDFLoader(filepath)
-            docs = loader.load()
+            logger.warning(
+                f"Erreur avec PyPDFLoader: {str(e)}. Utilisation du processeur de fallback avancé (PDFMiner + OCR + GPT Vision)."
+            )
+            
+            # Use the advanced fallback processor directly (PDFMiner -> OCR -> Vision)
+            fallback_processor = get_pdf_fallback_processor()
+            docs = fallback_processor.process_pdf(filepath, metadata)
+            
+            if not docs:
+                raise ValueError("Tous les processeurs PDF ont échoué")
     
     # Documents Word
     elif ext == ".docx":
@@ -294,11 +307,20 @@ def batch_load_and_split_document(filepaths: List[dict], chunk_size: int = 1000,
     for file_info in filepaths:
         tmp_path = file_info.get("tmp_path")
         metadata = file_info.get("metadata").copy()
+        original_path = metadata.get("path", tmp_path)
+        
         try:
             chunks = load_and_split_document(tmp_path, metadata, chunk_size=chunk_size, chunk_overlap=chunk_overlap)
-            all_chunks.extend(chunks)
+            
+            if not chunks:
+                logger.warning(f"Aucun chunk généré pour {original_path}")
+            else:
+                all_chunks.extend(chunks)
+                logger.info(f"✓ {len(chunks)} chunks générés pour {original_path}")
+                
         except Exception as e:
-            logger.warning(f"Erreur lors du traitement du fichier {tmp_path}: {str(e)}")
+            logger.error(f"Erreur lors du traitement du fichier {original_path}: {str(e)}")
+            logger.info(f"Suggestion: Si le PDF est illisible, les méthodes de fallback (PDFMiner + OCR + GPT Vision) seront automatiquement utilisées.")
 
     
     return all_chunks

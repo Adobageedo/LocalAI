@@ -97,7 +97,7 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [settings, setSettings] = useState<ChatSettings>({
-    useRag: false,
+    useRag: true,
     useFineTune: false,
     includeAttachments: true,
   });
@@ -172,7 +172,7 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
       if (additionalContext) {
         fullMessage += additionalContext;
       }
-      sendMessage(fullMessage);
+      handleSendMessage();
       setLastQuickAction(null);
     } else {
       // First click → populate input
@@ -190,8 +190,9 @@ const TemplateChatInterface: React.FC<TemplateChatInterfaceProps> = ({
     const buttonKey = `${label}-${action}`;
     
     if (lastClickedButton === buttonKey) {
-      // Second click - send message
-      sendMessage(action);
+      // Second click - send message using the same logic as the Send button
+      // action already contains the prepared prompt + context
+      handleSendMessage();
       setLastClickedButton(null);
     } else {
       // First click - populate input

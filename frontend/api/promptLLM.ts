@@ -24,7 +24,7 @@ interface StreamRequest {
 
 interface RagDoc {
   page_content: string;
-  metadata: Record<string, any>;
+  path: string;
 }
 
 const DEFAULT_USER_STYLE = `
@@ -262,7 +262,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         }
       }
     }
-
     // --- RAG Integration ---
     if (rag) {
       try {
@@ -296,9 +295,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
           // Prepend RAG content as a system message for context
           if (docs.length > 0) {
-            const contextText = docs.map((d, i) => `Document ${i + 1}: ${d.page_content}`).join('\n\n');
+            const contextText = docs.map((d, i) => `Document ${i + 1} "${d.path.split('/').pop()}" : ${d.page_content}`).join('\n\n');
+            console.log(`RAG context: ${contextText}`);
             conversationMessages = [
-              { role: 'system' as const, content: `Use the following RAG documents to answer the user query:\n\n${contextText}` },
+              { role: 'system' as const, content: `Utilise prioritairement les documents RAG fournis, qui portent sur l’administration de biens (baux, gestion locative, obligations des parties, etc.), pour répondre à la requête de l’utilisateur.
+Lorsque tu utilises une information provenant d’un document RAG, cite explicitement le nom du fichier ou de la source RAG en utilisant le nom du fichier ex "nom du fichier.pdf".
+
+Si les documents RAG ne suffisent pas à répondre complètement, tu peux compléter avec des informations externes fiables.
+Dans ce cas, tu dois obligatoirement citer clairement la source externe (ex. : code civil, service public, etc.).
+
+N’invente aucune information. Si une réponse complète n’est pas possible malgré l’usage du RAG et des sources externes, indique ce qui manque.:\n\n${contextText}` },
               ...conversationMessages
             ];
           }

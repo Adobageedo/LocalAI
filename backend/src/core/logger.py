@@ -85,7 +85,8 @@ def setup_logging():
         "urllib3.connectionpool", "urllib3", "openai._base_client", 
         "unstructured.trace", "chardet.universaldetector",
         "chardet.charsetprober", "chardet", "cachecontrol.controller",
-        "python_multipart.multipart", "msal", "google.auth", "googleapiclient"
+        "python_multipart.multipart", "msal", "google.auth", "googleapiclient",
+        "pdfminer", "pytesseract"
     ]
     
     for logger_name in noisy_loggers:
