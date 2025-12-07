@@ -54,10 +54,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       messages, 
       systemPrompt, 
       maxTokens = 500, 
-      temperature = 0.7,
+      temperature = 1,
       rag = false,
       ragCollection="edoardo",
-      model = "gpt-4o-mini",
+      model = "gpt-5.1",
       useMcpTools = false,  // default to using MCP tools
       attachments  // File attachments
     } = req.body as StreamRequest;
@@ -258,7 +258,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         // Ensure a Vision-capable model (only if we actually attached images)
         if (!String(modelToUse).includes('gpt-4')) {
           console.log(`🔄 [Vercel promptLLM] Switching model to gpt-4o for Vision support`);
-          modelToUse = 'gpt-4o';
+          modelToUse = 'gpt-5-mini';
         }
       }
     }
@@ -295,7 +295,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
           // Prepend RAG content as a system message for context
           if (docs.length > 0) {
-            const contextText = docs.map((d, i) => `Document ${i + 1} "${d.path.split('/').pop()}" : ${d.page_content}`).join('\n\n');
+            const contextText = docs
+              .map((d, i) => {
+                const lastTwo = d.path.split('/').slice(-2).join('/'); 
+                return `Document ${i + 1} "${lastTwo}" : ${d.page_content}`;
+              })
+              .join('\n\n');
             console.log(`RAG context: ${contextText}`);
             conversationMessages = [
               { role: 'system' as const, content: `Utilise prioritairement les documents RAG fournis, qui portent sur l’administration de biens (baux, gestion locative, obligations des parties, etc.), pour répondre à la requête de l’utilisateur.

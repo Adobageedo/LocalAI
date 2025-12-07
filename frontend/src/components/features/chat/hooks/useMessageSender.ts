@@ -7,7 +7,7 @@ import { ChatMessage, EmailContext, ChatSettings } from '../types';
 import { CHAT_CONFIG } from '../constants';
 import { generateMessageId, saveMessagesToStorage } from '../utils/messageUtils';
 import { extractStreamingResponse, parseFinalResponse } from '../utils/jsonParsingUtils';
-import { buildSystemPrompt, buildUserPrompt } from '../../../../config/prompt';
+import { buildSystemPrompt,buildSystemPromptBaux, buildUserPrompt } from '../../../../config/prompt';
 import { llmService } from '../../../../services/api';
 import type { Attachment } from '../../../../services/api/llmService';
 import { getEmailAttachmentsForBackend } from '../../../../utils/helpers/attachmentBackend.helpers';
@@ -94,7 +94,7 @@ export function useMessageSender({
       // Add system prompt
       conversationMessagesLLM.push({
         role: 'system',
-        content: buildSystemPrompt(contextToUse)
+        content: buildSystemPromptBaux()// content: buildSystemPrompt(contextToUse)
       });
 
       // Add conversation history

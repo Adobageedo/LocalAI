@@ -12,7 +12,7 @@ def main():
     # Retrieve documents
     docs = retrieve_documents_advanced(
         prompt=prompt,
-        top_k=50,
+        top_k=100,
         split_prompt=False,  # split complex prompts into subquestions
         rerank=False,        # rerank retrieved documents
         use_hyde=False,      # generate hypothetical answers for better embeddings

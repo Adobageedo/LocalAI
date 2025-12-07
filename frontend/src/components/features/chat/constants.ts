@@ -18,9 +18,9 @@ export const ALLOWED_EXTENSIONS = [
 
 // Chat configuration
 export const CHAT_CONFIG = {
-  MAX_TOKENS: 800,
-  TEMPERATURE: 0.7,
-  DEFAULT_MODEL: 'gpt-4.1-nano-2025-04-14',
+  MAX_TOKENS: 1500,
+  TEMPERATURE: 1,
+  DEFAULT_MODEL: 'gpt-5.1',
   FINE_TUNED_MODEL: 'ft:gpt-4.1-nano-2025-04-14:personal::CZcTZYzO',
   DEFAULT_GREETING: 'Bonjour, comment puis-je vous aider ?',
 } as const;
